@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+.expo-shared/
+web-build/
+dist/
+
+# Native build output
+android/
+ios/
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Metro and TypeScript caches
+.metro-health-check*
+*.tsbuildinfo
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Generated Bible packs: bundle only the default KJV pack.
+# Other translations should be hosted as optional downloads or release assets.
+bible-packs/*.db
+bible-packs/generated/*.json
+!bible-packs/generated/eng_kjv.json
+!bible-packs/generated/manifest.json
