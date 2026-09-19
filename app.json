@@ -5,7 +5,17 @@
     "version": "1.0.0",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#09090b",
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#09090b",
+      "translucent": false
+    },
+    "androidNavigationBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#09090b"
+    },
     "scheme": "gatewayconnect",
     "plugins": [
       "expo-background-task",

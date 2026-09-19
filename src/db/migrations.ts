@@ -225,6 +225,20 @@ const migrations: string[] = [
   `
     INSERT OR IGNORE INTO reading_plans (id, title, description, days_total) 
     VALUES ('nt_30_days', 'New Testament in 30 Days', 'Read through the New Testament in just a month.', 30);
+  `,
+  // Migration 6: Products / Store table
+  `
+    CREATE TABLE IF NOT EXISTS products (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      price REAL NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'USD',
+      image_url TEXT,
+      category TEXT,
+      in_stock INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL
+    );
   `
 ];
 
