@@ -21,7 +21,8 @@ import { getGroups, Group, isGroupMember, joinGroup, leaveGroup } from './src/da
 import { getEvents, Event } from './src/data/eventRepository';
 import { downloadMedia, getDownloadStatus, deleteDownload, enforceExpiration } from './src/media/downloadManager';
 import { Alert } from 'react-native';
-import { Audio, Video, ResizeMode } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import * as Notifications from 'expo-notifications';
 
 Notifications.setNotificationHandler({
@@ -376,10 +377,16 @@ function TestimonyCard({ testimony, profile }: { testimony: ContentItem; profile
 
 function SermonCard({ sermon }: { sermon: ContentItem }) {
   const [downloadUri, setDownloadUri] = useState<string | null>(null);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const videoUrl = sermon.metadata?.video_url as string | undefined;
   const audioUrl = sermon.metadata?.audio_url as string | undefined;
+
+  // Video setup
+  const videoPlayer = useVideoPlayer(videoUrl || null, player => {
+    player.loop = false;
+  });
+
+  // Audio setup
+  const audioPlayer = useAudioPlayer(downloadUri || null);
 
   useEffect(() => {
     const status = getDownloadStatus(sermon.id);
@@ -387,10 +394,6 @@ function SermonCard({ sermon }: { sermon: ContentItem }) {
       setDownloadUri(status.local_uri);
     }
   }, [sermon.id]);
-
-  useEffect(() => {
-    return sound ? () => { sound.unloadAsync(); } : undefined;
-  }, [sound]);
 
   const handleDownload = async () => {
     const remoteUrl = audioUrl || 'https://example.com/dummy_sermon.mp3';
@@ -404,29 +407,20 @@ function SermonCard({ sermon }: { sermon: ContentItem }) {
   };
 
   const handleDelete = async () => {
-    if (sound) { await sound.unloadAsync(); setSound(null); setIsPlaying(false); }
+    if (audioPlayer && audioPlayer.playing) {
+      audioPlayer.pause();
+    }
     await deleteDownload(sermon.id);
     setDownloadUri(null);
     Alert.alert('Deleted', 'Sermon removed from local storage.');
   };
 
-  const togglePlay = async () => {
-    if (!downloadUri) return;
-    try {
-      if (sound) {
-        if (isPlaying) { await sound.pauseAsync(); setIsPlaying(false); }
-        else { await sound.playAsync(); setIsPlaying(true); }
-      } else {
-        const { sound: newSound } = await Audio.Sound.createAsync({ uri: downloadUri });
-        setSound(newSound);
-        newSound.setOnPlaybackStatusUpdate(status => {
-          if (status.isLoaded && status.didJustFinish) setIsPlaying(false);
-        });
-        await newSound.playAsync();
-        setIsPlaying(true);
-      }
-    } catch (err) {
-      console.warn("Could not play audio", err);
+  const togglePlay = () => {
+    if (!downloadUri || !audioPlayer) return;
+    if (audioPlayer.playing) {
+      audioPlayer.pause();
+    } else {
+      audioPlayer.play();
     }
   };
 
@@ -438,10 +432,9 @@ function SermonCard({ sermon }: { sermon: ContentItem }) {
       
       {videoUrl ? (
         <View style={{ marginTop: 10 }}>
-          <Video
-            source={{ uri: videoUrl }}
-            useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
+          <VideoView
+            player={videoPlayer}
+            allowsPictureInPicture
             style={{ width: '100%', height: 200, borderRadius: 8 }}
           />
         </View>
@@ -451,8 +444,8 @@ function SermonCard({ sermon }: { sermon: ContentItem }) {
         <View style={{ marginTop: 10 }}>
           {downloadUri ? (
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Pressable style={[styles.secondaryButton, { flex: 1 }]} onPress={() => void togglePlay()}>
-                <Text style={styles.secondaryButtonText}>{isPlaying ? 'Pause Audio' : 'Play Audio'}</Text>
+              <Pressable style={[styles.secondaryButton, { flex: 1 }]} onPress={() => togglePlay()}>
+                <Text style={styles.secondaryButtonText}>{audioPlayer?.playing ? 'Pause Audio' : 'Play Audio'}</Text>
               </Pressable>
               <Pressable style={[styles.secondaryButton, { flex: 1, backgroundColor: '#fde8e8' }]} onPress={() => void handleDelete()}>
                 <Text style={[styles.secondaryButtonText, { color: '#c53030' }]}>Delete Audio</Text>
