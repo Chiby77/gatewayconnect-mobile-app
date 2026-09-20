@@ -12,10 +12,6 @@
       "backgroundColor": "#09090b",
       "translucent": false
     },
-    "androidNavigationBar": {
-      "barStyle": "light-content",
-      "backgroundColor": "#09090b"
-    },
     "scheme": "gatewayconnect",
     "plugins": [
       "expo-background-task",
