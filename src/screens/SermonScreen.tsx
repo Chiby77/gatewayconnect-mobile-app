@@ -1,10 +1,120 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, Pressable, StyleSheet, ScrollView, Modal, Alert, Linking } from 'react-native';
+import { View, Text, Image, Pressable, StyleSheet, ScrollView, Modal, Alert, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
 import { Colors, Typography, Radii } from '../theme/colors';
 import { listContent } from '../data/contentRepository';
 import { ContentItem } from '../types/domain';
 import { downloadMedia, deleteDownload, getDownloadStatus, listDownloads, MediaDownload } from '../media/downloadManager';
+
+function getSermonMediaSources(sermon: ContentItem | null) {
+  if (!sermon) return { type: 'none', url: '' };
+
+  // Check offline download first
+  const dl = getDownloadStatus(sermon.id);
+  if (dl && dl.local_uri) {
+    return { type: dl.media_type.includes('audio') ? 'audio' : 'video', url: dl.local_uri };
+  }
+
+  // Check YouTube
+  let ytId = sermon.metadata?.youtube_id as string | undefined;
+  const ytUrl = sermon.metadata?.youtube_url as string | undefined;
+  if (!ytId && ytUrl) {
+    const match = ytUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    if (match) ytId = match[1];
+  }
+  if (ytId) {
+    return { type: 'youtube', id: ytId };
+  }
+
+  // Check Supabase bucket or MP4 video URL
+  if (sermon.metadata?.video_url) {
+    return { type: 'video', url: sermon.metadata.video_url as string };
+  }
+
+  // Check Audio URL
+  if (sermon.metadata?.audio_url) {
+    return { type: 'audio', url: sermon.metadata.audio_url as string };
+  }
+
+  return { type: 'none', url: '' };
+}
+
+function buildPlayerHtml(source: ReturnType<typeof getSermonMediaSources>, posterUrl?: string) {
+  if (source.type === 'youtube' && source.id) {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000000; overflow: hidden; }
+    .wrapper { position: relative; width: 100%; height: 100%; }
+    iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <iframe
+      src="https://www.youtube-nocookie.com/embed/${source.id}?autoplay=1&playsinline=1&enablejsapi=1&fs=1&rel=0&modestbranding=1"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowfullscreen
+    ></iframe>
+  </div>
+</body>
+</html>`;
+  }
+
+  if (source.type === 'video' && source.url) {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    video { width: 100%; height: 100%; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <video
+    controls
+    autoplay
+    playsinline
+    ${posterUrl ? `poster="${posterUrl}"` : ''}
+  >
+    <source src="${source.url}" type="video/mp4">
+    <source src="${source.url}">
+    Your device does not support video playback.
+  </video>
+</body>
+</html>`;
+  }
+
+  if (source.type === 'audio' && source.url) {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #0d121c; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: -apple-system, Roboto, sans-serif; }
+    .art { width: 110px; height: 110px; border-radius: 12px; object-fit: cover; margin-bottom: 12px; border: 2px solid #dfa732; }
+    audio { width: 88%; max-width: 340px; outline: none; }
+  </style>
+</head>
+<body>
+  ${posterUrl ? `<img src="${posterUrl}" class="art" />` : ''}
+  <audio controls autoplay>
+    <source src="${source.url}" type="audio/mpeg">
+    <source src="${source.url}" type="audio/mp3">
+  </audio>
+</body>
+</html>`;
+  }
+
+  return `<!DOCTYPE html><html><body style="background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100%;font-family:sans-serif;"><p>Media stream unavailable</p></body></html>`;
+}
 
 interface SermonScreenProps {
   onNavigateHome?: () => void;
@@ -22,8 +132,6 @@ export function SermonScreen({ }: SermonScreenProps) {
 
   // In-App Player Modal state
   const [activePlayingSermon, setActivePlayingSermon] = useState<ContentItem | null>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [playerProgress, setPlayerProgress] = useState<number>(0.25); // simulated playback progress
   const [playerQuality, setPlayerQuality] = useState<string>('720p HD');
 
   const loadData = () => {
@@ -106,9 +214,7 @@ export function SermonScreen({ }: SermonScreenProps) {
 
   const startPlayback = (sermon: ContentItem, qualityLabel = '720p HD') => {
     setActivePlayingSermon(sermon);
-    setIsPlaying(true);
     setPlayerQuality(qualityLabel);
-    setPlayerProgress(0.15);
   };
 
   return (
@@ -380,25 +486,32 @@ export function SermonScreen({ }: SermonScreenProps) {
               </Pressable>
             </View>
 
-            {/* Video View / Screen Thumbnail */}
+            {/* Real Interactive In-App Video & Audio Player */}
             <View style={styles.playerVideoFrame}>
-              {activePlayingSermon?.metadata?.thumbnail_url ? (
-                <Image
-                  source={{ uri: activePlayingSermon.metadata.thumbnail_url as string }}
-                  style={styles.playerThumb}
-                  resizeMode="cover"
+              {activePlayingSermon ? (
+                <WebView
+                  key={activePlayingSermon.id}
+                  source={{
+                    html: buildPlayerHtml(
+                      getSermonMediaSources(activePlayingSermon),
+                      activePlayingSermon.metadata?.thumbnail_url as string | undefined
+                    ),
+                  }}
+                  style={{ flex: 1, backgroundColor: '#000000' }}
+                  allowsInlineMediaPlayback={true}
+                  mediaPlaybackRequiresUserAction={false}
+                  javaScriptEnabled={true}
+                  domStorageEnabled={true}
+                  allowsFullscreenVideo={true}
+                  startInLoadingState={true}
+                  renderLoading={() => (
+                    <View style={styles.playerLoadingOverlay}>
+                      <ActivityIndicator size="large" color={Colors.gold} />
+                      <Text style={styles.playerLoadingText}>Loading In-App Video...</Text>
+                    </View>
+                  )}
                 />
-              ) : (
-                <View style={styles.playerFallbackFrame}>
-                  <Ionicons name="videocam" size={48} color={Colors.gold} />
-                </View>
-              )}
-
-              {/* In-Video Status Overlay */}
-              <View style={styles.videoPlayingBadge}>
-                <View style={[styles.liveDot, { backgroundColor: isPlaying ? Colors.success : Colors.gold }]} />
-                <Text style={styles.liveDotText}>{isPlaying ? 'PLAYING' : 'PAUSED'}</Text>
-              </View>
+              ) : null}
             </View>
 
             {/* Title & Preacher */}
@@ -412,56 +525,26 @@ export function SermonScreen({ }: SermonScreenProps) {
               </Text>
             </View>
 
-            {/* Scrubber / Progress Bar */}
-            <View style={styles.scrubberContainer}>
-              <View style={styles.trackBackground}>
-                <View style={[styles.trackFill, { width: `${playerProgress * 100}%` }]} />
-              </View>
-              <View style={styles.timeRow}>
-                <Text style={styles.timeText}>12:45</Text>
-                <Text style={styles.timeText}>
-                  {String(activePlayingSermon?.metadata?.duration || '42:00')}
-                </Text>
-              </View>
-            </View>
-
-            {/* Main Playback Controls */}
-            <View style={styles.controlsRow}>
-              <Pressable
-                style={styles.controlBtn}
-                onPress={() => setPlayerProgress(prev => Math.max(0, prev - 0.05))}
-              >
-                <Ionicons name="play-back" size={24} color={Colors.textPrimary} />
-              </Pressable>
-
-              <Pressable
-                style={styles.mainPlayBtn}
-                onPress={() => setIsPlaying(prev => !prev)}
-              >
-                <Ionicons
-                  name={isPlaying ? 'pause' : 'play'}
-                  size={32}
-                  color={Colors.textInverse}
-                />
-              </Pressable>
-
-              <Pressable
-                style={styles.controlBtn}
-                onPress={() => setPlayerProgress(prev => Math.min(1, prev + 0.05))}
-              >
-                <Ionicons name="play-forward" size={24} color={Colors.textPrimary} />
-              </Pressable>
-            </View>
-
-            {/* Action Bar (YouTube + Close) */}
+            {/* Action Bar (Download Quality + YouTube + Minimize) */}
             <View style={styles.playerActionsRow}>
+              <Pressable
+                style={styles.playerDownloadBtn}
+                onPress={() => {
+                  const s = activePlayingSermon;
+                  if (s) setQualityModalSermon(s);
+                }}
+              >
+                <Ionicons name="arrow-down-circle" size={17} color={Colors.gold} />
+                <Text style={styles.playerDownloadBtnText}>Download</Text>
+              </Pressable>
+
               {activePlayingSermon?.metadata?.youtube_id ? (
                 <Pressable
                   style={styles.youtubeFullBtn}
                   onPress={() => handleOpenYouTube(activePlayingSermon.metadata?.youtube_id as string)}
                 >
-                  <Ionicons name="logo-youtube" size={18} color="#ff0000" />
-                  <Text style={styles.youtubeFullBtnText}>Open in YouTube App</Text>
+                  <Ionicons name="logo-youtube" size={16} color="#ff0000" />
+                  <Text style={styles.youtubeFullBtnText}>YouTube</Text>
                 </Pressable>
               ) : null}
 
@@ -861,44 +944,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   playerVideoFrame: {
-    height: 200,
+    height: 230,
     backgroundColor: '#000000',
     borderRadius: Radii.md,
     overflow: 'hidden',
     position: 'relative',
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  playerThumb: {
-    width: '100%',
-    height: '100%',
-  },
-  playerFallbackFrame: {
-    flex: 1,
+  playerLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
   },
-  videoPlayingBadge: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radii.full,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  liveDotText: {
-    fontFamily: Typography.fontBold,
-    color: '#ffffff',
-    fontSize: 10,
-    letterSpacing: 1,
+  playerLoadingText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.gold,
+    fontSize: 12,
   },
   playerMeta: {
     marginBottom: 16,
@@ -915,69 +984,39 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     fontSize: 13,
   },
-  scrubberContainer: {
-    marginBottom: 16,
-  },
-  trackBackground: {
-    height: 5,
-    backgroundColor: Colors.border,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  trackFill: {
-    height: '100%',
-    backgroundColor: Colors.gold,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  timeText: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textMuted,
-    fontSize: 11,
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 28,
-    marginBottom: 20,
-  },
-  controlBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  mainPlayBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   playerActionsRow: {
     flexDirection: 'row',
     gap: 10,
+    alignItems: 'center',
   },
-  youtubeFullBtn: {
+  playerDownloadBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
+    backgroundColor: Colors.bg,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    borderRadius: Radii.md,
+    paddingVertical: 12,
+  },
+  playerDownloadBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 13,
+  },
+  youtubeFullBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     backgroundColor: 'rgba(255,0,0,0.12)',
     borderWidth: 1,
     borderColor: 'rgba(255,0,0,0.3)',
     borderRadius: Radii.md,
     paddingVertical: 12,
+    paddingHorizontal: 14,
   },
   youtubeFullBtnText: {
     fontFamily: Typography.fontBold,
@@ -989,7 +1028,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radii.md,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',

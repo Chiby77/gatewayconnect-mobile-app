@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View, Image } from 'react-native';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 import * as Notifications from 'expo-notifications';
 
@@ -24,6 +24,7 @@ import { CommunityScreen } from './src/screens/CommunityScreen';
 import { PrayerScreen } from './src/screens/PrayerScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { StoreScreen } from './src/screens/StoreScreen';
+import { LiveScreen } from './src/screens/LiveScreen';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AuthModal } from './src/components/AuthModal';
@@ -113,43 +114,39 @@ export default function App() {
     );
   }
 
-  // Welcome / Auth wall
+  // Welcome / Auth wall (matches Screenshot 1)
   if (showAuthWall) {
     return (
       <SafeAreaView style={styles.authScreen}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.forestGreen} translucent={false} />
+        <StatusBar barStyle="light-content" backgroundColor="#070a0f" translucent={false} />
         <View style={styles.authInner}>
-          <View style={styles.authMark}>
-            <Text style={styles.authMarkText}>G</Text>
+          <View style={styles.authEmblemContainer}>
+            <Image
+              source={require('./assets/gateway_logo.png')}
+              style={styles.authEmblem}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={styles.authEyebrow}>GATEWAY CHURCH</Text>
-          <Text style={styles.authTitle}>GatewayConnect</Text>
-          <Text style={styles.authSubtitle}>Your faith, available anywhere.</Text>
+          <Text style={styles.welcomeGatewayText}>GATEWAY</Text>
+          <View style={styles.welcomeConnectRow}>
+            <View style={styles.welcomeGoldLine} />
+            <Text style={styles.welcomeConnectText}>CONNECT</Text>
+            <View style={styles.welcomeGoldLine} />
+          </View>
+          <Text style={styles.welcomeSloganText}>
+            CONNECTING PEOPLE{'\n'}TO A BRIGHTER FUTURE
+          </Text>
 
-          <View style={styles.authButtons}>
-            {/* Sign In / Create Account opens AuthModal directly */}
-            <Pressable
-              style={styles.authBtnPrimary}
-              onPress={() => {
-                setAuthModalPrompt(undefined);
-                setAuthModalMode('signin');
-                setAuthModalVisible(true);
-              }}
-            >
-              <Ionicons name="log-in-outline" size={16} color={Colors.textInverse} />
-              <Text style={styles.authBtnPrimaryText}>Sign In / Create Account</Text>
-            </Pressable>
-            {/* Guest → continue as guest */}
-            <Pressable
-              style={styles.authBtnSecondary}
-              onPress={() => {
-                setShowAuthWall(false);
-                setScreen('home');
-              }}
-            >
-              <Text style={styles.authBtnSecondaryText}>Continue as Guest →</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            style={styles.welcomeContinueBtn}
+            onPress={() => {
+              setAuthModalPrompt(undefined);
+              setAuthModalMode('signin');
+              setAuthModalVisible(true);
+            }}
+          >
+            <Text style={styles.welcomeContinueText}>CONTINUE   →</Text>
+          </Pressable>
         </View>
 
         {/* AuthModal on Welcome screen */}
@@ -164,6 +161,10 @@ export default function App() {
           initialMode={authModalMode}
           promptMessage={authModalPrompt}
           onOpenLegal={(tab) => setLegalModalTab(tab)}
+          onContinueAsGuest={() => {
+            setShowAuthWall(false);
+            setScreen('home');
+          }}
         />
 
         {/* LegalModal on Welcome screen */}
@@ -172,6 +173,16 @@ export default function App() {
           onClose={() => setLegalModalTab(null)}
           initialTab={legalModalTab || 'privacy'}
         />
+      </SafeAreaView>
+    );
+  }
+
+  // Full Screen Live Stream Screen
+  if (screen === 'live') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" translucent={false} />
+        <LiveScreen onBack={() => setScreen('home')} />
       </SafeAreaView>
     );
   }
@@ -194,6 +205,7 @@ export default function App() {
             onNavigateBible={() => setScreen('bible')}
             onNavigateStore={() => setScreen('store')}
             onNavigateSermons={() => setScreen('sermons')}
+            onNavigateLive={() => setScreen('live')}
           />
         )}
         {screen === 'sermons' && <SermonScreen onNavigateHome={() => setScreen('home')} />}
@@ -270,82 +282,82 @@ const styles = StyleSheet.create({
   },
   authScreen: {
     flex: 1,
-    backgroundColor: Colors.forestGreen,
+    backgroundColor: '#070a0f',
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0,
   },
   authInner: {
     flex: 1,
-    paddingHorizontal: 32,
-    paddingTop: 80,
+    paddingHorizontal: 28,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  authMark: {
-    width: 96,
-    height: 96,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1.5,
-    borderColor: Colors.gold,
+  authEmblemContainer: {
+    width: 170,
+    height: 170,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
+    marginBottom: 36,
   },
-  authMarkText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 52,
+  authEmblem: {
+    width: '100%',
+    height: '100%',
   },
-  authEyebrow: {
+  welcomeGatewayText: {
     fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 11,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  authTitle: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textPrimary,
-    fontSize: 36,
+    color: '#dfa732',
+    fontSize: 34,
+    letterSpacing: 6,
     textAlign: 'center',
   },
-  authSubtitle: {
-    fontFamily: Typography.fontRegular,
-    color: 'rgba(255,255,255,0.65)',
+  welcomeConnectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 6,
+    marginBottom: 24,
+  },
+  welcomeGoldLine: {
+    width: 32,
+    height: 1.5,
+    backgroundColor: '#dfa732',
+    opacity: 0.8,
+  },
+  welcomeConnectText: {
+    fontFamily: Typography.fontBold,
+    color: '#dfa732',
     fontSize: 16,
+    letterSpacing: 6,
+  },
+  welcomeSloganText: {
+    fontFamily: Typography.fontRegular,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 12,
+    letterSpacing: 2,
     textAlign: 'center',
-    marginTop: 8,
+    lineHeight: 18,
     marginBottom: 48,
   },
-  authButtons: {
-    width: '100%',
-    gap: 14,
-  },
-  authBtnPrimary: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
+  welcomeContinueBtn: {
+    width: '82%',
+    maxWidth: 320,
     paddingVertical: 16,
+    borderRadius: Radii.full,
+    backgroundColor: '#f1be48',
+    borderWidth: 2,
+    borderColor: '#ffd875',
     alignItems: 'center',
-    flexDirection: 'row',
     justifyContent: 'center',
-    gap: 10,
+    shadowColor: '#dfa732',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  authBtnPrimaryText: {
-    fontFamily: Typography.fontSemiBold,
-    color: Colors.textInverse,
+  welcomeContinueText: {
+    fontFamily: Typography.fontBold,
+    color: '#070a0f',
     fontSize: 15,
-  },
-  authBtnSecondary: {
-    borderWidth: 1.5,
-    borderColor: 'rgba(242,211,153,0.5)',
-    borderRadius: Radii.md,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  authBtnSecondaryText: {
-    fontFamily: Typography.fontSemiBold,
-    color: 'rgba(242,211,153,0.85)',
-    fontSize: 15,
+    letterSpacing: 2,
   },
   safeArea: {
     flex: 1,

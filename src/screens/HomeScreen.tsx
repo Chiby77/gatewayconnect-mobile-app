@@ -14,9 +14,16 @@ interface HomeScreenProps {
   onNavigateBible: () => void;
   onNavigateStore: () => void;
   onNavigateSermons?: () => void;
+  onNavigateLive?: () => void;
 }
 
-export function HomeScreen({ networkStatus, onNavigateBible, onNavigateStore, onNavigateSermons }: HomeScreenProps) {
+export function HomeScreen({
+  networkStatus,
+  onNavigateBible,
+  onNavigateStore,
+  onNavigateSermons,
+  onNavigateLive,
+}: HomeScreenProps) {
   const [devotionals, setDevotionals] = useState<ContentItem[]>([]);
   const [sermons, setSermons] = useState<ContentItem[]>([]);
   const [activeDevotional, setActiveDevotional] = useState<ContentItem | null>(null);
@@ -38,6 +45,28 @@ export function HomeScreen({ networkStatus, onNavigateBible, onNavigateStore, on
           Your church library, Bible, community, and prayer life — always with you.
         </Text>
       </View>
+
+      {/* Watch Live Banner */}
+      {onNavigateLive && (
+        <Pressable style={styles.liveBanner} onPress={onNavigateLive}>
+          <View style={styles.liveBannerLeft}>
+            <View style={styles.livePulseDot} />
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.liveBannerEyebrow}>GATEWAY SANCTUARY LIVE</Text>
+                <View style={styles.liveBadge}>
+                  <Text style={styles.liveBadgeText}>FB LIVE</Text>
+                </View>
+              </View>
+              <Text style={styles.liveBannerTitle}>Watch Apostolic Live Broadcast</Text>
+              <Text style={styles.liveBannerSub}>Stream Sunday & Midweek services directly inside the APK</Text>
+            </View>
+          </View>
+          <View style={styles.livePlayIconWrap}>
+            <Ionicons name="play" size={16} color={Colors.textInverse} />
+          </View>
+        </Pressable>
+      )}
 
       {/* Offline Banner - simple, friendly, only when offline */}
       {!isOnline && (
@@ -269,8 +298,72 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontRegular,
     color: 'rgba(255,255,255,0.72)',
     fontSize: 14,
+    marginTop: 10,
     lineHeight: 20,
-    marginTop: 8,
+  },
+  liveBanner: {
+    backgroundColor: '#0c0c10',
+    borderRadius: Radii.lg,
+    padding: 14,
+    marginTop: 10,
+    borderWidth: 1.5,
+    borderColor: '#ef4444',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#ef4444',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  liveBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  livePulseDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#ef4444',
+  },
+  liveBannerEyebrow: {
+    fontFamily: Typography.fontBold,
+    color: '#ef4444',
+    fontSize: 10,
+    letterSpacing: 1.2,
+  },
+  liveBadge: {
+    backgroundColor: 'rgba(239,68,68,0.18)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: Radii.sm,
+  },
+  liveBadgeText: {
+    fontFamily: Typography.fontBold,
+    color: '#ef4444',
+    fontSize: 9,
+  },
+  liveBannerTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    marginTop: 2,
+  },
+  liveBannerSub: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  livePlayIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#ef4444',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   offlineBanner: {
     flexDirection: 'row',

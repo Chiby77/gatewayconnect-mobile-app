@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 
-export type Screen = 'home' | 'sermons' | 'bible' | 'community' | 'prayer' | 'store' | 'profile';
+export type Screen = 'home' | 'sermons' | 'bible' | 'community' | 'prayer' | 'store' | 'profile' | 'live';
 
 interface TabBarProps {
   screen: Screen;

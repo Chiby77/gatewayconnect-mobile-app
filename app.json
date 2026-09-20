@@ -27,7 +27,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash.png",
-          "backgroundColor": "#193B37"
+          "backgroundColor": "#070a0f"
         }
       ],
       "expo-secure-store",
@@ -39,7 +39,10 @@
       "bundleIdentifier": "org.gatewaychurch.gatewayconnect"
     },
     "android": {
-      "package": "org.gatewaychurch.gatewayconnect"
+      "package": "org.gatewaychurch.gatewayconnect",
+      "permissions": [
+        "android.permission.INTERNET"
+      ]
     },
     "web": {
       "bundler": "metro"

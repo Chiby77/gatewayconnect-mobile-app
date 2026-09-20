@@ -11,6 +11,7 @@ interface AuthModalProps {
   initialMode?: 'signin' | 'signup';
   promptMessage?: string;
   onOpenLegal?: (tab: 'privacy' | 'terms') => void;
+  onContinueAsGuest?: () => void;
 }
 
 export function AuthModal({
@@ -20,6 +21,7 @@ export function AuthModal({
   initialMode = 'signin',
   promptMessage,
   onOpenLegal,
+  onContinueAsGuest,
 }: AuthModalProps) {
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [name, setName] = useState('');
@@ -200,6 +202,19 @@ export function AuthModal({
                 </>
               )}
             </Pressable>
+
+            {/* Optional Continue as Guest Button */}
+            {onContinueAsGuest && (
+              <Pressable
+                style={styles.guestActionBtn}
+                onPress={() => {
+                  onClose();
+                  onContinueAsGuest();
+                }}
+              >
+                <Text style={styles.guestActionBtnText}>Continue as Guest →</Text>
+              </Pressable>
+            )}
 
             {/* Legal Notice */}
             <View style={styles.legalRow}>
@@ -384,6 +399,21 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
     fontSize: 14,
+  },
+  guestActionBtn: {
+    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestActionBtnText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.gold,
+    fontSize: 13,
   },
   legalRow: {
     alignItems: 'center',

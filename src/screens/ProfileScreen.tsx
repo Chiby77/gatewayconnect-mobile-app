@@ -95,52 +95,83 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
         )}
       </View>
 
-      {/* Member Profile Hero Card */}
-      <View style={styles.profileHero}>
-        <View style={styles.heroTop}>
-          <View style={styles.avatarBorder}>
-            <View style={styles.avatarInner}>
-              <Ionicons name="person" size={32} color={Colors.gold} />
-            </View>
+      {/* Member Profile Hero Card vs Guest Visitor Card */}
+      {!profile ? (
+        <View style={styles.guestHero}>
+          <View style={styles.guestAvatar}>
+            <Ionicons name="person-outline" size={36} color={Colors.gold} />
           </View>
-          <View style={{ flex: 1 }}>
-            <View style={styles.badgeRow}>
-              <Text style={styles.badgeText}>
-                {profile ? 'COVENANT MEMBER' : 'GUEST / VISITOR'}
-              </Text>
-              <View style={styles.memberIdPill}>
-                <Text style={styles.memberIdText}>GCZ-MEM-082</Text>
+          <View style={styles.guestBadge}>
+            <Text style={styles.guestBadgeText}>GUEST VISITOR</Text>
+          </View>
+          <Text style={styles.guestTitle}>Welcome to Gateway Church</Text>
+          <Text style={styles.guestBody}>
+            You are browsing in Guest Mode. Sign in or create a member account to receive your official Member ID, save personal notes, download sermons offline, submit prayer requests, and connect with fellowship groups.
+          </Text>
+
+          <View style={styles.guestActionRow}>
+            <Pressable
+              style={styles.guestSignInBtn}
+              onPress={() => onRequestAuth?.('Sign in to access your personal member profile.')}
+            >
+              <Ionicons name="log-in-outline" size={16} color={Colors.textInverse} />
+              <Text style={styles.guestSignInBtnText}>Sign In</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.guestSignUpBtn}
+              onPress={() => onRequestAuth?.('Create a member account to receive your official Member ID.')}
+            >
+              <Ionicons name="person-add-outline" size={16} color={Colors.gold} />
+              <Text style={styles.guestSignUpBtnText}>Create Account</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.profileHero}>
+          <View style={styles.heroTop}>
+            <View style={styles.avatarBorder}>
+              <View style={styles.avatarInner}>
+                <Ionicons name="person" size={32} color={Colors.gold} />
               </View>
             </View>
-            <Text style={styles.userName}>{profile?.name || editName}</Text>
-            <Text style={styles.userHandle}>@{profile?.name?.toLowerCase().replace(/\s+/g, '_') || 'tinodaishe_chibi'}</Text>
+            <View style={{ flex: 1 }}>
+              <View style={styles.badgeRow}>
+                <Text style={styles.badgeText}>COVENANT MEMBER</Text>
+                <View style={styles.memberIdPill}>
+                  <Text style={styles.memberIdText}>GCZ-{profile.id.slice(0, 7).toUpperCase()}</Text>
+                </View>
+              </View>
+              <Text style={styles.userName}>{profile.name}</Text>
+              <Text style={styles.userHandle}>@{profile.name.toLowerCase().replace(/\s+/g, '_')}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.userBio}>{editBio}</Text>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-sharp" size={14} color={Colors.gold} />
+            <Text style={styles.locationText}>{editLocation}</Text>
+          </View>
+
+          {/* Quick Stats Banner (Only for Logged-In Members) */}
+          <View style={styles.statsRow}>
+            <Pressable style={styles.statItem} onPress={() => setActiveTab('saved')}>
+              <Text style={styles.statNumber}>{bookmarks.length}</Text>
+              <Text style={styles.statLabel}>Saved Verses</Text>
+            </Pressable>
+            <View style={styles.statDivider} />
+            <Pressable style={styles.statItem} onPress={() => setActiveTab('downloads')}>
+              <Text style={styles.statNumber}>{downloads.length}</Text>
+              <Text style={styles.statLabel}>Downloads</Text>
+            </Pressable>
+            <View style={styles.statDivider} />
+            <Pressable style={styles.statItem} onPress={() => setActiveTab('prayers')}>
+              <Text style={styles.statNumber}>{prayers.length}</Text>
+              <Text style={styles.statLabel}>Prayers</Text>
+            </Pressable>
           </View>
         </View>
-
-        <Text style={styles.userBio}>{editBio}</Text>
-        <View style={styles.locationRow}>
-          <Ionicons name="location-sharp" size={14} color={Colors.gold} />
-          <Text style={styles.locationText}>{editLocation}</Text>
-        </View>
-
-        {/* Quick Stats Banner */}
-        <View style={styles.statsRow}>
-          <Pressable style={styles.statItem} onPress={() => setActiveTab('saved')}>
-            <Text style={styles.statNumber}>{bookmarks.length}</Text>
-            <Text style={styles.statLabel}>Saved Verses</Text>
-          </Pressable>
-          <View style={styles.statDivider} />
-          <Pressable style={styles.statItem} onPress={() => setActiveTab('downloads')}>
-            <Text style={styles.statNumber}>{downloads.length}</Text>
-            <Text style={styles.statLabel}>Downloads</Text>
-          </Pressable>
-          <View style={styles.statDivider} />
-          <Pressable style={styles.statItem} onPress={() => setActiveTab('prayers')}>
-            <Text style={styles.statNumber}>{prayers.length}</Text>
-            <Text style={styles.statLabel}>Prayers</Text>
-          </Pressable>
-        </View>
-      </View>
+      )}
 
       {/* Profile Section Tabs */}
       <View style={styles.tabNav}>
@@ -485,6 +516,93 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontSemiBold,
     color: Colors.gold,
     fontSize: 12,
+  },
+  guestHero: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radii.xl,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: 14,
+    alignItems: 'center',
+    gap: 8,
+  },
+  guestAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(245,158,11,0.12)',
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  guestBadge: {
+    backgroundColor: 'rgba(245,158,11,0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: Radii.full,
+    borderWidth: 0.5,
+    borderColor: Colors.gold,
+  },
+  guestBadgeText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 10,
+    letterSpacing: 1.2,
+  },
+  guestTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 18,
+    marginTop: 2,
+  },
+  guestBody: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 19,
+    paddingHorizontal: 8,
+  },
+  guestActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+    width: '100%',
+  },
+  guestSignInBtn: {
+    flex: 1,
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.md,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  guestSignInBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textInverse,
+    fontSize: 14,
+  },
+  guestSignUpBtn: {
+    flex: 1,
+    backgroundColor: Colors.bg,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    borderRadius: Radii.md,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  guestSignUpBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 14,
   },
   profileHero: {
     backgroundColor: Colors.bgCard,
