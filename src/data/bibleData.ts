@@ -1,3 +1,5 @@
+import bundledKjvPack from '../../bible-packs/generated/eng_kjv.json';
+
 export interface BibleBook {
   name: string;
   abbreviation: string;
@@ -83,160 +85,67 @@ export interface VerseItem {
   text: string;
 }
 
-export const REAL_CHAPTERS: Record<string, Record<number, Record<number, string>>> = {
-  Psalms: {
-    23: {
-      1: 'The LORD is my shepherd; I shall not want.',
-      2: 'He maketh me to lie down in green pastures: he leadeth me beside the still waters.',
-      3: 'He restoreth my soul: he leadeth me in the paths of righteousness for his name\'s sake.',
-      4: 'Yea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me; thy rod and thy staff they comfort me.',
-      5: 'Thou preparest a table before me in the presence of mine enemies: thou anointest my head with oil; my cup runneth over.',
-      6: 'Surely goodness and mercy shall follow me all the days of my life: and I will dwell in the house of the LORD for ever.',
-    },
-    91: {
-      1: 'He that dwelleth in the secret place of the most High shall abide under the shadow of the Almighty.',
-      2: 'I will say of the LORD, He is my refuge and my fortress: my God; in him will I trust.',
-      3: 'Surely he shall deliver thee from the snare of the fowler, and from the noisome pestilence.',
-      4: 'He shall cover thee with his feathers, and under his wings shalt thou trust: his truth shall be thy shield and buckler.',
-      5: 'Thou shalt not be afraid for the terror by night; nor for the arrow that flieth by day;',
-      6: 'Nor for the pestilence that walketh in darkness; nor for the destruction that wasteth at noonday.',
-      7: 'A thousand shall fall at thy side, and ten thousand at thy right hand; but it shall not come nigh thee.',
-      8: 'Only with thine eyes shalt thou behold and see the reward of the wicked.',
-      9: 'Because thou hast made the LORD, which is my refuge, even the most High, thy habitation;',
-      10: 'There shall no evil befall thee, neither shall any plague come nigh thy dwelling.',
-      11: 'For he shall give his angels charge over thee, to keep thee in all thy ways.',
-      12: 'They shall bear thee up in their hands, lest thou dash thy foot against a stone.',
-    },
-    121: {
-      1: 'I will lift up mine eyes unto the hills, from whence cometh my help.',
-      2: 'My help cometh from the LORD, which made heaven and earth.',
-      3: 'He will not suffer thy foot to be moved: he that keepeth thee will not slumber.',
-      4: 'Behold, he that keepeth Israel shall neither slumber nor sleep.',
-      5: 'The LORD is thy keeper: the LORD is thy shade upon thy right hand.',
-      6: 'The sun shall not smite thee by day, nor the moon by night.',
-      7: 'The LORD shall preserve thee from all evil: he shall preserve thy soul.',
-      8: 'The LORD shall preserve thy going out and thy coming in from this time forth, and even for evermore.',
-    }
-  },
-  Genesis: {
-    1: {
-      1: 'In the beginning God created the heaven and the earth.',
-      2: 'And the earth was without form, and void; and darkness was upon the face of the deep. And the Spirit of God moved upon the face of the waters.',
-      3: 'And God said, Let there be light: and there was light.',
-      4: 'And God saw the light, that it was good: and God divided the light from the darkness.',
-      5: 'And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day.',
-      26: 'And God said, Let us make man in our image, after our likeness: and let them have dominion over the fish of the sea, and over the fowl of the air, and over the cattle, and over all the earth.',
-      27: 'So God created man in his own image, in the image of God created he him; male and female created he them.',
-      28: 'And God blessed them, and God said unto them, Be fruitful, and multiply, and replenish the earth, and subdue it.',
-      31: 'And God saw every thing that he had made, and, behold, it was very good. And the evening and the morning were the sixth day.',
-    }
-  },
-  John: {
-    1: {
-      1: 'In the beginning was the Word, and the Word was with God, and the Word was God.',
-      2: 'The same was in the beginning with God.',
-      3: 'All things were made by him; and without him was not any thing made that was made.',
-      4: 'In him was life; and the life was the light of men.',
-      5: 'And the light shineth in darkness; and the darkness comprehended it not.',
-      12: 'But as many as received him, to them gave he power to become the sons of God, even to them that believe on his name:',
-      14: 'And the Word was made flesh, and dwelt among us, (and we beheld his glory, the glory as of the only begotten of the Father,) full of grace and truth.',
-    },
-    3: {
-      16: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.',
-      17: 'For God sent not his Son into the world to condemn the world; but that the world through him might be saved.',
-    }
-  },
-  Romans: {
-    8: {
-      1: 'There is therefore now no condemnation to them which are in Christ Jesus, who walk not after the flesh, but after the Spirit.',
-      28: 'And we know that all things work together for good to them that love God, to them who are the called according to his purpose.',
-      31: 'What shall we then say to these things? If God be for us, who can be against us?',
-      37: 'Nay, in all these things we are more than conquerors through him that loved us.',
-      38: 'For I am persuaded, that neither death, nor life, nor angels, nor principalities, nor powers, nor things present, nor things to come,',
-      39: 'Nor height, nor depth, nor any other creature, shall be able to separate us from the love of God, which is in Christ Jesus our Lord.',
-    }
-  },
-  Philippians: {
-    4: {
-      4: 'Rejoice in the Lord alway: and again I say, Rejoice.',
-      6: 'Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.',
-      7: 'And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus.',
-      13: 'I can do all things through Christ which strengtheneth me.',
-      19: 'But my God shall supply all your need according to his riches in glory by Christ Jesus.',
-    }
-  },
-  Isaiah: {
-    40: {
-      29: 'He giveth power to the faint; and to them that have no might he increaseth strength.',
-      30: 'Even the youths shall faint and be weary, and the young men shall utterly fall:',
-      31: 'But they that wait upon the LORD shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary; and they shall walk, and not faint.',
-    },
-    49: {
-      15: 'Can a woman forget her sucking child, that she should not have compassion on the son of her womb? yea, they may forget, yet will I not forget thee.',
-      16: 'Behold, I have graven thee upon the palms of my hands; thy walls are continually before me.',
-    }
+// Map of normalized book name to book ID (1 to 66)
+const bookNameToIdMap = new Map<string, number>();
+for (const b of (bundledKjvPack as { books: Array<{ id: number; name: string }> }).books) {
+  bookNameToIdMap.set(b.name.toLowerCase(), b.id);
+}
+
+// Map of `${bookId}:${chapter}` -> VerseItem[]
+const indexedChaptersMap = new Map<string, VerseItem[]>();
+for (const v of (bundledKjvPack as { verses: Array<{ bookId: number; chapter: number; verse: number; text: string }> }).verses) {
+  const key = `${v.bookId}:${v.chapter}`;
+  let list = indexedChaptersMap.get(key);
+  if (!list) {
+    list = [];
+    indexedChaptersMap.set(key, list);
   }
-};
+  list.push({ verse: v.verse, text: v.text.trim() });
+}
 
 /**
- * Returns verses for any book and chapter.
- * If specific curated verses exist, returns them.
- * Otherwise, generates faithful, structured scriptural verses for that chapter.
+ * Returns authentic King James scripture verses for any book and chapter across all 66 books.
+ * Zero placeholder verses, 100% genuine Scripture.
  */
 export function getChapterVerses(bookName: string, chapter: number): VerseItem[] {
-  const existing = REAL_CHAPTERS[bookName]?.[chapter];
-  if (existing) {
-    return Object.entries(existing).map(([v, text]) => ({
-      verse: Number(v),
-      text,
-    }));
+  const normalized = bookName.trim().toLowerCase();
+  const bookId = bookNameToIdMap.get(normalized);
+  if (bookId !== undefined) {
+    const key = `${bookId}:${chapter}`;
+    const verses = indexedChaptersMap.get(key);
+    if (verses && verses.length > 0) {
+      return verses;
+    }
   }
 
-  // Generate 8-12 inspiring, authentic verses for this chapter
-  const book = BIBLE_BOOKS.find(b => b.name.toLowerCase() === bookName.toLowerCase()) || {
-    name: bookName,
-    testament: 'NT',
-    category: 'Epistles',
-  };
-
-  const isOldTestament = book.testament === 'OT';
-  const verseCount = 10;
-  const items: VerseItem[] = [];
-
-  const otThemes = [
-    `The word of the LORD came unto ${book.name} saying, Fear not, for I am thy shield and thy exceeding great reward.`,
-    `Trust in the LORD with all thine heart; and lean not unto thine own understanding.`,
-    `In all thy ways acknowledge him, and he shall direct thy paths.`,
-    `He shall command his lovingkindness in the daytime, and in the night his song shall be with me.`,
-    `The LORD is good, a strong hold in the day of trouble; and he knoweth them that trust in him.`,
-    `Call unto me, and I will answer thee, and show thee great and mighty things, which thou knowest not.`,
-    `For the vision is yet for an appointed time, but at the end it shall speak, and not lie.`,
-    `The LORD shall fight for you, and ye shall hold your peace.`,
-    `Thou wilt keep him in perfect peace, whose mind is stayed on thee: because he trusteth in thee.`,
-    `Blessed is the man that trusteth in the LORD, and whose hope the LORD is.`,
-  ];
-
-  const ntThemes = [
-    `Grace be to you and peace from God our Father, and from the Lord Jesus Christ.`,
-    `For we walk by faith, not by sight, being rooted and grounded in his love.`,
-    `Now unto him that is able to do exceeding abundantly above all that we ask or think, according to the power that worketh in us.`,
-    `The Lord is faithful, who shall stablish you, and keep you from evil.`,
-    `Let us hold fast the profession of our faith without wavering; for he is faithful that promised.`,
-    `Be strong in the Lord, and in the power of his might, putting on the whole armour of God.`,
-    `Every good gift and every perfect gift is from above, and cometh down from the Father of lights.`,
-    `Peace I leave with you, my peace I give unto you: not as the world giveth, give I unto you. Let not your heart be troubled.`,
-    `The grace of our Lord Jesus Christ be with you all. Amen.`,
-    `Humble yourselves therefore under the mighty hand of God, that he may exalt you in due time.`,
-  ];
-
-  const bank = isOldTestament ? otThemes : ntThemes;
-  for (let i = 1; i <= verseCount; i++) {
-    const text = bank[(i - 1 + chapter) % bank.length];
-    items.push({
-      verse: i,
-      text: `${text}`,
-    });
+  // Fallback for special name variations like 'Psalm' -> 'Psalms'
+  if (normalized === 'psalm') {
+    const pId = bookNameToIdMap.get('psalms');
+    if (pId !== undefined) {
+      const verses = indexedChaptersMap.get(`${pId}:${chapter}`);
+      if (verses && verses.length > 0) return verses;
+    }
   }
 
-  return items;
+  return [];
+}
+
+/**
+ * Fetches authentic Scripture dynamically from bible-api.com if needed
+ */
+export async function fetchOnlineChapter(bookName: string, chapter: number): Promise<VerseItem[]> {
+  try {
+    const res = await fetch(`https://bible-api.com/${encodeURIComponent(bookName)}+${chapter}?translation=kjv`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    if (Array.isArray(json.verses)) {
+      return json.verses.map((v: { verse: number; text: string }) => ({
+        verse: v.verse,
+        text: v.text.trim(),
+      }));
+    }
+  } catch {
+    // Network unavailable or offline
+  }
+  return [];
 }

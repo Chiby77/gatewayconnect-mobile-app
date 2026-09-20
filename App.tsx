@@ -26,6 +26,9 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { StoreScreen } from './src/screens/StoreScreen';
 import { Ionicons } from '@expo/vector-icons';
 
+import { AuthModal } from './src/components/AuthModal';
+import { LegalModal } from './src/components/LegalModal';
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -44,6 +47,18 @@ export default function App() {
   const [profile, setProfile] = useState<MobileUser | null>(null);
   // showAuthWall: true = show the welcome/auth splash; false = inside the app
   const [showAuthWall, setShowAuthWall] = useState(true);
+
+  // Global Auth & Legal Modals
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
+  const [authModalPrompt, setAuthModalPrompt] = useState<string | undefined>(undefined);
+  const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | null>(null);
+
+  const handleRequestAuth = (prompt?: string) => {
+    setAuthModalPrompt(prompt);
+    setAuthModalMode('signin');
+    setAuthModalVisible(true);
+  };
 
   useEffect(() => {
     initializeDatabase();
@@ -112,18 +127,19 @@ export default function App() {
           <Text style={styles.authSubtitle}>Your faith, available anywhere.</Text>
 
           <View style={styles.authButtons}>
-            {/* Sign In → go to profile tab with auth form */}
+            {/* Sign In / Create Account opens AuthModal directly */}
             <Pressable
               style={styles.authBtnPrimary}
               onPress={() => {
-                setShowAuthWall(false);
-                setScreen('profile');
+                setAuthModalPrompt(undefined);
+                setAuthModalMode('signin');
+                setAuthModalVisible(true);
               }}
             >
               <Ionicons name="log-in-outline" size={16} color={Colors.textInverse} />
               <Text style={styles.authBtnPrimaryText}>Sign In / Create Account</Text>
             </Pressable>
-            {/* Guest → skip auth, go to home */}
+            {/* Guest → continue as guest */}
             <Pressable
               style={styles.authBtnSecondary}
               onPress={() => {
@@ -135,6 +151,27 @@ export default function App() {
             </Pressable>
           </View>
         </View>
+
+        {/* AuthModal on Welcome screen */}
+        <AuthModal
+          visible={authModalVisible}
+          onClose={() => setAuthModalVisible(false)}
+          onSuccess={(u) => {
+            setProfile(u);
+            setShowAuthWall(false);
+            setAuthModalVisible(false);
+          }}
+          initialMode={authModalMode}
+          promptMessage={authModalPrompt}
+          onOpenLegal={(tab) => setLegalModalTab(tab)}
+        />
+
+        {/* LegalModal on Welcome screen */}
+        <LegalModal
+          visible={!!legalModalTab}
+          onClose={() => setLegalModalTab(null)}
+          initialTab={legalModalTab || 'privacy'}
+        />
       </SafeAreaView>
     );
   }
@@ -161,14 +198,15 @@ export default function App() {
         )}
         {screen === 'sermons' && <SermonScreen onNavigateHome={() => setScreen('home')} />}
         {screen === 'bible' && <BibleScreen profile={profile} />}
-        {screen === 'community' && <CommunityScreen profile={profile} />}
-        {screen === 'prayer' && <PrayerScreen profile={profile} />}
+        {screen === 'community' && <CommunityScreen profile={profile} onRequestAuth={handleRequestAuth} />}
+        {screen === 'prayer' && <PrayerScreen profile={profile} onRequestAuth={handleRequestAuth} />}
         {screen === 'store' && <StoreScreen profile={profile} />}
         {screen === 'profile' && (
           <ProfileScreen
             profile={profile}
             onGuest={() => { setScreen('home'); }}
             onNavigateBible={() => setScreen('bible')}
+            onRequestAuth={handleRequestAuth}
           />
         )}
       </ScrollView>
@@ -177,6 +215,26 @@ export default function App() {
         screen={screen}
         onPress={(key) => setScreen(key)}
         isLoggedIn={!!profile}
+      />
+
+      {/* Global AuthModal */}
+      <AuthModal
+        visible={authModalVisible}
+        onClose={() => setAuthModalVisible(false)}
+        onSuccess={(u) => {
+          setProfile(u);
+          setAuthModalVisible(false);
+        }}
+        initialMode={authModalMode}
+        promptMessage={authModalPrompt}
+        onOpenLegal={(tab) => setLegalModalTab(tab)}
+      />
+
+      {/* Global LegalModal */}
+      <LegalModal
+        visible={!!legalModalTab}
+        onClose={() => setLegalModalTab(null)}
+        initialTab={legalModalTab || 'privacy'}
       />
     </SafeAreaView>
   );

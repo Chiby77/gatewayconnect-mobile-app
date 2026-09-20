@@ -133,25 +133,105 @@ export function HomeScreen({ networkStatus, onNavigateBible, onNavigateStore, on
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalEyebrow}>DAILY DEVOTIONAL</Text>
-              <Pressable onPress={() => setActiveDevotional(null)}>
+              <View>
+                <Text style={styles.modalEyebrow}>DAILY APOSTOLIC DEVOTIONAL</Text>
+                <Text style={styles.modalDateText}>
+                  {String(activeDevotional?.metadata?.date || 'Today')} • Apostle Joe Daniels
+                </Text>
+              </View>
+              <Pressable onPress={() => setActiveDevotional(null)} style={{ padding: 4 }}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </Pressable>
             </View>
 
-            <ScrollView style={{ maxHeight: 450 }}>
+            <ScrollView style={{ maxHeight: 520 }} showsVerticalScrollIndicator={false}>
               <Text style={styles.modalTitle}>{activeDevotional?.title}</Text>
+
               {activeDevotional?.metadata?.scripture ? (
-                <View style={styles.scripturePill}>
-                  <Ionicons name="book-outline" size={14} color={Colors.gold} />
-                  <Text style={styles.scriptureText}>{String(activeDevotional.metadata.scripture)}</Text>
+                <View style={styles.scriptureCard}>
+                  <View style={styles.scriptureHeader}>
+                    <Ionicons name="book" size={16} color={Colors.gold} />
+                    <Text style={styles.scriptureHeaderText}>SCRIPTURE FOCUS</Text>
+                  </View>
+                  <Text style={styles.scriptureRefText}>
+                    {String(activeDevotional.metadata.scripture)}
+                  </Text>
                 </View>
               ) : null}
-              <Text style={styles.modalBody}>{activeDevotional?.body}</Text>
+
+              {/* Devotional Full Body */}
+              <View style={styles.devotionalBodyContainer}>
+                {activeDevotional?.body ? (
+                  activeDevotional.body.split('\n\n').map((paragraph, idx) => {
+                    const clean = paragraph.trim();
+                    if (!clean) return null;
+                    const isScripture = clean.startsWith('Scripture:');
+                    const isPrayer = clean.startsWith('Prayer:');
+                    const isDeclaration = clean.startsWith('Declaration:');
+
+                    if (isPrayer) {
+                      return (
+                        <View key={idx} style={styles.prayerCard}>
+                          <View style={styles.prayerCardHeader}>
+                            <Ionicons name="hand-right" size={16} color={Colors.success} />
+                            <Text style={styles.prayerCardTitle}>TODAY'S PRAYER</Text>
+                          </View>
+                          <Text style={styles.prayerCardText}>
+                            {clean.replace(/^Prayer:\s*/, '')}
+                          </Text>
+                        </View>
+                      );
+                    }
+
+                    if (isDeclaration) {
+                      return (
+                        <View key={idx} style={styles.declarationCard}>
+                          <View style={styles.declarationCardHeader}>
+                            <Ionicons name="flash" size={16} color={Colors.gold} />
+                            <Text style={styles.declarationCardTitle}>PROPHETIC DECLARATION</Text>
+                          </View>
+                          <Text style={styles.declarationCardText}>
+                            {clean.replace(/^Declaration:\s*/, '')}
+                          </Text>
+                        </View>
+                      );
+                    }
+
+                    if (isScripture) {
+                      return (
+                        <View key={idx} style={styles.scriptureQuoteCard}>
+                          <Text style={styles.scriptureQuoteText}>
+                            {clean.replace(/^Scripture:\s*/, '')}
+                          </Text>
+                        </View>
+                      );
+                    }
+
+                    return (
+                      <Text key={idx} style={styles.modalParagraph}>
+                        {clean}
+                      </Text>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.modalParagraph}>Reading content is loading...</Text>
+                )}
+              </View>
+
+              <View style={styles.authorBadge}>
+                <View style={styles.authorAvatar}>
+                  <Text style={styles.authorAvatarText}>JD</Text>
+                </View>
+                <View>
+                  <Text style={styles.authorName}>Apostle Joe Daniels</Text>
+                  <Text style={styles.authorTitle}>Gateway Church International</Text>
+                </View>
+              </View>
             </ScrollView>
 
             <Pressable style={styles.modalDoneBtn} onPress={() => setActiveDevotional(null)}>
-              <Text style={styles.modalDoneBtnText}>Amen</Text>
+              <Ionicons name="checkmark-done" size={18} color={Colors.textInverse} />
+              <Text style={styles.modalDoneBtnText}>Amen • Blessed by this Word</Text>
             </Pressable>
           </View>
         </View>
@@ -323,43 +403,166 @@ const styles = StyleSheet.create({
   modalEyebrow: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 11,
+    fontSize: 10,
     letterSpacing: 1.5,
+  },
+  modalDateText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
   },
   modalTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 20,
-    marginBottom: 10,
+    fontSize: 19,
+    lineHeight: 25,
+    marginBottom: 12,
   },
-  scripturePill: {
+  scriptureCard: {
+    backgroundColor: 'rgba(245,158,11,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.3)',
+    borderRadius: Radii.md,
+    padding: 12,
+    marginBottom: 14,
+  },
+  scriptureHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(245,158,11,0.12)',
-    borderRadius: Radii.full,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignSelf: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  scriptureText: {
+  scriptureHeaderText: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 12,
+    fontSize: 10,
+    letterSpacing: 1.2,
   },
-  modalBody: {
+  scriptureRefText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 14,
+  },
+  devotionalBodyContainer: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalParagraph: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
     fontSize: 14,
     lineHeight: 22,
   },
+  scriptureQuoteCard: {
+    backgroundColor: Colors.bg,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.gold,
+    padding: 10,
+    borderRadius: Radii.sm,
+  },
+  scriptureQuoteText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  prayerCard: {
+    backgroundColor: 'rgba(16,185,129,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.25)',
+    borderRadius: Radii.md,
+    padding: 14,
+  },
+  prayerCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  prayerCardTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.success,
+    fontSize: 11,
+    letterSpacing: 1.2,
+  },
+  prayerCardText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  declarationCard: {
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.25)',
+    borderRadius: Radii.md,
+    padding: 14,
+  },
+  declarationCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  declarationCardTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 11,
+    letterSpacing: 1.2,
+  },
+  declarationCardText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  authorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.bg,
+    padding: 12,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginVertical: 10,
+  },
+  authorAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: Radii.full,
+    backgroundColor: Colors.forestGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  authorAvatarText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 13,
+  },
+  authorName: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+  },
+  authorTitle: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+  },
   modalDoneBtn: {
     backgroundColor: Colors.gold,
     borderRadius: Radii.md,
-    paddingVertical: 12,
+    paddingVertical: 13,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
   },
   modalDoneBtnText: {
     fontFamily: Typography.fontBold,

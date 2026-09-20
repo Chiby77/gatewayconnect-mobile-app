@@ -6,11 +6,14 @@ import { MobileUser } from '../auth/authService';
 import { savePrayerRequest, listPrayerRequests, PrayerRequest } from '../data/contentRepository';
 import { trackEvent } from '../analytics/analyticsService';
 
+import { Alert } from 'react-native';
+
 interface PrayerScreenProps {
   profile: MobileUser | null;
+  onRequestAuth?: (prompt?: string) => void;
 }
 
-export function PrayerScreen({ profile }: PrayerScreenProps) {
+export function PrayerScreen({ profile, onRequestAuth }: PrayerScreenProps) {
   const [prayerTitle, setPrayerTitle] = useState('');
   const [prayerBody, setPrayerBody] = useState('');
   const [saved, setSaved] = useState(false);
@@ -21,8 +24,16 @@ export function PrayerScreen({ profile }: PrayerScreenProps) {
   }, []);
 
   const handleSave = () => {
+    if (!profile) {
+      if (onRequestAuth) {
+        onRequestAuth('Sign in to submit prayer requests so our pastors and intercessors know who we are standing in faith with.');
+      } else {
+        Alert.alert('Sign In Required', 'Please sign in or create an account to submit prayer requests.');
+      }
+      return;
+    }
     if (!prayerTitle.trim() || !prayerBody.trim()) return;
-    savePrayerRequest(profile?.id || null, prayerTitle.trim(), prayerBody.trim());
+    savePrayerRequest(profile.id, prayerTitle.trim(), prayerBody.trim());
     setPrayerTitle(''); setPrayerBody('');
     setSaved(true);
     setPrayers(listPrayerRequests());

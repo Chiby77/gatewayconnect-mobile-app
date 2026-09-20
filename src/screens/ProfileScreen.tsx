@@ -9,19 +9,23 @@ import { BibleRepository } from '../bible/bibleRepository';
 import { listDownloads, deleteDownload, MediaDownload } from '../media/downloadManager';
 import { listPrayerRequests, PrayerRequest } from '../data/contentRepository';
 
+import { LegalModal } from '../components/LegalModal';
+
 interface ProfileScreenProps {
   profile: MobileUser | null;
   onGuest: () => void;
   onNavigateBible?: () => void;
+  onRequestAuth?: (prompt?: string) => void;
 }
 
-export function ProfileScreen({ profile, onNavigateBible }: ProfileScreenProps) {
+export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: ProfileScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [lowData, setLowData] = useState(SettingsRepository.getLowDataMode());
   const [analytics, setAnalytics] = useState(SettingsRepository.getAnalyticsOptIn());
+  const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | null>(null);
 
   // Profile active subtab
   const [activeTab, setActiveTab] = useState<'saved' | 'downloads' | 'prayers' | 'settings'>('saved');
@@ -343,6 +347,39 @@ export function ProfileScreen({ profile, onNavigateBible }: ProfileScreenProps) 
             </View>
           </View>
 
+          <View style={styles.card}>
+            <Text style={styles.eyebrow}>LEGAL & COMPLIANCE</Text>
+            <Pressable
+              style={styles.legalNavRow}
+              onPress={() => setLegalModalTab('privacy')}
+            >
+              <View style={styles.legalNavLeft}>
+                <Ionicons name="shield-checkmark-outline" size={18} color={Colors.gold} />
+                <Text style={styles.cardTitle}>Privacy Policy</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </Pressable>
+
+            <View style={styles.navDivider} />
+
+            <Pressable
+              style={styles.legalNavRow}
+              onPress={() => setLegalModalTab('terms')}
+            >
+              <View style={styles.legalNavLeft}>
+                <Ionicons name="document-text-outline" size={18} color={Colors.gold} />
+                <Text style={styles.cardTitle}>Terms of Service</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </Pressable>
+
+            <View style={styles.blueWaveBadge}>
+              <Text style={styles.blueWaveBadgeTitle}>App Engineering & Technology Partner</Text>
+              <Text style={styles.blueWaveBadgeName}>BlueWave Technologies</Text>
+              <Text style={styles.blueWaveBadgeLink}>bluewavetechnologies.co.zw • info@bluewavetechnologies.co.zw</Text>
+            </View>
+          </View>
+
           {profile && (
             <Pressable
               style={styles.btnDanger}
@@ -357,6 +394,13 @@ export function ProfileScreen({ profile, onNavigateBible }: ProfileScreenProps) 
           )}
         </View>
       )}
+
+      {/* Legal Modal */}
+      <LegalModal
+        visible={!!legalModalTab}
+        onClose={() => setLegalModalTab(null)}
+        initialTab={legalModalTab || 'privacy'}
+      />
 
       {/* Edit Profile Modal */}
       <Modal visible={showEditModal} animationType="slide" transparent>
@@ -806,5 +850,46 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
     fontSize: 14,
+  },
+  legalNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  legalNavLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  navDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  blueWaveBadge: {
+    backgroundColor: Colors.bg,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
+    marginTop: 14,
+    gap: 3,
+  },
+  blueWaveBadgeTitle: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  blueWaveBadgeName: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 13,
+  },
+  blueWaveBadgeLink: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 11,
   },
 });

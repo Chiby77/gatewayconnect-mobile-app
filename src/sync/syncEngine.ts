@@ -119,6 +119,24 @@ async function pullResource(resource: string, table: string): Promise<void> {
       if (!SettingsRepository.getLowDataMode() && row.audio_url) {
         downloadMedia(row.id, 'audio', row.audio_url).catch(() => {});
       }
+    } else if (resource === 'devotionals') {
+      // Web app stores devotionals in `devotionals` table — bridge into local content_items
+      const fullBody = [
+        row.content || '',
+        row.scripture_verse ? `\n\nScripture: ${row.scripture_reference || ''}\n"${row.scripture_verse}"` : '',
+        row.prayer ? `\n\nPrayer:\n${row.prayer}` : '',
+        row.declaration ? `\n\nDeclaration:\n${row.declaration}` : '',
+      ].filter(Boolean).join('');
+      const meta = JSON.stringify({
+        speaker: row.author || 'Apostle Joe Daniels',
+        scripture: row.scripture_reference || '',
+        date: row.publish_date || 'Today',
+      });
+      database.runSync(
+        `INSERT OR REPLACE INTO content_items (id, type, title, body, metadata, created_at, updated_at) VALUES (?, 'devotional', ?, ?, ?, ?, ?)`,
+        row.id, row.title || '', fullBody, meta,
+        row.created_at || new Date().toISOString(), row.updated_at || new Date().toISOString()
+      );
     } else if (resource === 'products') {
       database.runSync(
         `INSERT OR REPLACE INTO products (id, name, description, price, currency, image_url, category, in_stock, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -141,8 +159,9 @@ export async function syncNow(): Promise<void> {
   await pullResource('content_items', 'content_items');
   await pullResource('community_comments', 'community_comments');
   await pullResource('events', 'events');
-  await pullResource('sermons', 'sermons');   // web sermons table → local content_items
-  await pullResource('products', 'products'); // web products/store table
+  await pullResource('sermons', 'sermons');       // web sermons table → local content_items
+  await pullResource('devotionals', 'devotionals'); // web devotionals table → local content_items
+  await pullResource('products', 'products');     // web products/store table
 }
 
 export function startSyncEngine(): () => void {
