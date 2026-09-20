@@ -4,6 +4,7 @@ const database = SQLite.openDatabaseSync('gatewayconnect.db');
 const SCHEMA_VERSION = 2;
 
 import { runMigrations } from './migrations';
+import { seedInitialData } from './seedData';
 
 export function initializeDatabase(): void {
   database.execSync(`
@@ -11,6 +12,7 @@ export function initializeDatabase(): void {
     PRAGMA foreign_keys = ON;
   `);
   runMigrations(database);
+  seedInitialData(database);
 }
 
 export function getDatabase(): SQLite.SQLiteDatabase {

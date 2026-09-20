@@ -17,6 +17,10 @@ export function getDownloadStatus(contentId: string): MediaDownload | null {
   return row ? (row as MediaDownload) : null;
 }
 
+export function listDownloads(): MediaDownload[] {
+  return getDatabase().getAllSync<MediaDownload>(`SELECT * FROM media_downloads ORDER BY created_at DESC`);
+}
+
 export async function downloadMedia(contentId: string, mediaType: string, remoteUrl: string): Promise<string> {
   // Simple check if it exists
   const existing = getDownloadStatus(contentId);

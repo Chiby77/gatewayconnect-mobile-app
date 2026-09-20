@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 
-export type Screen = 'home' | 'bible' | 'community' | 'prayer' | 'store' | 'profile';
+export type Screen = 'home' | 'sermons' | 'bible' | 'community' | 'prayer' | 'store' | 'profile';
 
 interface TabBarProps {
   screen: Screen;
@@ -13,10 +13,11 @@ interface TabBarProps {
 
 const TABS: { key: Screen; label: string; icon: string; iconActive: string }[] = [
   { key: 'home',      label: 'Home',      icon: 'home-outline',     iconActive: 'home' },
+  { key: 'sermons',   label: 'Sermons',   icon: 'videocam-outline', iconActive: 'videocam' },
   { key: 'bible',     label: 'Bible',     icon: 'book-outline',     iconActive: 'book' },
   { key: 'community', label: 'Community', icon: 'people-outline',   iconActive: 'people' },
   { key: 'store',     label: 'Store',     icon: 'bag-outline',      iconActive: 'bag' },
-  { key: 'profile',   label: 'Account',   icon: 'person-outline',   iconActive: 'person' },
+  { key: 'profile',   label: 'Me',        icon: 'person-outline',   iconActive: 'person' },
 ];
 
 export function TabBar({ screen, onPress, isLoggedIn }: TabBarProps) {

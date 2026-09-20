@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Modal, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 import { NetworkStatus } from '../network/networkStatus';
@@ -13,11 +13,13 @@ interface HomeScreenProps {
   syncState: SyncState;
   onNavigateBible: () => void;
   onNavigateStore: () => void;
+  onNavigateSermons?: () => void;
 }
 
-export function HomeScreen({ networkStatus, pendingMutations, syncState, onNavigateBible, onNavigateStore }: HomeScreenProps) {
+export function HomeScreen({ networkStatus, onNavigateBible, onNavigateStore, onNavigateSermons }: HomeScreenProps) {
   const [devotionals, setDevotionals] = useState<ContentItem[]>([]);
   const [sermons, setSermons] = useState<ContentItem[]>([]);
+  const [activeDevotional, setActiveDevotional] = useState<ContentItem | null>(null);
 
   useEffect(() => {
     setDevotionals(listContent('devotional'));
@@ -53,18 +55,20 @@ export function HomeScreen({ networkStatus, pendingMutations, syncState, onNavig
       {/* Quick Actions */}
       <View style={styles.quickRow}>
         <Pressable style={styles.quickCard} onPress={onNavigateBible}>
-          <Ionicons name="book" size={26} color={Colors.gold} />
+          <Ionicons name="book" size={24} color={Colors.gold} />
           <Text style={styles.quickLabel}>Read Bible</Text>
+          <Text style={styles.quickSub}>66 Books</Text>
+        </Pressable>
+        <Pressable style={styles.quickCard} onPress={onNavigateSermons}>
+          <Ionicons name="videocam" size={24} color={Colors.gold} />
+          <Text style={styles.quickLabel}>Sermons</Text>
+          <Text style={styles.quickSub}>Audio & Video</Text>
         </Pressable>
         <Pressable style={styles.quickCard} onPress={onNavigateStore}>
-          <Ionicons name="heart" size={26} color={Colors.gold} />
+          <Ionicons name="heart" size={24} color={Colors.gold} />
           <Text style={styles.quickLabel}>Give</Text>
+          <Text style={styles.quickSub}>Partner</Text>
         </Pressable>
-        <View style={styles.quickCard}>
-          <Ionicons name="radio" size={26} color={isOnline ? Colors.gold : Colors.textMuted} />
-          <Text style={styles.quickLabel}>Live</Text>
-          <Text style={styles.quickSub}>{isOnline ? 'Available' : 'Offline'}</Text>
-        </View>
       </View>
 
       {/* Today at Gateway */}
@@ -72,11 +76,11 @@ export function HomeScreen({ networkStatus, pendingMutations, syncState, onNavig
 
       {devotionals.length > 0 ? devotionals.slice(0, 2).map(d => (
         <View key={d.id} style={styles.card}>
-          <Text style={styles.eyebrow}>DEVOTIONAL</Text>
+          <Text style={styles.eyebrow}>DEVOTIONAL • {String(d.metadata?.date || 'TODAY')}</Text>
           <Text style={styles.cardTitle}>{d.title}</Text>
           <Text style={styles.cardBody} numberOfLines={3}>{d.body}</Text>
-          <Pressable style={styles.btn}>
-            <Text style={styles.btnText}>Read Devotional</Text>
+          <Pressable style={styles.btn} onPress={() => setActiveDevotional(d)}>
+            <Text style={styles.btnText}>Read Full Devotional</Text>
           </Pressable>
         </View>
       )) : (
@@ -95,21 +99,63 @@ export function HomeScreen({ networkStatus, pendingMutations, syncState, onNavig
 
       {sermons.length > 0 && (
         <>
-          <Text style={styles.sectionTitle}>Recent Sermons</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Recent Sermons</Text>
+            {onNavigateSermons && (
+              <Pressable onPress={onNavigateSermons}>
+                <Text style={styles.viewAllText}>View All →</Text>
+              </Pressable>
+            )}
+          </View>
           {sermons.slice(0, 3).map(s => (
             <View key={s.id} style={styles.card}>
-              <Text style={styles.eyebrow}>SERMON{s.metadata?.speaker ? ` • ${String(s.metadata.speaker)}` : ''}</Text>
+              <Text style={styles.eyebrow}>SERMON{s.metadata?.speaker ? ` • ${String(s.metadata.speaker).toUpperCase()}` : ''}</Text>
               <Text style={styles.cardTitle}>{s.title}</Text>
               {s.body ? <Text style={styles.cardBody} numberOfLines={2}>{s.body}</Text> : null}
               {s.metadata?.series ? (
                 <Text style={[styles.cardBody, { color: Colors.textMuted, marginTop: 4 }]}>
-                  Series: {String(s.metadata.series)}
+                  Series: {String(s.metadata.series)} • {String(s.metadata?.duration || '40m')}
                 </Text>
               ) : null}
+              {onNavigateSermons && (
+                <Pressable style={styles.btn} onPress={onNavigateSermons}>
+                  <Ionicons name="play" size={13} color={Colors.textInverse} />
+                  <Text style={styles.btnText}>Watch / Listen</Text>
+                </Pressable>
+              )}
             </View>
           ))}
         </>
       )}
+
+      {/* Full Devotional Modal */}
+      <Modal visible={!!activeDevotional} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalEyebrow}>DAILY DEVOTIONAL</Text>
+              <Pressable onPress={() => setActiveDevotional(null)}>
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ maxHeight: 450 }}>
+              <Text style={styles.modalTitle}>{activeDevotional?.title}</Text>
+              {activeDevotional?.metadata?.scripture ? (
+                <View style={styles.scripturePill}>
+                  <Ionicons name="book-outline" size={14} color={Colors.gold} />
+                  <Text style={styles.scriptureText}>{String(activeDevotional.metadata.scripture)}</Text>
+                </View>
+              ) : null}
+              <Text style={styles.modalBody}>{activeDevotional?.body}</Text>
+            </ScrollView>
+
+            <Pressable style={styles.modalDoneBtn} onPress={() => setActiveDevotional(null)}>
+              <Text style={styles.modalDoneBtnText}>Amen</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -118,8 +164,8 @@ const styles = StyleSheet.create({
   hero: {
     backgroundColor: Colors.forestGreen,
     borderRadius: Radii.xl,
-    padding: 28,
-    marginTop: 8,
+    padding: 24,
+    marginTop: 4,
     shadowColor: Colors.forestGreen,
     shadowOpacity: 0.35,
     shadowRadius: 16,
@@ -131,55 +177,55 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.6,
     textTransform: 'uppercase',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   heroTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 34,
-    lineHeight: 40,
+    fontSize: 30,
+    lineHeight: 36,
   },
   heroBody: {
     fontFamily: Typography.fontRegular,
     color: 'rgba(255,255,255,0.72)',
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 12,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
   },
   offlineBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(245,158,11,0.08)',
     borderRadius: Radii.lg,
-    padding: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: 'rgba(245,158,11,0.3)',
-    gap: 14,
+    gap: 12,
   },
   offlineBannerTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.warning,
-    fontSize: 15,
+    fontSize: 14,
   },
   offlineBannerBody: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 2,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   statusCopy: { flex: 1 },
   quickRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   quickCard: {
     flex: 1,
     backgroundColor: Colors.bgCard,
     borderRadius: Radii.lg,
-    padding: 16,
+    padding: 14,
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -194,16 +240,27 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 10,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
   sectionTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 22,
-    marginTop: 8,
+    fontSize: 20,
+    marginTop: 6,
+  },
+  viewAllText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.gold,
+    fontSize: 12,
   },
   card: {
     backgroundColor: Colors.bgCard,
     borderRadius: Radii.lg,
-    padding: 20,
+    padding: 18,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -213,31 +270,100 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   cardTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 17,
+    fontSize: 16,
   },
   cardBody: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 19,
     marginTop: 6,
   },
   btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: Colors.gold,
     borderRadius: Radii.md,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignSelf: 'flex-start',
-    marginTop: 14,
+    marginTop: 12,
   },
   btnText: {
     fontFamily: Typography.fontSemiBold,
     color: Colors.textInverse,
-    fontSize: 13,
+    fontSize: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: Colors.bgCard,
+    borderTopLeftRadius: Radii.xl,
+    borderTopRightRadius: Radii.xl,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalEyebrow: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 11,
+    letterSpacing: 1.5,
+  },
+  modalTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 20,
+    marginBottom: 10,
+  },
+  scripturePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(245,158,11,0.12)',
+    borderRadius: Radii.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  scriptureText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 12,
+  },
+  modalBody: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  modalDoneBtn: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  modalDoneBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textInverse,
+    fontSize: 14,
   },
 });

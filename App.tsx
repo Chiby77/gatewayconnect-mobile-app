@@ -18,6 +18,7 @@ import { Colors, Typography, Radii } from './src/theme/colors';
 import { AppHeader } from './src/components/AppHeader';
 import { TabBar, Screen } from './src/components/TabBar';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { SermonScreen } from './src/screens/SermonScreen';
 import { BibleScreen } from './src/screens/BibleScreen';
 import { CommunityScreen } from './src/screens/CommunityScreen';
 import { PrayerScreen } from './src/screens/PrayerScreen';
@@ -155,8 +156,10 @@ export default function App() {
             syncState={syncState}
             onNavigateBible={() => setScreen('bible')}
             onNavigateStore={() => setScreen('store')}
+            onNavigateSermons={() => setScreen('sermons')}
           />
         )}
+        {screen === 'sermons' && <SermonScreen onNavigateHome={() => setScreen('home')} />}
         {screen === 'bible' && <BibleScreen profile={profile} />}
         {screen === 'community' && <CommunityScreen profile={profile} />}
         {screen === 'prayer' && <PrayerScreen profile={profile} />}
@@ -165,6 +168,7 @@ export default function App() {
           <ProfileScreen
             profile={profile}
             onGuest={() => { setScreen('home'); }}
+            onNavigateBible={() => setScreen('bible')}
           />
         )}
       </ScrollView>
@@ -184,6 +188,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0,
     gap: 8,
   },
   loadingMark: {
@@ -208,6 +213,7 @@ const styles = StyleSheet.create({
   authScreen: {
     flex: 1,
     backgroundColor: Colors.forestGreen,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0,
   },
   authInner: {
     flex: 1,
@@ -286,6 +292,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.bg,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0,
   },
   scrollView: {
     flex: 1,
