@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 import { NetworkStatus } from '../network/networkStatus';
@@ -17,19 +17,31 @@ export function AppHeader({ networkStatus }: AppHeaderProps) {
   return (
     <View style={styles.row}>
       <View style={styles.brand}>
-        <View style={styles.mark}>
-          <Text style={styles.markText}>G</Text>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../../assets/gateway_logo.png')}
+            style={styles.logoImg}
+            resizeMode="contain"
+          />
         </View>
-        <View>
-          <Text style={styles.eyebrow}>GATEWAY CHURCH</Text>
-          <Text style={styles.title}>GatewayConnect</Text>
+        <View style={styles.titleCol}>
+          <View style={styles.brandRow}>
+            <Text style={styles.brandGold}>GATEWAY</Text>
+            <Text style={styles.brandWhite}>CONNECT</Text>
+          </View>
+          <Text style={styles.eyebrow}>HARARE • GLOBAL FELLOWSHIP</Text>
         </View>
       </View>
 
-      {!isOnline && (
+      {!isOnline ? (
         <View style={styles.offlinePill}>
-          <Ionicons name="cloud-offline" size={13} color={Colors.warning} />
+          <Ionicons name="cloud-offline" size={12} color={Colors.warning} />
           <Text style={styles.offlineText}>Offline</Text>
+        </View>
+      ) : (
+        <View style={styles.liveIndicator}>
+          <View style={styles.onlineDot} />
+          <Text style={styles.onlineText}>Connected</Text>
         </View>
       )}
     </View>
@@ -41,59 +53,98 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingHorizontal: 18,
+    paddingTop: 8,
     paddingBottom: 8,
+    backgroundColor: '#09090b',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
-  mark: {
-    width: 44,
-    height: 44,
-    borderRadius: Radii.md,
-    backgroundColor: Colors.forestGreen,
+  logoContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    overflow: 'hidden',
+    backgroundColor: '#121216',
+    borderWidth: 1,
+    borderColor: 'rgba(223, 167, 50, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.forestGreen,
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
   },
-  markText: {
+  logoImg: {
+    width: '100%',
+    height: '100%',
+  },
+  titleCol: {
+    gap: 2,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  brandGold: {
     fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 24,
+    color: '#dfa732',
+    fontSize: 16,
+    letterSpacing: 1.2,
+    fontWeight: '800',
+  },
+  brandWhite: {
+    fontFamily: Typography.fontBold,
+    color: '#fafafa',
+    fontSize: 16,
+    letterSpacing: 0.8,
+    fontWeight: '700',
   },
   eyebrow: {
     fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 10,
-    letterSpacing: 1.5,
+    color: '#a1a1aa',
+    fontSize: 9,
+    letterSpacing: 1.1,
     textTransform: 'uppercase',
-  },
-  title: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textPrimary,
-    fontSize: 20,
-    marginTop: 1,
   },
   offlinePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: 'rgba(245,158,11,0.12)',
     borderRadius: Radii.full,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderWidth: 1,
     borderColor: 'rgba(245,158,11,0.35)',
   },
   offlineText: {
     fontFamily: Typography.fontSemiBold,
     color: Colors.warning,
-    fontSize: 12,
+    fontSize: 11,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: Radii.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  onlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22c55e',
+  },
+  onlineText: {
+    fontFamily: Typography.fontRegular,
+    color: '#a1a1aa',
+    fontSize: 10,
   },
 });

@@ -307,45 +307,18 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
         <View style={styles.sectionContainer}>
           {!profile && (
             <View style={styles.card}>
-              <Text style={styles.eyebrow}>SIGN IN / REGISTER</Text>
-              <Text style={styles.cardTitle}>Connect your Gateway Account</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Email address"
-                placeholderTextColor={Colors.textMuted}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                style={styles.input}
-              />
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Password"
-                placeholderTextColor={Colors.textMuted}
-                secureTextEntry
-                style={styles.input}
-              />
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Full Name (for new account)"
-                placeholderTextColor={Colors.textMuted}
-                style={styles.input}
-              />
-              <View style={styles.authRow}>
-                <Pressable style={styles.btn} onPress={() => authenticate(false)}>
-                  <Text style={styles.btnText}>Sign In</Text>
-                </Pressable>
-                <Pressable style={styles.btnOutline} onPress={() => authenticate(true)}>
-                  <Text style={styles.btnOutlineText}>Create Account</Text>
-                </Pressable>
-              </View>
-              {error ? (
-                <Text style={[styles.cardBody, { color: error.startsWith('Welcome') ? Colors.success : Colors.danger, marginTop: 12 }]}>
-                  {error}
-                </Text>
-              ) : null}
+              <Text style={styles.eyebrow}>MEMBERSHIP</Text>
+              <Text style={styles.cardTitle}>Connect Your Gateway Account</Text>
+              <Text style={styles.cardBody}>
+                Sign in or register to sync your saved scriptures, offline downloads, and prayer requests across all devices.
+              </Text>
+              <Pressable
+                style={styles.signInCardBtn}
+                onPress={() => onRequestAuth?.('Sign in or register to sync your profile.')}
+              >
+                <Ionicons name="log-in-outline" size={16} color={Colors.textInverse} />
+                <Text style={styles.signInCardBtnText}>Sign In / Register</Text>
+              </Pressable>
             </View>
           )}
 
@@ -491,15 +464,15 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
 const styles = StyleSheet.create({
   pageHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
-    marginBottom: 8,
+    alignItems: 'center',
+    paddingVertical: 6,
+    marginBottom: 4,
   },
   sectionTitle: {
     fontFamily: Typography.fontBold,
-    color: Colors.textPrimary,
-    fontSize: 26,
+    color: '#fafafa',
+    fontSize: 19,
   },
   editBtn: {
     flexDirection: 'row',
@@ -516,6 +489,21 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontSemiBold,
     color: Colors.gold,
     fontSize: 12,
+  },
+  signInCardBtn: {
+    backgroundColor: '#dfa732',
+    borderRadius: Radii.md,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+  },
+  signInCardBtnText: {
+    fontFamily: Typography.fontBold,
+    color: '#09090b',
+    fontSize: 14,
   },
   guestHero: {
     backgroundColor: Colors.bgCard,

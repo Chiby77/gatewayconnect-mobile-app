@@ -17,6 +17,7 @@ interface CommunityScreenProps {
 interface ChurchStory {
   id: string;
   author: string;
+  shortName: string;
   role: string;
   avatarText: string;
   caption: string;
@@ -40,6 +41,7 @@ const CHURCH_STORIES: ChurchStory[] = [
   {
     id: 'story_joe',
     author: 'Apostle Joe Daniels',
+    shortName: 'Apostle',
     role: 'Senior Pastor',
     avatarText: 'JD',
     caption: 'Great grace upon Gateway Church this Sunday! Expect unusual breakthroughs and open heavens as we enter into supernatural dominion.',
@@ -49,6 +51,7 @@ const CHURCH_STORIES: ChurchStory[] = [
   {
     id: 'story_cynthia',
     author: 'Pastor Cynthia Daniels',
+    shortName: 'Pastor C',
     role: 'Passion Women Ministry',
     avatarText: 'CD',
     caption: 'Women of Grace prayer breakfast was powerful this morning. Daughters of Zion, keep standing in faith for your families!',
@@ -58,6 +61,7 @@ const CHURCH_STORIES: ChurchStory[] = [
   {
     id: 'story_worship',
     author: 'Gateway Praise & Worship',
+    shortName: 'Worship',
     role: 'Music Ministry',
     avatarText: 'GW',
     caption: 'Rehearsing for Sunday Dominion Service! The sound of revival is already resounding in the sanctuary.',
@@ -67,6 +71,7 @@ const CHURCH_STORIES: ChurchStory[] = [
   {
     id: 'story_youth',
     author: 'Ignite Youth Fellowship',
+    shortName: 'Youth',
     role: 'Youth Ministry',
     avatarText: 'IY',
     caption: 'Fire Friday was electric! Over 200 young adults gathered, passionate for Christ. Don’t miss next week!',
@@ -76,6 +81,7 @@ const CHURCH_STORIES: ChurchStory[] = [
   {
     id: 'story_missions',
     author: 'Global Missions Gateway',
+    shortName: 'Missions',
     role: 'Outreach & Missions',
     avatarText: 'GM',
     caption: 'Food hampers and school supplies distributed to 150 families in Bulawayo rural outreach. Glory to God!',
@@ -280,7 +286,7 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
                 </View>
               </View>
               <Text style={styles.storyLabel} numberOfLines={1}>
-                {story.author.split(' ')[0]}
+                {story.shortName || story.author.split(' ')[0]}
               </Text>
             </Pressable>
           ))}
@@ -666,19 +672,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 6,
+    marginBottom: 4,
   },
   eyebrow: {
     fontFamily: Typography.fontBold,
-    color: Colors.gold,
+    color: '#dfa732',
     fontSize: 10,
-    letterSpacing: 1.4,
+    letterSpacing: 1.3,
   },
   title: {
     fontFamily: Typography.fontBold,
-    color: Colors.textPrimary,
-    fontSize: 22,
-    marginTop: 2,
+    color: '#fafafa',
+    fontSize: 19,
+    marginTop: 1,
   },
   shareBtn: {
     backgroundColor: Colors.gold,
@@ -695,86 +702,90 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   storiesSection: {
-    marginVertical: 10,
+    marginVertical: 4,
   },
   storiesScroll: {
-    gap: 14,
-    paddingVertical: 4,
+    gap: 12,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
   },
   storyItem: {
     alignItems: 'center',
-    width: 64,
+    width: 66,
+    gap: 4,
   },
   yourStoryRing: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     padding: 2,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
   },
   yourStoryAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: Colors.bgCard,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#18181b',
     alignItems: 'center',
     justifyContent: 'center',
   },
   addStoryPlus: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: -1,
+    right: -1,
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: Colors.gold,
+    backgroundColor: '#dfa732',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: Colors.bg,
+    borderColor: '#09090b',
   },
   storyRing: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 2,
-    borderColor: Colors.gold,
+    borderColor: '#dfa732',
     padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   storyAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.forestGreen,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#121216',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(223, 167, 50, 0.25)',
   },
   storyAvatarText: {
     fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 14,
+    color: '#dfa732',
+    fontSize: 13,
   },
   storyLabel: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textSecondary,
+    fontFamily: Typography.fontSemiBold,
+    color: '#a1a1aa',
     fontSize: 11,
-    marginTop: 4,
+    marginTop: 2,
     textAlign: 'center',
   },
   subTabRow: {
     flexDirection: 'row',
-    backgroundColor: Colors.bgCard,
+    backgroundColor: '#121216',
     borderRadius: Radii.lg,
-    padding: 4,
-    marginVertical: 12,
+    padding: 3,
+    marginVertical: 8,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   subTabBtn: {
     flex: 1,
@@ -782,30 +793,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 9,
+    paddingVertical: 8,
     borderRadius: Radii.md,
   },
   subTabBtnActive: {
-    backgroundColor: Colors.forestGreen,
+    backgroundColor: '#1e1e24',
+    borderWidth: 1,
+    borderColor: 'rgba(223, 167, 50, 0.3)',
   },
   subTabBtnText: {
     fontFamily: Typography.fontSemiBold,
-    color: Colors.textMuted,
+    color: '#71717a',
     fontSize: 12,
   },
   subTabBtnTextActive: {
-    color: Colors.gold,
+    color: '#dfa732',
+    fontFamily: Typography.fontBold,
   },
   feedContainer: {
-    gap: 14,
+    gap: 12,
     paddingBottom: 24,
   },
   postCard: {
-    backgroundColor: Colors.bgCard,
+    backgroundColor: '#121216',
     borderRadius: Radii.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
     gap: 10,
   },
   postHeader: {

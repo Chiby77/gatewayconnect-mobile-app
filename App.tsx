@@ -368,8 +368,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 110,
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'ios' ? 96 : 74,
+    gap: 12,
   },
 });

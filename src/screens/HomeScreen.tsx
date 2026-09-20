@@ -36,13 +36,18 @@ export function HomeScreen({
   const isOnline = networkStatus === 'online';
 
   return (
-    <>
-      {/* Hero Card */}
+    <View style={styles.container}>
+      {/* Hero Card - Sleek, Inspiring, Compact */}
       <View style={styles.hero}>
-        <Text style={styles.heroLabel}>YOUR FAITH, AVAILABLE ANYWHERE</Text>
-        <Text style={styles.heroTitle}>Read. Reflect.{'\n'}Connect.</Text>
+        <View style={styles.heroTopRow}>
+          <Text style={styles.heroLabel}>GATEWAY CHURCH INTERNATIONAL</Text>
+          <View style={styles.heroPill}>
+            <Text style={styles.heroPillText}>HARARE • GLOBAL</Text>
+          </View>
+        </View>
+        <Text style={styles.heroTitle}>Read. Reflect. Connect.</Text>
         <Text style={styles.heroBody}>
-          Your church library, Bible, community, and prayer life — always with you.
+          Your church sermons, offline Bible, apostolic devotionals, and prayer life.
         </Text>
       </View>
 
@@ -53,9 +58,9 @@ export function HomeScreen({
             <View style={styles.livePulseDot} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.liveBannerEyebrow}>GATEWAY SANCTUARY LIVE</Text>
+                <Text style={styles.liveBannerEyebrow}>LIVE BROADCAST</Text>
                 <View style={styles.liveBadge}>
-                  <Text style={styles.liveBadgeText}>FB LIVE</Text>
+                  <Text style={styles.liveBadgeText}>ON AIR</Text>
                 </View>
               </View>
               <Text style={styles.liveBannerTitle}>Watch Apostolic Live Broadcast</Text>
@@ -63,7 +68,7 @@ export function HomeScreen({
             </View>
           </View>
           <View style={styles.livePlayIconWrap}>
-            <Ionicons name="play" size={16} color={Colors.textInverse} />
+            <Ionicons name="play" size={14} color={Colors.textInverse} />
           </View>
         </Pressable>
       )}
@@ -71,11 +76,11 @@ export function HomeScreen({
       {/* Offline Banner - simple, friendly, only when offline */}
       {!isOnline && (
         <View style={styles.offlineBanner}>
-          <Ionicons name="cloud-offline" size={20} color={Colors.warning} />
+          <Ionicons name="cloud-offline" size={18} color={Colors.warning} />
           <View style={styles.statusCopy}>
-            <Text style={styles.offlineBannerTitle}>Offline</Text>
+            <Text style={styles.offlineBannerTitle}>Offline Mode Active</Text>
             <Text style={styles.offlineBannerBody}>
-              Your Bible, prayers, and saved content are ready to use.
+              Your 66-book Bible, prayers, and downloaded sermons are ready to use.
             </Text>
           </View>
         </View>
@@ -84,24 +89,32 @@ export function HomeScreen({
       {/* Quick Actions */}
       <View style={styles.quickRow}>
         <Pressable style={styles.quickCard} onPress={onNavigateBible}>
-          <Ionicons name="book" size={24} color={Colors.gold} />
+          <View style={styles.quickIconWrap}>
+            <Ionicons name="book" size={18} color={Colors.gold} />
+          </View>
           <Text style={styles.quickLabel}>Read Bible</Text>
           <Text style={styles.quickSub}>66 Books</Text>
         </Pressable>
         <Pressable style={styles.quickCard} onPress={onNavigateSermons}>
-          <Ionicons name="videocam" size={24} color={Colors.gold} />
+          <View style={styles.quickIconWrap}>
+            <Ionicons name="videocam" size={18} color={Colors.gold} />
+          </View>
           <Text style={styles.quickLabel}>Sermons</Text>
           <Text style={styles.quickSub}>Audio & Video</Text>
         </Pressable>
         <Pressable style={styles.quickCard} onPress={onNavigateStore}>
-          <Ionicons name="heart" size={24} color={Colors.gold} />
+          <View style={styles.quickIconWrap}>
+            <Ionicons name="heart" size={18} color={Colors.gold} />
+          </View>
           <Text style={styles.quickLabel}>Give</Text>
           <Text style={styles.quickSub}>Partner</Text>
         </Pressable>
       </View>
 
       {/* Today at Gateway */}
-      <Text style={styles.sectionTitle}>Today at Gateway</Text>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Today at Gateway</Text>
+      </View>
 
       {devotionals.length > 0 ? devotionals.slice(0, 2).map(d => (
         <View key={d.id} style={styles.card}>
@@ -110,18 +123,19 @@ export function HomeScreen({
           <Text style={styles.cardBody} numberOfLines={3}>{d.body}</Text>
           <Pressable style={styles.btn} onPress={() => setActiveDevotional(d)}>
             <Text style={styles.btnText}>Read Full Devotional</Text>
+            <Ionicons name="arrow-forward" size={12} color={Colors.textInverse} />
           </Pressable>
         </View>
       )) : (
         <View style={styles.card}>
           <Text style={styles.eyebrow}>DEVOTIONAL</Text>
           <Text style={styles.cardTitle}>
-            {isOnline ? 'Loading devotionals...' : 'Devotionals'}
+            {isOnline ? 'Loading devotionals...' : 'Daily Apostolic Devotional'}
           </Text>
           <Text style={styles.cardBody}>
             {isOnline
               ? 'Your church devotionals will appear here shortly.'
-              : 'Connect to the internet to load new devotionals from your church.'}
+              : 'Connect to the internet to load new devotionals from Apostle Joe Daniels.'}
           </Text>
         </View>
       )}
@@ -142,13 +156,13 @@ export function HomeScreen({
               <Text style={styles.cardTitle}>{s.title}</Text>
               {s.body ? <Text style={styles.cardBody} numberOfLines={2}>{s.body}</Text> : null}
               {s.metadata?.series ? (
-                <Text style={[styles.cardBody, { color: Colors.textMuted, marginTop: 4 }]}>
+                <Text style={[styles.cardBody, { color: Colors.textMuted, marginTop: 2 }]}>
                   Series: {String(s.metadata.series)} • {String(s.metadata?.duration || '40m')}
                 </Text>
               ) : null}
               {onNavigateSermons && (
                 <Pressable style={styles.btn} onPress={onNavigateSermons}>
-                  <Ionicons name="play" size={13} color={Colors.textInverse} />
+                  <Ionicons name="play" size={12} color={Colors.textInverse} />
                   <Text style={styles.btnText}>Watch / Listen</Text>
                 </Pressable>
               )}
@@ -169,17 +183,17 @@ export function HomeScreen({
                 </Text>
               </View>
               <Pressable onPress={() => setActiveDevotional(null)} style={{ padding: 4 }}>
-                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+                <Ionicons name="close" size={22} color={Colors.textPrimary} />
               </Pressable>
             </View>
 
-            <ScrollView style={{ maxHeight: 520 }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ maxHeight: 480 }} showsVerticalScrollIndicator={false}>
               <Text style={styles.modalTitle}>{activeDevotional?.title}</Text>
 
               {activeDevotional?.metadata?.scripture ? (
                 <View style={styles.scriptureCard}>
                   <View style={styles.scriptureHeader}>
-                    <Ionicons name="book" size={16} color={Colors.gold} />
+                    <Ionicons name="book" size={14} color={Colors.gold} />
                     <Text style={styles.scriptureHeaderText}>SCRIPTURE FOCUS</Text>
                   </View>
                   <Text style={styles.scriptureRefText}>
@@ -202,7 +216,7 @@ export function HomeScreen({
                       return (
                         <View key={idx} style={styles.prayerCard}>
                           <View style={styles.prayerCardHeader}>
-                            <Ionicons name="hand-right" size={16} color={Colors.success} />
+                            <Ionicons name="hand-right" size={14} color={Colors.success} />
                             <Text style={styles.prayerCardTitle}>TODAY'S PRAYER</Text>
                           </View>
                           <Text style={styles.prayerCardText}>
@@ -216,7 +230,7 @@ export function HomeScreen({
                       return (
                         <View key={idx} style={styles.declarationCard}>
                           <View style={styles.declarationCardHeader}>
-                            <Ionicons name="flash" size={16} color={Colors.gold} />
+                            <Ionicons name="flash" size={14} color={Colors.gold} />
                             <Text style={styles.declarationCardTitle}>PROPHETIC DECLARATION</Text>
                           </View>
                           <Text style={styles.declarationCardText}>
@@ -259,219 +273,243 @@ export function HomeScreen({
             </ScrollView>
 
             <Pressable style={styles.modalDoneBtn} onPress={() => setActiveDevotional(null)}>
-              <Ionicons name="checkmark-done" size={18} color={Colors.textInverse} />
+              <Ionicons name="checkmark-done" size={16} color={Colors.textInverse} />
               <Text style={styles.modalDoneBtnText}>Amen • Blessed by this Word</Text>
             </Pressable>
           </View>
         </View>
       </Modal>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    gap: 12,
+  },
   hero: {
-    backgroundColor: Colors.forestGreen,
-    borderRadius: Radii.xl,
-    padding: 24,
-    marginTop: 4,
-    shadowColor: Colors.forestGreen,
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
+    backgroundColor: '#0c1a14',
+    borderRadius: Radii.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
   heroLabel: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 10,
-    letterSpacing: 1.6,
+    fontSize: 9,
+    letterSpacing: 1.4,
     textTransform: 'uppercase',
-    marginBottom: 8,
+  },
+  heroPill: {
+    backgroundColor: 'rgba(217, 119, 6, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.3)',
+  },
+  heroPillText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 8,
+    letterSpacing: 0.8,
   },
   heroTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 22,
+    lineHeight: 28,
   },
   heroBody: {
     fontFamily: Typography.fontRegular,
     color: 'rgba(255,255,255,0.72)',
-    fontSize: 14,
-    marginTop: 10,
-    lineHeight: 20,
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 17,
   },
   liveBanner: {
-    backgroundColor: '#0c0c10',
-    borderRadius: Radii.lg,
-    padding: 14,
-    marginTop: 10,
-    borderWidth: 1.5,
+    backgroundColor: '#0e0e13',
+    borderRadius: Radii.md,
+    padding: 12,
+    borderWidth: 1,
     borderColor: '#ef4444',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#ef4444',
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
   },
   liveBannerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     flex: 1,
   },
   livePulseDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#ef4444',
   },
   liveBannerEyebrow: {
     fontFamily: Typography.fontBold,
     color: '#ef4444',
-    fontSize: 10,
-    letterSpacing: 1.2,
+    fontSize: 9,
+    letterSpacing: 1.1,
   },
   liveBadge: {
-    backgroundColor: 'rgba(239,68,68,0.18)',
-    paddingHorizontal: 6,
+    backgroundColor: 'rgba(239,68,68,0.2)',
+    paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: Radii.sm,
   },
   liveBadgeText: {
     fontFamily: Typography.fontBold,
     color: '#ef4444',
-    fontSize: 9,
+    fontSize: 8,
   },
   liveBannerTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 14,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 1,
   },
   liveBannerSub: {
     fontFamily: Typography.fontRegular,
     color: Colors.textMuted,
-    fontSize: 11,
+    fontSize: 10,
     marginTop: 1,
   },
   livePlayIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#ef4444',
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 8,
   },
   offlineBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(245,158,11,0.08)',
-    borderRadius: Radii.lg,
-    padding: 14,
+    borderRadius: Radii.md,
+    padding: 11,
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.3)',
-    gap: 12,
+    borderColor: 'rgba(245,158,11,0.25)',
+    gap: 10,
   },
   offlineBannerTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.warning,
-    fontSize: 14,
+    fontSize: 12,
   },
   offlineBannerBody: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-    lineHeight: 16,
+    fontSize: 11,
+    marginTop: 1,
+    lineHeight: 15,
   },
   statusCopy: { flex: 1 },
   quickRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   quickCard: {
     flex: 1,
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radii.lg,
-    padding: 14,
+    backgroundColor: '#121216',
+    borderRadius: Radii.md,
+    paddingVertical: 11,
+    paddingHorizontal: 6,
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  quickIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(217, 119, 6, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
   },
   quickLabel: {
     fontFamily: Typography.fontSemiBold,
     color: Colors.textPrimary,
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
   },
   quickSub: {
     fontFamily: Typography.fontRegular,
     color: Colors.textMuted,
-    fontSize: 10,
+    fontSize: 9,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 2,
   },
   sectionTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 20,
-    marginTop: 6,
+    fontSize: 16,
   },
   viewAllText: {
     fontFamily: Typography.fontSemiBold,
     color: Colors.gold,
-    fontSize: 12,
+    fontSize: 11,
   },
   card: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radii.lg,
-    padding: 18,
+    backgroundColor: '#121216',
+    borderRadius: Radii.md,
+    padding: 14,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   eyebrow: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 10,
-    letterSpacing: 1.4,
+    fontSize: 8,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   cardTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 16,
+    fontSize: 14,
   },
   cardBody: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 4,
   },
   btn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    borderRadius: Radii.sm,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
     alignSelf: 'flex-start',
-    marginTop: 12,
+    marginTop: 10,
   },
   btnText: {
     fontFamily: Typography.fontSemiBold,
     color: Colors.textInverse,
-    fontSize: 12,
+    fontSize: 11,
   },
   modalOverlay: {
     flex: 1,
@@ -479,10 +517,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: Colors.bgCard,
+    backgroundColor: '#121216',
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
-    padding: 22,
+    padding: 18,
     borderWidth: 1,
     borderColor: Colors.border,
     maxHeight: '85%',
@@ -491,142 +529,142 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   modalEyebrow: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 10,
-    letterSpacing: 1.5,
+    fontSize: 9,
+    letterSpacing: 1.3,
   },
   modalDateText: {
     fontFamily: Typography.fontRegular,
     color: Colors.textMuted,
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 1,
   },
   modalTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 19,
-    lineHeight: 25,
-    marginBottom: 12,
+    fontSize: 17,
+    lineHeight: 22,
+    marginBottom: 10,
   },
   scriptureCard: {
-    backgroundColor: 'rgba(245,158,11,0.1)',
+    backgroundColor: 'rgba(217, 119, 6, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.3)',
-    borderRadius: Radii.md,
-    padding: 12,
-    marginBottom: 14,
+    borderColor: 'rgba(217, 119, 6, 0.25)',
+    borderRadius: Radii.sm,
+    padding: 10,
+    marginBottom: 12,
   },
   scriptureHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    gap: 5,
+    marginBottom: 3,
   },
   scriptureHeaderText: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 10,
-    letterSpacing: 1.2,
+    fontSize: 9,
+    letterSpacing: 1.1,
   },
   scriptureRefText: {
     fontFamily: Typography.fontSemiBold,
     color: Colors.textPrimary,
-    fontSize: 14,
+    fontSize: 12,
   },
   devotionalBodyContainer: {
-    gap: 12,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 14,
   },
   modalParagraph: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 19,
   },
   scriptureQuoteCard: {
-    backgroundColor: Colors.bg,
+    backgroundColor: '#0a0a0c',
     borderLeftWidth: 3,
     borderLeftColor: Colors.gold,
-    padding: 10,
+    padding: 8,
     borderRadius: Radii.sm,
   },
   scriptureQuoteText: {
     fontFamily: Typography.fontRegular,
     color: Colors.textPrimary,
-    fontSize: 13,
+    fontSize: 12,
     fontStyle: 'italic',
-    lineHeight: 18,
+    lineHeight: 17,
   },
   prayerCard: {
     backgroundColor: 'rgba(16,185,129,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(16,185,129,0.25)',
-    borderRadius: Radii.md,
-    padding: 14,
+    borderRadius: Radii.sm,
+    padding: 11,
   },
   prayerCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
+    gap: 5,
+    marginBottom: 4,
   },
   prayerCardTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.success,
-    fontSize: 11,
-    letterSpacing: 1.2,
+    fontSize: 10,
+    letterSpacing: 1.1,
   },
   prayerCardText: {
     fontFamily: Typography.fontRegular,
     color: Colors.textPrimary,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 18,
   },
   declarationCard: {
-    backgroundColor: 'rgba(245,158,11,0.08)',
+    backgroundColor: 'rgba(217, 119, 6, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.25)',
-    borderRadius: Radii.md,
-    padding: 14,
+    borderColor: 'rgba(217, 119, 6, 0.25)',
+    borderRadius: Radii.sm,
+    padding: 11,
   },
   declarationCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
+    gap: 5,
+    marginBottom: 4,
   },
   declarationCardTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 11,
-    letterSpacing: 1.2,
+    fontSize: 10,
+    letterSpacing: 1.1,
   },
   declarationCardText: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 18,
   },
   authorBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: Colors.bg,
-    padding: 12,
-    borderRadius: Radii.md,
+    gap: 8,
+    backgroundColor: '#0a0a0c',
+    padding: 10,
+    borderRadius: Radii.sm,
     borderWidth: 1,
     borderColor: Colors.border,
-    marginVertical: 10,
+    marginVertical: 8,
   },
   authorAvatar: {
-    width: 36,
-    height: 36,
+    width: 30,
+    height: 30,
     borderRadius: Radii.full,
-    backgroundColor: Colors.forestGreen,
+    backgroundColor: '#0c1a14',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -635,31 +673,31 @@ const styles = StyleSheet.create({
   authorAvatarText: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 13,
+    fontSize: 11,
   },
   authorName: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 13,
+    fontSize: 12,
   },
   authorTitle: {
     fontFamily: Typography.fontRegular,
     color: Colors.textMuted,
-    fontSize: 11,
+    fontSize: 10,
   },
   modalDoneBtn: {
     backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 13,
+    borderRadius: Radii.sm,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
+    gap: 6,
+    marginTop: 10,
   },
   modalDoneBtnText: {
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
-    fontSize: 14,
+    fontSize: 13,
   },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 
@@ -37,7 +37,7 @@ export function TabBar({ screen, onPress, isLoggedIn }: TabBarProps) {
             {isActive && <View style={styles.indicator} />}
             <Ionicons
               name={(isActive ? tab.iconActive : tab.icon) as any}
-              size={22}
+              size={20}
               color={isActive ? Colors.gold : Colors.textMuted}
             />
             <Text style={[styles.label, isActive && styles.labelActive]}>
@@ -56,20 +56,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Colors.bgCard,
+    backgroundColor: '#09090c',
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingTop: 10,
-    paddingBottom: 28,
+    paddingTop: Platform.OS === 'ios' ? 8 : 6,
+    paddingBottom: Platform.OS === 'ios' ? 22 : 8,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: '#1a1a20',
   },
   tab: {
     alignItems: 'center',
     flex: 1,
-    gap: 3,
+    gap: 2,
     position: 'relative',
-    paddingTop: 6,
+    paddingTop: 4,
   },
   label: {
     fontFamily: Typography.fontSemiBold,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   indicator: {
     position: 'absolute',
     top: 0,
-    width: 28,
+    width: 24,
     height: 2,
     borderRadius: Radii.full,
     backgroundColor: Colors.gold,

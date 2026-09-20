@@ -322,4 +322,88 @@ export function seedInitialData(db: SQLite.SQLiteDatabase): void {
       );
     }
   }
+
+  // 7. Seed Store Products (Joe Daniels Collection & Books in sync with web app)
+  const products = [
+    {
+      id: 'prod_jd_white_heaven',
+      name: 'JD Collection "Make Heaven Crowded" Velvet Print T-Shirt',
+      description: 'White Theme: 100% premium soft cotton t-shirt with signature black suede velvet print "MAKE HEAVEN CROWDED" across the chest. Reverse showcases Apostle Joe Daniels silhouette, QR connection hub, and "SPIRIT. LOVE. GRACE" manifesto.',
+      price: 34.99,
+      currency: 'USD',
+      category: 'Kingdom Apparel',
+      image_url: 'https://gatewayconnect.joedaniels.org/assets/store/jd_white_heaven.jpg',
+    },
+    {
+      id: 'prod_jd_orange_child',
+      name: 'JD Collection "Child of God" Limited Edition T-Shirt',
+      description: 'Kingdom Orange Theme: Vibrant high-voltage orange luxury tee with bold black "CHILD OF GOD" chest print incorporating the covenant cross inside the H.',
+      price: 34.99,
+      currency: 'USD',
+      category: 'Kingdom Apparel',
+      image_url: 'https://gatewayconnect.joedaniels.org/assets/store/jd_orange_child.jpg',
+    },
+    {
+      id: 'prod_jd_green_faith',
+      name: 'JD Collection "Step In Faith" 2 Corinthians 5:7 T-Shirt',
+      description: 'Emerald Green Theme: Rich emerald green unisex apparel with yellow and white "STEP IN FAITH" chest graphic, iconic retro sneaker motif, and "2 CORINTHIANS 5:7".',
+      price: 34.99,
+      currency: 'USD',
+      category: 'Kingdom Apparel',
+      image_url: 'https://gatewayconnect.joedaniels.org/assets/store/jd_green_faith.jpg',
+    },
+    {
+      id: 'prod_jd_pink_finished',
+      name: 'JD Collection "It Is Finished" John 19:28-30 T-Shirt',
+      description: 'Hot Pink Theme: High-energy magenta streetwear release featuring distressed vertical Calvary cross and bold "IT IS FINISHED" lettering with John 19:28-30 reference.',
+      price: 34.99,
+      currency: 'USD',
+      category: 'Kingdom Apparel',
+      image_url: 'https://gatewayconnect.joedaniels.org/assets/store/jd_pink_finished.jpg',
+    },
+    {
+      id: 'prod_jd_cream_butgod',
+      name: 'JD Collection "There Was No Way But God" Baggy T-Shirt',
+      description: 'Vanilla Cream Theme: Off-white luxury streetwear silhouette with dark royal blue brush script "but God" and prophetic subtitle "There was no way But God made a way."',
+      price: 34.99,
+      currency: 'USD',
+      category: 'Kingdom Apparel',
+      image_url: 'https://gatewayconnect.joedaniels.org/assets/store/jd_cream_butgod.jpg',
+    },
+    {
+      id: 'prod_jd_maroon_construction',
+      name: 'JD Collection "Christian Under Construction" T-Shirt',
+      description: 'Deep Maroon Theme: Deep burgundy apparel with caution hazard stripe badge reading "I AM A CHRISTIAN UNDER CONSTRUCTION - GOD\'S NOT DONE WITH ME YET! ⚠️".',
+      price: 34.99,
+      currency: 'USD',
+      category: 'Kingdom Apparel',
+      image_url: 'https://gatewayconnect.joedaniels.org/assets/store/jd_maroon_construction.jpg',
+    },
+    {
+      id: 'prod_book_covenant_wealth',
+      name: 'The Mystery of Covenant Wealth',
+      description: 'Foundational apostolic handbook unlocking financial dominion, divine favor, and kingdom prosperity principles through covenant fidelity.',
+      price: 15.00,
+      currency: 'USD',
+      category: 'Books & Manuals',
+      image_url: 'https://gatewayconnect.joedaniels.org/assets/store/jd_white_heaven.jpg',
+    },
+    {
+      id: 'prod_book_supernatural_dominion',
+      name: 'Supernatural Dominion & Apostolic Authority',
+      description: 'Step into unprecedented spiritual authority. A comprehensive guide to walking in kingdom dominion and territorial impact.',
+      price: 18.00,
+      currency: 'USD',
+      category: 'Books & Manuals',
+      image_url: 'https://gatewayconnect.joedaniels.org/assets/store/jd_green_faith.jpg',
+    },
+  ];
+
+  for (const p of products) {
+    db.runSync(
+      `INSERT OR REPLACE INTO products (id, name, description, price, currency, image_url, category, in_stock, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+      p.id, p.name, p.description, p.price, p.currency, p.image_url, p.category, now
+    );
+  }
 }

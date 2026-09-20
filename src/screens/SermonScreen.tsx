@@ -312,34 +312,36 @@ export function SermonScreen({ }: SermonScreenProps) {
                       style={styles.btnWatch}
                       onPress={() => startPlayback(s)}
                     >
-                      <Ionicons name="play" size={14} color={Colors.textInverse} />
+                      <Ionicons name="play" size={15} color={Colors.textInverse} />
                       <Text style={styles.btnWatchText}>Watch in App</Text>
                     </Pressable>
 
-                    {youtubeId && (
+                    <View style={styles.secondaryActionsRow}>
                       <Pressable
-                        style={styles.btnYouTube}
-                        onPress={() => handleOpenYouTube(youtubeId)}
+                        style={[styles.btnDownload, isDownloaded && styles.btnDownloaded]}
+                        onPress={() => handleToggleDownload(s)}
+                        disabled={isDownloading}
                       >
-                        <Ionicons name="logo-youtube" size={14} color="#ff0000" />
-                        <Text style={styles.btnYouTubeText}>YouTube</Text>
+                        <Ionicons
+                          name={isDownloaded ? 'checkmark-circle' : isDownloading ? 'hourglass' : 'arrow-down-circle-outline'}
+                          size={15}
+                          color={isDownloaded ? Colors.success : Colors.gold}
+                        />
+                        <Text style={[styles.btnDownloadText, isDownloaded && styles.btnDownloadedText]}>
+                          {isDownloaded ? 'Saved Offline' : isDownloading ? 'Saving...' : 'Download'}
+                        </Text>
                       </Pressable>
-                    )}
 
-                    <Pressable
-                      style={[styles.btnDownload, isDownloaded && styles.btnDownloaded]}
-                      onPress={() => handleToggleDownload(s)}
-                      disabled={isDownloading}
-                    >
-                      <Ionicons
-                        name={isDownloaded ? 'checkmark-circle' : isDownloading ? 'hourglass' : 'arrow-down-circle-outline'}
-                        size={15}
-                        color={isDownloaded ? Colors.success : Colors.gold}
-                      />
-                      <Text style={[styles.btnDownloadText, isDownloaded && styles.btnDownloadedText]}>
-                        {isDownloaded ? 'Saved' : isDownloading ? 'Saving...' : 'Download'}
-                      </Text>
-                    </Pressable>
+                      {youtubeId && (
+                        <Pressable
+                          style={styles.btnYouTube}
+                          onPress={() => handleOpenYouTube(youtubeId)}
+                        >
+                          <Ionicons name="logo-youtube" size={15} color="#ff0000" />
+                          <Text style={styles.btnYouTubeText}>YouTube</Text>
+                        </Pressable>
+                      )}
+                    </View>
                   </View>
                 </View>
               </View>
@@ -702,52 +704,43 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   cardActions: {
+    flexDirection: 'column',
+    gap: 8,
+    marginTop: 10,
+  },
+  btnWatch: {
+    width: '100%',
+    backgroundColor: '#dfa732',
+    borderRadius: Radii.md,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  btnWatchText: {
+    fontFamily: Typography.fontBold,
+    color: '#09090b',
+    fontSize: 14,
+  },
+  secondaryActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 8,
+    width: '100%',
   },
-  btnWatch: {
+  btnDownload: {
     flex: 1,
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-  },
-  btnWatchText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textInverse,
-    fontSize: 13,
-  },
-  btnYouTube: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(255,0,0,0.1)',
+    backgroundColor: '#18181b',
     borderWidth: 1,
-    borderColor: 'rgba(255,0,0,0.3)',
+    borderColor: 'rgba(223, 167, 50, 0.4)',
     borderRadius: Radii.md,
+    paddingVertical: 9,
     paddingHorizontal: 10,
-    paddingVertical: 10,
-  },
-  btnYouTubeText: {
-    fontFamily: Typography.fontSemiBold,
-    color: '#ff4444',
-    fontSize: 12,
-  },
-  btnDownload: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: Colors.bg,
-    borderWidth: 1,
-    borderColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
   },
   btnDownloaded: {
     borderColor: Colors.success,
@@ -755,11 +748,29 @@ const styles = StyleSheet.create({
   },
   btnDownloadText: {
     fontFamily: Typography.fontSemiBold,
-    color: Colors.gold,
+    color: '#dfa732',
     fontSize: 12,
   },
   btnDownloadedText: {
     color: Colors.success,
+  },
+  btnYouTube: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,0,0,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,0,0,0.25)',
+    borderRadius: Radii.md,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+  },
+  btnYouTubeText: {
+    fontFamily: Typography.fontSemiBold,
+    color: '#ff4444',
+    fontSize: 12,
   },
   emptyCard: {
     backgroundColor: Colors.bgCard,
