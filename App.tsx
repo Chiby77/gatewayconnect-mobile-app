@@ -54,6 +54,7 @@ export default function App() {
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
   const [authModalPrompt, setAuthModalPrompt] = useState<string | undefined>(undefined);
   const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | null>(null);
+  const [communityFabAction, setCommunityFabAction] = useState<(() => void) | null>(null);
 
   const handleRequestAuth = (prompt?: string) => {
     setAuthModalPrompt(prompt);
@@ -218,7 +219,13 @@ export default function App() {
           />
         )}
         {screen === 'bible' && <BibleScreen profile={profile} />}
-        {screen === 'community' && <CommunityScreen profile={profile} onRequestAuth={handleRequestAuth} />}
+        {screen === 'community' && (
+          <CommunityScreen
+            profile={profile}
+            onRequestAuth={handleRequestAuth}
+            onRegisterFabTrigger={setCommunityFabAction}
+          />
+        )}
         {screen === 'prayer' && <PrayerScreen profile={profile} onRequestAuth={handleRequestAuth} />}
         {screen === 'store' && <StoreScreen profile={profile} />}
         {screen === 'profile' && (
@@ -226,10 +233,25 @@ export default function App() {
             profile={profile}
             onGuest={() => { setScreen('home'); }}
             onNavigateBible={() => setScreen('bible')}
+            onNavigateCommunity={() => setScreen('community')}
             onRequestAuth={handleRequestAuth}
           />
         )}
       </ScrollView>
+
+      {/* WhatsApp Fixed Floating Action Button (FAB) on Community Screen */}
+      {screen === 'community' && communityFabAction && (
+        <Pressable
+          style={styles.floatingWhatsappFab}
+          onPress={communityFabAction}
+          accessibilityLabel="Open WhatsApp Chat Menu"
+        >
+          <Ionicons name="chatbubbles" size={24} color="#ffffff" />
+          <View style={styles.floatingFabBadge}>
+            <Text style={styles.floatingFabBadgeText}>3</Text>
+          </View>
+        </Pressable>
+      )}
 
       <TabBar
         screen={screen}
@@ -379,5 +401,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'ios' ? 96 : 74,
     gap: 12,
+  },
+  floatingWhatsappFab: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 84 : 68,
+    right: 18,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#25D366',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    zIndex: 9999,
+  },
+  floatingFabBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  floatingFabBadgeText: {
+    fontFamily: Typography.fontBold,
+    color: '#ffffff',
+    fontSize: 9,
   },
 });

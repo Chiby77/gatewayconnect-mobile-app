@@ -128,6 +128,7 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
   const [sermons, setSermons] = useState<ContentItem[]>([]);
   const [activeTab, setActiveTab] = useState<'sermons' | 'downloads'>('sermons');
   const [selectedSeries, setSelectedSeries] = useState<string>('All');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [downloads, setDownloads] = useState<MediaDownload[]>([]);
   const [downloadingIds, setDownloadingIds] = useState<Record<string, boolean>>({});
 
@@ -178,6 +179,39 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
     const series = (s.metadata?.series ? String(s.metadata.series) : '').toLowerCase();
     return title.includes(q) || speaker.includes(q) || body.includes(q) || series.includes(q);
   });
+
+  const groupedByTopic = (() => {
+    if (selectedSeries !== 'All') {
+      return [{
+        topic: selectedSeries,
+        items: filteredSermons,
+      }];
+    }
+
+    const topics = [
+      'Apostolic Revelations',
+      'Deliverance & Freedom',
+      'Divine Wisdom',
+      'Family & Marriage',
+      'Apostolic Masterclass',
+      'Mentorship Academy',
+      'Apostolic Word',
+    ];
+    const groups: { topic: string; items: ContentItem[] }[] = [];
+
+    topics.forEach(t => {
+      const items = filteredSermons.filter(s => (s.metadata?.series || 'Apostolic Word') === t);
+      if (items.length > 0) groups.push({ topic: t, items });
+    });
+
+    const categorizedIds = new Set(groups.flatMap(g => g.items.map(i => i.id)));
+    const others = filteredSermons.filter(s => !categorizedIds.has(s.id));
+    if (others.length > 0) {
+      groups.push({ topic: 'More Apostolic Messages', items: others });
+    }
+
+    return groups.length > 0 ? groups : [{ topic: 'All Sermons', items: filteredSermons }];
+  })();
 
   const handleDownloadChoice = async (quality: '720p' | '480p' | 'audio') => {
     if (!qualityModalSermon) return;
@@ -372,6 +406,33 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
         </ScrollView>
       )}
 
+      {/* View Mode Toggle: 3-Col Grid vs Detailed List */}
+      {activeTab === 'sermons' && (
+        <View style={styles.viewModeToggleRow}>
+          <Text style={styles.viewModeCountText}>{filteredSermons.length} sermons available</Text>
+          <View style={styles.viewModeBtnGroup}>
+            <Pressable
+              style={[styles.viewModeBtn, viewMode === 'grid' && styles.viewModeBtnActive]}
+              onPress={() => setViewMode('grid')}
+            >
+              <Ionicons name="grid" size={13} color={viewMode === 'grid' ? Colors.textInverse : Colors.textMuted} />
+              <Text style={[styles.viewModeBtnText, viewMode === 'grid' && styles.viewModeBtnTextActive]}>
+                3-Col Grid
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.viewModeBtn, viewMode === 'list' && styles.viewModeBtnActive]}
+              onPress={() => setViewMode('list')}
+            >
+              <Ionicons name="list" size={13} color={viewMode === 'list' ? Colors.textInverse : Colors.textMuted} />
+              <Text style={[styles.viewModeBtnText, viewMode === 'list' && styles.viewModeBtnTextActive]}>
+                Detailed List
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
       {/* Main Tab Content */}
       {activeTab === 'sermons' ? (
         filteredSermons.length === 0 ? (
@@ -380,7 +441,69 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
             <Text style={styles.emptyTitle}>No sermons found</Text>
             <Text style={styles.emptyBody}>Sermons uploaded from your church will appear here.</Text>
           </View>
+        ) : viewMode === 'grid' ? (
+          /* 3-Column Grid View Grouped by Topics / Series */
+          <View style={styles.topicsContainer}>
+            {groupedByTopic.map(group => (
+              <View key={group.topic} style={styles.topicSection}>
+                <View style={styles.topicHeaderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="sparkles" size={12} color={Colors.gold} />
+                    <Text style={styles.topicHeaderTitle}>{group.topic}</Text>
+                  </View>
+                  <Text style={styles.topicCountText}>{group.items.length} Messages</Text>
+                </View>
+
+                <View style={styles.gridRow}>
+                  {group.items.map(s => {
+                    const thumb = s.metadata?.thumbnail_url as string | undefined;
+                    const isPaid = !!s.metadata?.is_paid;
+                    const duration = (s.metadata?.duration as string | undefined) || '35m';
+
+                    return (
+                      <Pressable
+                        key={s.id}
+                        style={({ pressed }) => [styles.gridCard, pressed && { opacity: 0.82 }]}
+                        onPress={() => startPlayback(s)}
+                      >
+                        <View style={styles.gridThumbBox}>
+                          {thumb ? (
+                            <Image source={{ uri: thumb }} style={styles.gridThumb} resizeMode="cover" />
+                          ) : (
+                            <View style={styles.gridThumbFallback}>
+                              <Ionicons name="videocam" size={20} color={Colors.gold} />
+                            </View>
+                          )}
+                          <View style={styles.gridDurationBadge}>
+                            <Text style={styles.gridDurationText}>{duration}</Text>
+                          </View>
+                          {isPaid ? (
+                            <View style={styles.gridLockBadge}>
+                              <Ionicons
+                                name={profile?.is_premium ? 'shield-checkmark' : 'lock-closed'}
+                                size={9}
+                                color="#000000"
+                              />
+                            </View>
+                          ) : (
+                            <View style={styles.gridPlayIconBadge}>
+                              <Ionicons name="play" size={8} color="#ffffff" />
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.gridCardTitle} numberOfLines={2}>{s.title}</Text>
+                        <Text style={styles.gridSpeakerText} numberOfLines={1}>
+                          {String(s.metadata?.speaker ? String(s.metadata.speaker).replace(/APOSTLE\s+/i, '') : 'Joe Daniels')}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+          </View>
         ) : (
+          /* Detailed List View */
           filteredSermons.map(s => {
             const dl = getDownloadStatus(s.id);
             const isDownloaded = !!dl;
@@ -453,10 +576,10 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
                         <Ionicons
                           name={isDownloaded ? 'checkmark-circle' : isDownloading ? 'hourglass' : 'arrow-down-circle-outline'}
                           size={15}
-                          color={isDownloaded ? Colors.success : Colors.gold}
+                          color={isDownloaded ? Colors.success : Colors.textPrimary}
                         />
                         <Text style={[styles.btnDownloadText, isDownloaded && styles.btnDownloadedText]}>
-                          {isDownloaded ? 'Saved Offline' : isDownloading ? 'Saving...' : 'Download'}
+                          {isDownloading ? 'Saving...' : isDownloaded ? 'Downloaded' : 'Download'}
                         </Text>
                       </Pressable>
 
@@ -851,8 +974,162 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   seriesChipTextActive: {
-    fontFamily: Typography.fontBold,
+    fontFamily: Typography.fontSemiBold,
     color: Colors.gold,
+  },
+
+  // View Mode Toggle Row
+  viewModeToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  viewModeCountText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+  },
+  viewModeBtnGroup: {
+    flexDirection: 'row',
+    backgroundColor: '#10141e',
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: '#1e2433',
+    padding: 2,
+    gap: 2,
+  },
+  viewModeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radii.sm,
+  },
+  viewModeBtnActive: {
+    backgroundColor: Colors.gold,
+  },
+  viewModeBtnText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textMuted,
+    fontSize: 10,
+  },
+  viewModeBtnTextActive: {
+    color: '#000000',
+  },
+
+  // 3-Column Topics & Grid Layout
+  topicsContainer: {
+    gap: 16,
+    paddingBottom: 16,
+  },
+  topicSection: {
+    gap: 8,
+  },
+  topicHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  topicHeaderTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+    letterSpacing: 0.3,
+  },
+  topicCountText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.gold,
+    fontSize: 10,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'flex-start',
+  },
+  gridCard: {
+    width: '31.8%',
+    backgroundColor: '#0e121a',
+    borderRadius: Radii.sm,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#1e2638',
+    paddingBottom: 5,
+    marginBottom: 4,
+  },
+  gridThumbBox: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#161a24',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  gridThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  gridThumbFallback: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#161a24',
+  },
+  gridDurationBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 3.5,
+    paddingVertical: 1,
+    borderRadius: 2,
+  },
+  gridDurationText: {
+    fontFamily: Typography.fontBold,
+    color: '#ffffff',
+    fontSize: 7.5,
+  },
+  gridLockBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: Colors.gold,
+    borderRadius: 2,
+    padding: 2.5,
+  },
+  gridPlayIconBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 8,
+    width: 15,
+    height: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridCardTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 9.5,
+    lineHeight: 12.5,
+    minHeight: 25,
+    marginTop: 4,
+    marginHorizontal: 3,
+  },
+  gridSpeakerText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.gold,
+    fontSize: 8.5,
+    marginTop: 1,
+    marginHorizontal: 3,
   },
   sermonCard: {
     backgroundColor: Colors.bgCard,

@@ -20,7 +20,10 @@ export interface MobileUser {
   followers_count: number;
   following_count: number;
   is_premium: boolean;
-  badge_type: 'gold' | 'silver' | 'none';
+  badge_type: 'gold' | 'blue' | 'developer' | 'silver' | 'none';
+  dob?: string;
+  gender?: 'male' | 'female';
+  is_developer?: boolean;
 }
 
 function cleanPhone(raw: string): string {
@@ -113,7 +116,8 @@ export const DEMO_USERS: MobileUser[] = [
     followers_count: 50,
     following_count: 5,
     is_premium: true,
-    badge_type: 'gold',
+    badge_type: 'developer',
+    is_developer: true,
   },
 ];
 
@@ -126,61 +130,52 @@ export async function getCurrentSession(): Promise<Session | null> {
 export async function signIn(phoneOrIdentifier: string, password?: string): Promise<MobileUser> {
   const query = phoneOrIdentifier.trim();
 
-  // Check Demo accounts
-  const demo = DEMO_USERS.find(u =>
-    (u.phone && arePhoneNumbersEqual(u.phone, query)) ||
-    (u.handle && u.handle.toLowerCase() === query.toLowerCase())
-  );
-  if (demo) {
-    await saveProfile(demo);
-    notifySubscribers(demo);
-    return demo;
-  }
-
-  // Attempt Supabase auth using synthetic email for phone number
-  if (isSupabaseConfigured && password) {
-    const syntheticEmail = query.includes('@')
-      ? query
-      : `${cleanPhone(query) || query.replace(/[^a-zA-Z0-9]/g, '')}@gatewayconnect.joedaniels.org`;
-
+  // 1. Try Supabase Auth first
+  if (isSupabaseConfigured) {
+    const syntheticEmail = `${cleanPhone(query)}@gatewayconnect.joedaniels.org`;
     try {
-      const result = await supabase.auth.signInWithPassword({ email: syntheticEmail, password });
-      if (result.data.user) {
-        const user = mapSupabaseUser(result.data.user, query);
-        await saveProfile(user);
-        notifySubscribers(user);
-        return user;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: query.includes('@') ? query : syntheticEmail,
+        password: password || 'gateway2026',
+      });
+      if (!error && data.user) {
+        const mapped = mapSupabaseUser(data.user, query);
+        await saveProfile(mapped);
+        notifySubscribers(mapped);
+        return mapped;
       }
     } catch {
-      // Fall through to local auth
+      // Fallback
     }
   }
 
-  // Local user account matching
-  const cached = await getCachedProfile();
-  if (cached && (
-    (cached.phone && arePhoneNumbersEqual(cached.phone, query)) ||
-    (cached.handle && cached.handle.toLowerCase() === query.toLowerCase()) ||
-    cached.name.toLowerCase() === query.toLowerCase()
-  )) {
-    notifySubscribers(cached);
-    return cached;
+  // 2. Demo accounts
+  const matched = DEMO_USERS.find(u =>
+    arePhoneNumbersEqual(u.phone || '', query) ||
+    u.handle?.toLowerCase() === query.toLowerCase() ||
+    u.name.toLowerCase() === query.toLowerCase() ||
+    u.email?.toLowerCase() === query.toLowerCase()
+  );
+
+  if (matched) {
+    await saveProfile(matched);
+    notifySubscribers(matched);
+    return matched;
   }
 
-  // Create or sign in user with phone number
-  const handle = query.startsWith('@') ? query : `@${query.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  // 3. Auto-create local user
   const localUser: MobileUser = {
     id: `usr_${Date.now().toString().slice(-8)}`,
-    name: query.startsWith('07') || query.startsWith('+') ? `Believer (${query})` : query,
-    phone: query,
-    handle,
+    name: query.startsWith('+') || /^\d+$/.test(query) ? `Member ${query.slice(-4)}` : query,
+    phone: query.startsWith('+') || /^\d+$/.test(query) ? query : undefined,
+    handle: `@${query.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
     role: 'member',
     location: 'Harare, Zimbabwe',
     bio: 'Walking in supernatural dominion & apostolic grace • Gateway Church Harare',
     website: 'gatewaychurchzim.org',
     member_id: `GCZ-MEM-${Math.floor(1000 + Math.random() * 9000)}`,
     followers_count: 0,
-    following_count: 2,
+    following_count: 3,
     is_premium: false,
     badge_type: 'none',
   };
@@ -190,17 +185,30 @@ export async function signIn(phoneOrIdentifier: string, password?: string): Prom
   return localUser;
 }
 
+export const AUTO_FOLLOW_ACCOUNTS = [
+  { id: 'usr_developer', name: 'mr_juice7', role: 'developer', handle: '@mr_juice7' },
+  { id: 'usr_apostle_joe', name: 'Apostle Joe Daniels', role: 'super_admin', handle: '@apostle_joe_daniels' },
+  { id: 'usr_prophetess_melinda', name: 'Prophetess Melinda Daniels', role: 'super_admin', handle: '@prophetess_melinda' },
+];
+
+export async function autoFollowFounders(userId: string): Promise<string[]> {
+  return AUTO_FOLLOW_ACCOUNTS.map(a => a.id);
+}
+
 export async function signUp(
   name: string,
   phone: string,
   password?: string,
-  location = 'Harare, Zimbabwe'
+  location = 'Harare, Zimbabwe',
+  dob?: string,
+  gender?: 'male' | 'female'
 ): Promise<MobileUser> {
   const cleanP = phone.trim();
   const cleanN = name.trim();
   const handle = `@${cleanN.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
   const memberId = `GCZ-MEM-${Math.floor(1000 + Math.random() * 9000)}`;
 
+  // Every new believer auto-follows Developer, Apostle Joe Daniels, and Prophetess Melinda
   const newUser: MobileUser = {
     id: `usr_${Date.now().toString().slice(-8)}`,
     name: cleanN,
@@ -212,9 +220,11 @@ export async function signUp(
     website: 'gatewaychurchzim.org',
     member_id: memberId,
     followers_count: 0,
-    following_count: 2,
+    following_count: AUTO_FOLLOW_ACCOUNTS.length, // Auto-follows Developer, Apostle, Prophetess
     is_premium: false,
     badge_type: 'none',
+    dob,
+    gender,
   };
 
   if (isSupabaseConfigured && password) {
@@ -231,6 +241,8 @@ export async function signUp(
             role: 'member',
             location,
             member_id: memberId,
+            dob,
+            gender,
           },
         },
       });
@@ -239,6 +251,7 @@ export async function signUp(
     }
   }
 
+  await autoFollowFounders(newUser.id);
   await saveProfile(newUser);
   notifySubscribers(newUser);
   return newUser;

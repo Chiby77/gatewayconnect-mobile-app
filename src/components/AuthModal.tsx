@@ -39,6 +39,8 @@ export function AuthModal({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [location, setLocation] = useState('Harare');
+  const [dob, setDob] = useState('');
+  const [gender, setGender] = useState<'male' | 'female'>('male');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -78,7 +80,7 @@ export function AuthModal({
     try {
       setLoading(true);
       const user = mode === 'signup'
-        ? await signUp(name.trim(), fullPhone, cleanPass, `${location}, Zimbabwe`)
+        ? await signUp(name.trim(), fullPhone, cleanPass, `${location}, Zimbabwe`, dob.trim() || undefined, gender)
         : await signIn(fullPhone, cleanPass);
       setLoading(false);
       onSuccess(user);
@@ -156,7 +158,7 @@ export function AuthModal({
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  placeholder="e.g. Tinodaishe Morgan Chibi"
+                  placeholder="e.g. Decide Mkwanda"
                   placeholderTextColor={Colors.textMuted}
                   autoCapitalize="words"
                   style={styles.input}
@@ -202,20 +204,70 @@ export function AuthModal({
             </View>
 
             {mode === 'signup' && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>City / Campus Location</Text>
-                <View style={styles.cityPillRow}>
-                  {CITIES.map(c => (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Sex / Gender</Text>
+                  <View style={styles.genderRow}>
                     <Pressable
-                      key={c}
-                      style={[styles.cityPill, location === c && styles.cityPillActive]}
-                      onPress={() => setLocation(c)}
+                      style={[styles.genderPill, gender === 'male' && styles.genderPillActive]}
+                      onPress={() => setGender('male')}
                     >
-                      <Text style={[styles.cityPillText, location === c && styles.cityPillTextActive]}>{c}</Text>
+                      <Ionicons
+                        name="male-outline"
+                        size={15}
+                        color={gender === 'male' ? Colors.textInverse : Colors.gold}
+                      />
+                      <Text style={[styles.genderPillText, gender === 'male' && styles.genderPillTextActive]}>
+                        Male (Brother)
+                      </Text>
                     </Pressable>
-                  ))}
+                    <Pressable
+                      style={[styles.genderPill, gender === 'female' && styles.genderPillActive]}
+                      onPress={() => setGender('female')}
+                    >
+                      <Ionicons
+                        name="female-outline"
+                        size={15}
+                        color={gender === 'female' ? Colors.textInverse : Colors.gold}
+                      />
+                      <Text style={[styles.genderPillText, gender === 'female' && styles.genderPillTextActive]}>
+                        Female (Sister)
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Date of Birth</Text>
+                  <View style={styles.dobInputRow}>
+                    <Ionicons name="calendar-outline" size={17} color={Colors.gold} style={{ marginLeft: 12 }} />
+                    <TextInput
+                      value={dob}
+                      onChangeText={setDob}
+                      placeholder="e.g. 1995-08-24 (YYYY-MM-DD)"
+                      placeholderTextColor={Colors.textMuted}
+                      keyboardType="numbers-and-punctuation"
+                      style={[styles.input, { flex: 1, borderWidth: 0, backgroundColor: 'transparent' }]}
+                    />
+                  </View>
+                  <Text style={styles.hintText}>For ministry discipleship, birthday blessings & age fellowship</Text>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>City / Campus Location</Text>
+                  <View style={styles.cityPillRow}>
+                    {CITIES.map(c => (
+                      <Pressable
+                        key={c}
+                        style={[styles.cityPill, location === c && styles.cityPillActive]}
+                        onPress={() => setLocation(c)}
+                      >
+                        <Text style={[styles.cityPillText, location === c && styles.cityPillTextActive]}>{c}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              </>
             )}
 
             <Pressable
@@ -385,6 +437,7 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 12,
+    paddingBottom: 24,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -456,6 +509,44 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 10,
     marginTop: 2,
+  },
+  dobInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181f',
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 2,
+  },
+  genderPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#18181f',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  genderPillActive: {
+    backgroundColor: Colors.gold,
+    borderColor: Colors.gold,
+  },
+  genderPillText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
+  genderPillTextActive: {
+    color: Colors.textInverse,
   },
   cityPillRow: {
     flexDirection: 'row',

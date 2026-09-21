@@ -5,13 +5,27 @@ import { Colors, Typography, Radii } from '../theme/colors';
 import { MobileUser } from '../auth/authService';
 import { saveTestimony, listContent } from '../data/contentRepository';
 import { ContentItem } from '../types/domain';
-import { getGroups, Group, isGroupMember, joinGroup, leaveGroup, getGroupMessages, sendGroupMessage, GroupChatMessage } from '../data/groupRepository';
+import {
+  getGroups,
+  Group,
+  isGroupMember,
+  joinGroup,
+  leaveGroup,
+  getGroupMessages,
+  sendGroupMessage,
+  GroupChatMessage,
+  createGroup,
+  dissolveGroup,
+  deleteGroupMessage,
+  generateGroupInviteLink,
+} from '../data/groupRepository';
 import { getEvents, Event } from '../data/eventRepository';
 import { trackEvent } from '../analytics/analyticsService';
 
 interface CommunityScreenProps {
   profile: MobileUser | null;
   onRequestAuth?: (prompt?: string) => void;
+  onRegisterFabTrigger?: (trigger: () => void) => void;
 }
 
 interface ChurchStory {
@@ -135,7 +149,7 @@ const COMMUNITY_MEMBERS: Record<string, MemberProfilePreview> = {
   },
 };
 
-export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps) {
+export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }: CommunityScreenProps) {
   const [activeSubTab, setActiveSubTab] = useState<'feed' | 'groups' | 'events'>('feed');
   const [testimonies, setTestimonies] = useState<ContentItem[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -180,6 +194,36 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
     ],
   });
 
+  // WhatsApp Features State
+  const [showFabSheet, setShowFabSheet] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [newGroupCategory, setNewGroupCategory] = useState('Atmospheric Worship');
+  const [newGroupIsPaid, setNewGroupIsPaid] = useState(false);
+  const [showAttachmentTray, setShowAttachmentTray] = useState(false);
+  const [showGroupOptionsMenu, setShowGroupOptionsMenu] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({
+    group_ignite_worship: 2,
+    group_pride_of_lions: 1,
+  });
+  const totalUnread = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
+
+  const isDeveloper = Boolean(
+    profile?.is_developer ||
+    profile?.role === 'developer' ||
+    profile?.badge_type === 'developer' ||
+    profile?.handle?.toLowerCase() === '@mr_juice7'
+  );
+
+  const isAdmin = Boolean(
+    isDeveloper ||
+    profile?.role === 'super_admin' ||
+    profile?.role === 'moderator' ||
+    profile?.badge_type === 'gold' ||
+    profile?.badge_type === 'blue'
+  );
+
   useEffect(() => {
     setGroups(getGroups());
     setTestimonies(listContent('post'));
@@ -188,6 +232,12 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
     getGroups().forEach(g => { gMap[g.id] = isGroupMember(g.id, profile?.id ?? ''); });
     setJoinedGroups(gMap);
   }, [profile]);
+
+  useEffect(() => {
+    if (onRegisterFabTrigger) {
+      onRegisterFabTrigger(() => setShowFabSheet(true));
+    }
+  }, [onRegisterFabTrigger]);
 
   // Story auto-advance animation
   useEffect(() => {
@@ -287,21 +337,102 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
       return;
     }
 
+    if (group.is_paid && !profile.is_premium && !isDeveloper) {
+      Alert.alert(
+        'Covenant Pass Required',
+        `"${group.name}" is an exclusive apostolic curriculum. Please enroll or activate your Covenant Partner pass to join.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Unlock Access', onPress: () => Alert.alert('Enrollment', 'Contact administrator or visit Store for registration.') },
+        ]
+      );
+      return;
+    }
+
+    setUnreadCounts(prev => ({ ...prev, [group.id]: 0 }));
     setActiveChatGroup(group);
     setChatMessages(getGroupMessages(group.id));
     setChatInput('');
+    setShowAttachmentTray(false);
+    setShowGroupOptionsMenu(false);
   };
 
-  const handleSendChatMessage = () => {
-    if (!activeChatGroup || !chatInput.trim() || !profile) return;
+  const handleSendChatMessage = (presetAttachment?: GroupChatMessage['attachment']) => {
+    if (!activeChatGroup || (!chatInput.trim() && !presetAttachment) || !profile) return;
+    const roleLabel = isDeveloper ? 'Developer' : profile.role === 'super_admin' ? 'Overseer' : profile.role === 'moderator' ? 'Moderator' : undefined;
+    const textToSend = chatInput.trim() || (presetAttachment ? `[Attachment: ${presetAttachment.name}]` : '');
     const newMsg = sendGroupMessage(
       activeChatGroup.id,
       profile.id,
       profile.name || 'Member',
-      chatInput.trim()
+      textToSend,
+      roleLabel,
+      presetAttachment
     );
     setChatMessages(prev => [...prev, newMsg]);
     setChatInput('');
+    setShowAttachmentTray(false);
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    if (!activeChatGroup) return;
+    Alert.alert('Delete for Everyone', 'Delete this message for everyone in this fellowship?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete for Everyone',
+        style: 'destructive',
+        onPress: () => {
+          deleteGroupMessage(activeChatGroup.id, messageId);
+          setChatMessages(prev => prev.filter(m => m.id !== messageId));
+        },
+      },
+    ]);
+  };
+
+  const handleDissolveGroup = () => {
+    if (!activeChatGroup) return;
+    Alert.alert(
+      'Dissolve Fellowship Group',
+      `Permanently dissolve "${activeChatGroup.name}"? All messages and records will be deleted.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Dissolve Group',
+          style: 'destructive',
+          onPress: () => {
+            dissolveGroup(activeChatGroup.id);
+            setActiveChatGroup(null);
+            setGroups(getGroups());
+            Alert.alert('Group Dissolved', 'Fellowship group has been dissolved.');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCreateGroupSubmit = () => {
+    if (!newGroupName.trim()) {
+      Alert.alert('Name Required', 'Please enter a name for the fellowship group.');
+      return;
+    }
+    const created = createGroup(
+      newGroupName.trim(),
+      newGroupDesc.trim() || 'Gateway Fellowship Group',
+      newGroupCategory.trim() || 'Fellowship',
+      newGroupIsPaid,
+      profile?.id || 'usr_admin'
+    );
+    setGroups(getGroups());
+    setShowCreateGroupModal(false);
+    setNewGroupName('');
+    setNewGroupDesc('');
+    Alert.alert('Fellowship Group Created', `"${created.name}" is now live.`);
+  };
+
+  const handleCopyInviteLink = () => {
+    if (!activeChatGroup) return;
+    const link = generateGroupInviteLink(activeChatGroup.id);
+    Alert.alert('Invite Link Copied', `Share with believers:\n${link}`);
   };
 
   const handleToggleFollow = (memberId: string) => {
@@ -543,43 +674,66 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
         <View style={styles.groupsList}>
           {groups.map(group => {
             const isMember = !!joinedGroups[group.id];
+            const unread = unreadCounts[group.id] || 0;
+            const isLockedPaid = group.is_paid && !profile?.is_premium && !isDeveloper;
+
             return (
               <View key={group.id} style={styles.groupCard}>
                 <View style={styles.groupTopRow}>
-                  <View style={styles.groupIconWrap}>
+                  <View style={[styles.groupIconWrap, isLockedPaid && { borderColor: '#f59e0b' }]}>
                     <Ionicons
-                      name={group.is_paid ? 'school' : 'people'}
+                      name={isLockedPaid ? 'lock-closed' : group.is_paid ? 'school' : 'people'}
                       size={20}
                       color={group.is_paid ? Colors.gold : Colors.textPrimary}
                     />
                   </View>
-                  <View style={{ flex: 1, gap: 2 }}>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={styles.groupName} numberOfLines={1}>{group.name}</Text>
+                      {unread > 0 && (
+                        <View style={styles.groupUnreadBadge}>
+                          <Text style={styles.groupUnreadBadgeText}>{unread}</Text>
+                        </View>
+                      )}
+                    </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={styles.groupName}>{group.name}</Text>
                       {group.is_paid ? (
                         <View style={styles.paidBadge}>
-                          <Ionicons name="star" size={9} color={Colors.gold} />
+                          <Ionicons name="star" size={8} color={Colors.gold} />
                           <Text style={styles.paidBadgeText}>PREMIUM ($150)</Text>
                         </View>
                       ) : (
                         <View style={styles.freeBadge}>
-                          <Text style={styles.freeBadgeText}>FREE</Text>
+                          <Text style={styles.freeBadgeText}>OPEN</Text>
                         </View>
                       )}
+                      <Text style={styles.groupLocation}>• {group.location || 'Harare Central'}</Text>
                     </View>
-                    <Text style={styles.groupLocation}>{group.location || 'Harare Central'}</Text>
                   </View>
                 </View>
 
                 <Text style={styles.groupDesc}>{group.description}</Text>
 
+                {isDeveloper && (
+                  <View style={styles.devGhostIndicator}>
+                    <Ionicons name="eye-off" size={11} color="#818cf8" />
+                    <Text style={styles.devGhostIndicatorText}>Developer God-Mode Oversight Active (Ghost)</Text>
+                  </View>
+                )}
+
                 <View style={styles.groupActionsRow}>
                   <Pressable
-                    style={styles.chatActionBtn}
+                    style={[styles.chatActionBtn, isLockedPaid && styles.chatActionBtnLocked]}
                     onPress={() => openGroupChat(group)}
                   >
-                    <Ionicons name="chatbubbles" size={14} color={Colors.textInverse} />
-                    <Text style={styles.chatActionBtnText}>Open Chat</Text>
+                    <Ionicons
+                      name={isLockedPaid ? 'lock-closed' : 'chatbubbles'}
+                      size={14}
+                      color={isLockedPaid ? '#000000' : Colors.textInverse}
+                    />
+                    <Text style={[styles.chatActionBtnText, isLockedPaid && { color: '#000000' }]}>
+                      {isLockedPaid ? 'Unlock Pass' : 'Open Chat'}
+                    </Text>
                   </Pressable>
 
                   <Pressable
@@ -595,6 +749,18 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
                       {isMember ? 'Joined' : 'Join Group'}
                     </Text>
                   </Pressable>
+
+                  {isAdmin && (
+                    <Pressable
+                      style={styles.inviteLinkBtn}
+                      onPress={() => {
+                        const link = generateGroupInviteLink(group.id);
+                        Alert.alert('Group Invite Link', `Official link for ${group.name}:\n${link}`);
+                      }}
+                    >
+                      <Ionicons name="link-outline" size={14} color={Colors.gold} />
+                    </Pressable>
+                  )}
                 </View>
               </View>
             );
@@ -698,19 +864,64 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
                   <Ionicons name={activeChatGroup?.is_paid ? 'school' : 'people'} size={18} color={Colors.gold} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.chatGroupName} numberOfLines={1}>{activeChatGroup?.name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.chatGroupName} numberOfLines={1}>{activeChatGroup?.name}</Text>
+                    {isDeveloper && (
+                      <View style={styles.ghostPill}>
+                        <Ionicons name="eye-off" size={10} color="#a5b4fc" />
+                        <Text style={styles.ghostPillText}>Ghost Oversight</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.chatGroupSub}>{activeChatGroup?.category} Fellowship • Active</Text>
                 </View>
               </View>
-              <Pressable onPress={() => setActiveChatGroup(null)} style={{ padding: 6 }}>
-                <Ionicons name="close" size={22} color={Colors.textPrimary} />
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Pressable onPress={handleCopyInviteLink} style={{ padding: 6 }}>
+                  <Ionicons name="link-outline" size={18} color={Colors.gold} />
+                </Pressable>
+                <Pressable onPress={() => setShowGroupOptionsMenu(prev => !prev)} style={{ padding: 6 }}>
+                  <Ionicons name="ellipsis-vertical" size={18} color={Colors.textPrimary} />
+                </Pressable>
+                <Pressable onPress={() => setActiveChatGroup(null)} style={{ padding: 6 }}>
+                  <Ionicons name="close" size={22} color={Colors.textPrimary} />
+                </Pressable>
+              </View>
             </View>
+
+            {/* Options Dropdown Menu */}
+            {showGroupOptionsMenu && (
+              <View style={styles.chatOptionsMenu}>
+                <Pressable
+                  style={styles.chatOptionsMenuItem}
+                  onPress={() => {
+                    setShowGroupOptionsMenu(false);
+                    handleCopyInviteLink();
+                  }}
+                >
+                  <Ionicons name="share-social-outline" size={16} color={Colors.textPrimary} />
+                  <Text style={styles.chatOptionsMenuItemText}>Share Fellowship Link</Text>
+                </Pressable>
+                {(isDeveloper || isAdmin) && (
+                  <Pressable
+                    style={[styles.chatOptionsMenuItem, { borderTopWidth: 1, borderTopColor: Colors.border }]}
+                    onPress={() => {
+                      setShowGroupOptionsMenu(false);
+                      handleDissolveGroup();
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                    <Text style={[styles.chatOptionsMenuItemText, { color: '#ef4444' }]}>Dissolve Group (Admin/Dev)</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
 
             {/* Message Stream */}
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.chatMessagesScroll}>
               {chatMessages.map(msg => {
                 const isMe = msg.sender_id === profile?.id;
+                const canDelete = isMe || isAdmin || isDeveloper;
                 return (
                   <View
                     key={msg.id}
@@ -726,19 +937,136 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
                         ) : null}
                       </View>
                     )}
+
+                    {/* Attachment preview if any */}
+                    {msg.attachment && (
+                      <View style={styles.chatAttachmentCard}>
+                        <Ionicons
+                          name={
+                            msg.attachment.type === 'image'
+                              ? 'image'
+                              : msg.attachment.type === 'document'
+                              ? 'document-text'
+                              : msg.attachment.type === 'link'
+                              ? 'link'
+                              : 'book'
+                          }
+                          size={16}
+                          color={Colors.gold}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.chatAttachmentName} numberOfLines={1}>{msg.attachment.name}</Text>
+                          <Text style={styles.chatAttachmentType}>{msg.attachment.type.toUpperCase()}</Text>
+                        </View>
+                      </View>
+                    )}
+
                     <Text style={[styles.chatMsgText, isMe ? styles.chatMsgTextMe : styles.chatMsgTextOther]}>
                       {msg.text}
                     </Text>
-                    <Text style={[styles.chatTimeText, isMe ? styles.chatTimeTextMe : styles.chatTimeTextOther]}>
-                      {msg.created_at}
-                    </Text>
+
+                    <View style={styles.chatMetaRow}>
+                      <Text style={[styles.chatTimeText, isMe ? styles.chatTimeTextMe : styles.chatTimeTextOther]}>
+                        {msg.created_at}
+                      </Text>
+
+                      {/* WhatsApp Read Receipts */}
+                      {isMe && (
+                        <Ionicons
+                          name={
+                            msg.receipt_status === 'read'
+                              ? 'checkmark-done'
+                              : msg.receipt_status === 'delivered'
+                              ? 'checkmark-done'
+                              : 'checkmark'
+                          }
+                          size={14}
+                          color={msg.receipt_status === 'read' ? '#38bdf8' : Colors.textMuted}
+                          style={{ marginLeft: 4 }}
+                        />
+                      )}
+
+                      {/* Moderation / Message Owner Delete */}
+                      {canDelete && (
+                        <Pressable
+                          onPress={() => handleDeleteMessage(msg.id)}
+                          style={{ marginLeft: 6, padding: 2 }}
+                          hitSlop={6}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={12}
+                            color={isMe ? 'rgba(255,255,255,0.7)' : Colors.textMuted}
+                          />
+                        </Pressable>
+                      )}
+                    </View>
                   </View>
                 );
               })}
             </ScrollView>
 
+            {/* WhatsApp Paperclip Attachment Tray */}
+            {showAttachmentTray && (
+              <View style={styles.attachmentTray}>
+                <Pressable
+                  style={styles.attachmentTrayItem}
+                  onPress={() => handleSendChatMessage({ type: 'image', url: 'https://gatewaychurch.org/photos/fellowship.jpg', name: 'Fellowship_Photo.jpg' })}
+                >
+                  <View style={[styles.attachmentTrayIconCircle, { backgroundColor: '#8b5cf6' }]}>
+                    <Ionicons name="image" size={18} color="#ffffff" />
+                  </View>
+                  <Text style={styles.attachmentTrayLabel}>Photo</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.attachmentTrayItem}
+                  onPress={() => handleSendChatMessage({ type: 'document', url: 'https://gatewaychurch.org/docs/dominion_guide.pdf', name: 'Dominion_Study_Guide.pdf' })}
+                >
+                  <View style={[styles.attachmentTrayIconCircle, { backgroundColor: '#3b82f6' }]}>
+                    <Ionicons name="document-text" size={18} color="#ffffff" />
+                  </View>
+                  <Text style={styles.attachmentTrayLabel}>Document</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.attachmentTrayItem}
+                  onPress={() => {
+                    if (activeChatGroup) {
+                      handleSendChatMessage({ type: 'link', url: generateGroupInviteLink(activeChatGroup.id), name: `${activeChatGroup.name} Link` });
+                    }
+                  }}
+                >
+                  <View style={[styles.attachmentTrayIconCircle, { backgroundColor: '#10b981' }]}>
+                    <Ionicons name="link" size={18} color="#ffffff" />
+                  </View>
+                  <Text style={styles.attachmentTrayLabel}>Invite Link</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.attachmentTrayItem}
+                  onPress={() => handleSendChatMessage({ type: 'scripture', name: 'Romans 8:37 • More than conquerors' })}
+                >
+                  <View style={[styles.attachmentTrayIconCircle, { backgroundColor: Colors.gold }]}>
+                    <Ionicons name="book" size={18} color="#ffffff" />
+                  </View>
+                  <Text style={styles.attachmentTrayLabel}>Scripture</Text>
+                </Pressable>
+              </View>
+            )}
+
             {/* Input Bar */}
             <View style={styles.chatInputBar}>
+              <Pressable
+                style={styles.attachBtn}
+                onPress={() => setShowAttachmentTray(prev => !prev)}
+              >
+                <Ionicons
+                  name={showAttachmentTray ? 'close-circle' : 'attach'}
+                  size={22}
+                  color={showAttachmentTray ? Colors.gold : Colors.textMuted}
+                />
+              </Pressable>
               <TextInput
                 value={chatInput}
                 onChangeText={setChatInput}
@@ -748,7 +1076,7 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
               />
               <Pressable
                 style={[styles.chatSendBtn, !chatInput.trim() && { opacity: 0.5 }]}
-                onPress={handleSendChatMessage}
+                onPress={() => handleSendChatMessage()}
                 disabled={!chatInput.trim()}
               >
                 <Ionicons name="send" size={16} color={Colors.textInverse} />
@@ -922,6 +1250,148 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
 
             <Pressable style={styles.shareSubmitBtn} onPress={handleSavePost}>
               <Text style={styles.shareSubmitBtnText}>{postSaved ? 'Posted to Feed!' : 'Post Story'}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* WhatsApp Floating Action Button (FAB) (fallback if not registered at viewport root) */}
+      {!onRegisterFabTrigger && (
+        <Pressable
+          style={styles.whatsappFab}
+          onPress={() => setShowFabSheet(true)}
+        >
+          <Ionicons name="chatbubbles" size={24} color="#ffffff" />
+          {totalUnread > 0 && (
+            <View style={styles.fabBadge}>
+              <Text style={styles.fabBadgeText}>{totalUnread > 99 ? '99+' : totalUnread}</Text>
+            </View>
+          )}
+        </Pressable>
+      )}
+
+      {/* FAB Action Sheet Modal */}
+      <Modal visible={showFabSheet} animationType="slide" transparent onRequestClose={() => setShowFabSheet(false)}>
+        <View style={styles.fabSheetOverlay}>
+          <Pressable style={styles.fabSheetBackdrop} onPress={() => setShowFabSheet(false)} />
+          <View style={styles.fabSheetCard}>
+            <View style={styles.fabSheetHandle} />
+            <Text style={styles.fabSheetTitle}>Start a Conversation</Text>
+
+            <Pressable
+              style={styles.fabSheetItem}
+              onPress={() => {
+                setShowFabSheet(false);
+                setPreviewMember(COMMUNITY_MEMBERS['Apostle Joe Daniels']);
+              }}
+            >
+              <View style={[styles.fabSheetIconCircle, { backgroundColor: '#38bdf8' }]}>
+                <Ionicons name="person-add" size={18} color="#ffffff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fabSheetItemTitle}>New Direct Chat</Text>
+                <Text style={styles.fabSheetItemSub}>Message a leader or fellowship member</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </Pressable>
+
+            <Pressable
+              style={styles.fabSheetItem}
+              onPress={() => {
+                setShowFabSheet(false);
+                if (isAdmin || isDeveloper) {
+                  setShowCreateGroupModal(true);
+                } else {
+                  Alert.alert('Leader Access Required', 'Creating official church fellowship groups is reserved for pastors, ministers, and verified leaders.');
+                }
+              }}
+            >
+              <View style={[styles.fabSheetIconCircle, { backgroundColor: Colors.gold }]}>
+                <Ionicons name="people" size={18} color="#ffffff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fabSheetItemTitle}>New Fellowship Group</Text>
+                <Text style={styles.fabSheetItemSub}>
+                  {isAdmin || isDeveloper ? 'Create open or covenant fellowship group' : 'Pastoral & Verified Leaders only'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </Pressable>
+
+            <Pressable
+              style={styles.fabSheetItem}
+              onPress={() => {
+                setShowFabSheet(false);
+                setActiveSubTab('groups');
+              }}
+            >
+              <View style={[styles.fabSheetIconCircle, { backgroundColor: '#10b981' }]}>
+                <Ionicons name="compass-outline" size={18} color="#ffffff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fabSheetItemTitle}>Browse Fellowships</Text>
+                <Text style={styles.fabSheetItemSub}>Explore active church fellowship channels</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create Fellowship Group Modal */}
+      <Modal visible={showCreateGroupModal} animationType="slide" transparent onRequestClose={() => setShowCreateGroupModal(false)}>
+        <View style={styles.createGroupOverlay}>
+          <View style={styles.createGroupCard}>
+            <View style={styles.createGroupHeader}>
+              <Text style={styles.createGroupTitle}>Create Fellowship Group</Text>
+              <Pressable onPress={() => setShowCreateGroupModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={22} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <TextInput
+              value={newGroupName}
+              onChangeText={setNewGroupName}
+              placeholder="Group Name (e.g. Young Professionals Cell)"
+              placeholderTextColor={Colors.textMuted}
+              style={styles.createGroupInput}
+            />
+
+            <TextInput
+              value={newGroupDesc}
+              onChangeText={setNewGroupDesc}
+              placeholder="Description of group purpose and schedule..."
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              style={[styles.createGroupInput, { minHeight: 70, textAlignVertical: 'top' }]}
+            />
+
+            <Text style={styles.createGroupSectionLabel}>Fellowship Ministry Category</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginVertical: 6 }}>
+              {['Atmospheric Worship', 'Men of Valor', 'Women of Grace', 'Discipleship', 'Youth & Young Adults', 'Kingdom Mentorship'].map(cat => (
+                <Pressable
+                  key={cat}
+                  style={[styles.categoryPill, newGroupCategory === cat && styles.categoryPillActive]}
+                  onPress={() => setNewGroupCategory(cat)}
+                >
+                  <Text style={[styles.categoryPillText, newGroupCategory === cat && styles.categoryPillTextActive]}>{cat}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <Pressable
+              style={styles.paidToggleRow}
+              onPress={() => setNewGroupIsPaid(prev => !prev)}
+            >
+              <Ionicons name={newGroupIsPaid ? 'checkbox' : 'square-outline'} size={20} color={newGroupIsPaid ? Colors.gold : Colors.textMuted} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.paidToggleLabel}>Require Covenant Pass / Paid ($150)</Text>
+                <Text style={styles.paidToggleSub}>Restrict group to approved curriculum students</Text>
+              </View>
+            </Pressable>
+
+            <Pressable style={styles.createGroupSubmitBtn} onPress={handleCreateGroupSubmit}>
+              <Text style={styles.createGroupSubmitText}>Launch Fellowship Group</Text>
             </Pressable>
           </View>
         </View>
@@ -1736,5 +2206,336 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
     fontSize: 12,
+  },
+  // WhatsApp Features & Moderation Styles
+  ghostPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: '#6366f1',
+  },
+  ghostPillText: {
+    fontFamily: Typography.fontBold,
+    color: '#a5b4fc',
+    fontSize: 9,
+  },
+  chatOptionsMenu: {
+    backgroundColor: '#181820',
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  chatOptionsMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  chatOptionsMenuItemText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 12,
+  },
+  chatAttachmentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    padding: 8,
+    borderRadius: Radii.sm,
+    marginBottom: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.gold,
+  },
+  chatAttachmentName: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 11,
+  },
+  chatAttachmentType: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 8,
+    marginTop: 1,
+  },
+  chatMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 3,
+  },
+  attachBtn: {
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  attachmentTray: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: '#14141c',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  attachmentTrayItem: {
+    alignItems: 'center',
+    gap: 5,
+  },
+  attachmentTrayIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachmentTrayLabel: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textSecondary,
+    fontSize: 10,
+  },
+  whatsappFab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#25D366',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    zIndex: 99,
+  },
+  fabBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  fabBadgeText: {
+    fontFamily: Typography.fontBold,
+    color: '#ffffff',
+    fontSize: 9,
+  },
+  fabSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  fabSheetBackdrop: {
+    flex: 1,
+  },
+  fabSheetCard: {
+    backgroundColor: '#16161e',
+    borderTopLeftRadius: Radii.lg,
+    borderTopRightRadius: Radii.lg,
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  fabSheetHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: Colors.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
+  fabSheetTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  fabSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#1c1c26',
+    padding: 12,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  fabSheetIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabSheetItemTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+  },
+  fabSheetItemSub: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  createGroupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  createGroupCard: {
+    backgroundColor: '#16161e',
+    borderRadius: Radii.lg,
+    padding: 18,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  createGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  createGroupTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 16,
+  },
+  createGroupInput: {
+    backgroundColor: '#1c1c26',
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: Colors.textPrimary,
+    fontFamily: Typography.fontRegular,
+    fontSize: 12,
+  },
+  createGroupSectionLabel: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  categoryPill: {
+    backgroundColor: '#1c1c26',
+    borderRadius: Radii.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  categoryPillActive: {
+    backgroundColor: Colors.gold,
+    borderColor: Colors.gold,
+  },
+  categoryPillText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textMuted,
+    fontSize: 10,
+  },
+  categoryPillTextActive: {
+    color: Colors.textInverse,
+    fontFamily: Typography.fontBold,
+  },
+  paidToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#1c1c26',
+    padding: 10,
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginTop: 4,
+  },
+  paidToggleLabel: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 11,
+  },
+  paidToggleSub: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 9,
+    marginTop: 1,
+  },
+  createGroupSubmitBtn: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  createGroupSubmitText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textInverse,
+    fontSize: 13,
+  },
+  groupUnreadBadge: {
+    backgroundColor: '#25D366',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  groupUnreadBadgeText: {
+    fontFamily: Typography.fontBold,
+    color: '#000000',
+    fontSize: 9,
+  },
+  devGhostIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(99, 102, 241, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+    marginVertical: 4,
+  },
+  devGhostIndicatorText: {
+    fontFamily: Typography.fontSemiBold,
+    color: '#a5b4fc',
+    fontSize: 10,
+  },
+  chatActionBtnLocked: {
+    backgroundColor: Colors.gold,
+  },
+  inviteLinkBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a1a22',
   },
 });

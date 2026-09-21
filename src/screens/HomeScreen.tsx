@@ -36,6 +36,63 @@ const INITIAL_DECREES: LiveDecreeMessage[] = [
   { id: '4', user: 'Chiedza (Bulawayo)', text: 'Glory to Jesus! No more stagnation!', time: '10:07' },
 ];
 
+const UPCOMING_SERVICES = [
+  {
+    id: 'sund',
+    title: 'Sunday Glorious Service',
+    time: 'Sun • 09:00 AM CAT',
+    venue: 'Main Sanctuary & Global Live',
+    icon: 'flame',
+    tag: 'Next Service',
+  },
+  {
+    id: 'wed',
+    title: 'Midweek Dominion & Word',
+    time: 'Wed • 05:30 PM CAT',
+    venue: 'Teaching Sanctuary & Stream',
+    icon: 'book',
+    tag: 'Deep Bible',
+  },
+  {
+    id: 'fri',
+    title: 'Fire Friday Prayer Rally',
+    time: 'Fri • 06:00 PM CAT',
+    venue: 'Harare Sanctuary & Virtual',
+    icon: 'flash',
+    tag: 'Atmosphere',
+  },
+];
+
+const TRENDING_DECREES = [
+  {
+    id: 'td1',
+    author: 'Sister Tariro (Harare)',
+    badgeLabel: 'Covenant Believer',
+    avatarText: 'ST',
+    text: 'After Friday prayer altar, God opened a corporate breakthrough for me this week! Divine speed is real!',
+    initialLikes: 48,
+    time: '1h ago',
+  },
+  {
+    id: 'td2',
+    author: 'Brother Farai (UK)',
+    badgeLabel: 'Verified Believer',
+    avatarText: 'BF',
+    text: "Apostle's decree of supernatural speed literally broke 3 years of visa delay in 48 hours. Glory to God!",
+    initialLikes: 65,
+    time: '3h ago',
+  },
+  {
+    id: 'td3',
+    author: 'Deacon Mutasa',
+    badgeLabel: 'Gold Partner',
+    avatarText: 'DM',
+    text: 'The atmosphere in the sanctuary is shifting. Miracles and financial releases are breaking out everywhere!',
+    initialLikes: 39,
+    time: '5h ago',
+  },
+];
+
 export function HomeScreen({
   networkStatus,
   profile,
@@ -48,6 +105,15 @@ export function HomeScreen({
   const [devotionals, setDevotionals] = useState<ContentItem[]>([]);
   const [sermons, setSermons] = useState<ContentItem[]>([]);
   const [activeDevotional, setActiveDevotional] = useState<ContentItem | null>(null);
+
+  // Daily Bread & Trending states
+  const [dailyBreadLiked, setDailyBreadLiked] = useState(false);
+  const [dailyBreadLikes, setDailyBreadLikes] = useState(142);
+  const [decreeLikesState, setDecreeLikesState] = useState<Record<string, { count: number; liked: boolean }>>({
+    td1: { count: 48, liked: false },
+    td2: { count: 65, liked: false },
+    td3: { count: 39, liked: false },
+  });
 
   // Live broadcast interactive states matching Screenshots 1 & 2
   const [isLiveAudioMuted, setIsLiveAudioMuted] = useState(false);
@@ -187,81 +253,6 @@ export function HomeScreen({
             javaScriptEnabled={true}
             domStorageEnabled={true}
           />
-
-          {/* In-Stream Giving Floating Card Overlay (Screenshot 1) */}
-          {showInStreamGiving && (
-            <View style={styles.inStreamGivingCard}>
-              <View style={styles.inStreamHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="gift" size={16} color={Colors.gold} />
-                  <Text style={styles.inStreamTitle}>In-Stream Giving</Text>
-                </View>
-                <Pressable onPress={() => setShowInStreamGiving(false)} style={{ padding: 4 }}>
-                  <Ionicons name="close" size={18} color={Colors.textPrimary} />
-                </Pressable>
-              </View>
-              <Text style={styles.inStreamSub}>Give while stream plays</Text>
-
-              {/* Currency Selector */}
-              <View style={styles.currencyToggleRow}>
-                <Pressable
-                  style={[styles.currencyBtn, givingCurrency === 'USD' && styles.currencyBtnActive]}
-                  onPress={() => setGivingCurrency('USD')}
-                >
-                  <Text style={[styles.currencyBtnText, givingCurrency === 'USD' && styles.currencyBtnTextActive]}>USD ($)</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.currencyBtn, givingCurrency === 'ZiG' && styles.currencyBtnActive]}
-                  onPress={() => setGivingCurrency('ZiG')}
-                >
-                  <Text style={[styles.currencyBtnText, givingCurrency === 'ZiG' && styles.currencyBtnTextActive]}>ZiG</Text>
-                </Pressable>
-              </View>
-
-              {/* Presets */}
-              <View style={styles.presetRow}>
-                {[5, 10, 20, 50].map(amt => (
-                  <Pressable
-                    key={amt}
-                    style={[styles.presetCard, givingAmount === amt && styles.presetCardActive]}
-                    onPress={() => setGivingAmount(amt)}
-                  >
-                    <Text style={[styles.presetText, givingAmount === amt && styles.presetTextActive]}>
-                      {givingCurrency === 'USD' ? `$${amt}` : `ZiG ${amt * 15}`}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {/* Method Row */}
-              <View style={styles.gatewayPillRow}>
-                {(['EcoCash', 'Innbucks', 'Card'] as const).map(gw => (
-                  <Pressable
-                    key={gw}
-                    style={[styles.gwPill, givingGateway === gw && styles.gwPillActive]}
-                    onPress={() => setGivingGateway(gw)}
-                  >
-                    <Text style={[styles.gwPillText, givingGateway === gw && styles.gwPillTextActive]}>{gw}</Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              <TextInput
-                value={givingPhone}
-                onChangeText={setGivingPhone}
-                placeholder="0770000000"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="phone-pad"
-                style={styles.givingInput}
-              />
-
-              <Pressable style={styles.giveDirectBtn} onPress={handleExecuteGiving}>
-                <Text style={styles.giveDirectBtnText}>
-                  Give {givingCurrency === 'USD' ? `USD ${givingAmount}` : `ZiG ${givingAmount * 15}`} Direct
-                </Text>
-              </Pressable>
-            </View>
-          )}
         </View>
 
         {/* Under Video Actions Row (Screenshot 2) */}
@@ -272,11 +263,13 @@ export function HomeScreen({
           </Pressable>
 
           <Pressable
-            style={styles.seedToggleBtn}
+            style={[styles.seedToggleBtn, showInStreamGiving && styles.seedToggleBtnActive]}
             onPress={() => setShowInStreamGiving(!showInStreamGiving)}
           >
-            <Ionicons name="gift" size={14} color={Colors.textInverse} />
-            <Text style={styles.seedToggleBtnText}>Seed</Text>
+            <Ionicons name="gift" size={14} color={showInStreamGiving ? Colors.gold : Colors.textInverse} />
+            <Text style={[styles.seedToggleBtnText, showInStreamGiving && { color: Colors.gold }]}>
+              {showInStreamGiving ? 'Close Seed' : 'Seed'}
+            </Text>
           </Pressable>
 
           <Pressable
@@ -298,6 +291,80 @@ export function HomeScreen({
             ))}
           </View>
         </View>
+
+        {/* In-Stream Giving Drawer (Clean, non-intrusive below video) */}
+        {showInStreamGiving && (
+          <View style={styles.inStreamGivingCard}>
+            <View style={styles.inStreamHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="gift" size={15} color={Colors.gold} />
+                <Text style={styles.inStreamTitle}>Seed Altar Offering</Text>
+              </View>
+              <Pressable onPress={() => setShowInStreamGiving(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={18} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            {/* Currency Selector */}
+            <View style={styles.currencyToggleRow}>
+              <Pressable
+                style={[styles.currencyBtn, givingCurrency === 'USD' && styles.currencyBtnActive]}
+                onPress={() => setGivingCurrency('USD')}
+              >
+                <Text style={[styles.currencyBtnText, givingCurrency === 'USD' && styles.currencyBtnTextActive]}>USD ($)</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.currencyBtn, givingCurrency === 'ZiG' && styles.currencyBtnActive]}
+                onPress={() => setGivingCurrency('ZiG')}
+              >
+                <Text style={[styles.currencyBtnText, givingCurrency === 'ZiG' && styles.currencyBtnTextActive]}>ZiG</Text>
+              </Pressable>
+            </View>
+
+            {/* Presets */}
+            <View style={styles.presetRow}>
+              {[5, 10, 20, 50].map(amt => (
+                <Pressable
+                  key={amt}
+                  style={[styles.presetCard, givingAmount === amt && styles.presetCardActive]}
+                  onPress={() => setGivingAmount(amt)}
+                >
+                  <Text style={[styles.presetText, givingAmount === amt && styles.presetTextActive]}>
+                    {givingCurrency === 'USD' ? `$${amt}` : `ZiG ${amt * 15}`}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Method Row */}
+            <View style={styles.gatewayPillRow}>
+              {(['EcoCash', 'Innbucks', 'Card'] as const).map(gw => (
+                <Pressable
+                  key={gw}
+                  style={[styles.gwPill, givingGateway === gw && styles.gwPillActive]}
+                  onPress={() => setGivingGateway(gw)}
+                >
+                  <Text style={[styles.gwPillText, givingGateway === gw && styles.gwPillTextActive]}>{gw}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <TextInput
+              value={givingPhone}
+              onChangeText={setGivingPhone}
+              placeholder="0770000000 (Phone or account)"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="phone-pad"
+              style={styles.givingInput}
+            />
+
+            <Pressable style={styles.giveDirectBtn} onPress={handleExecuteGiving}>
+              <Text style={styles.giveDirectBtnText}>
+                Plant Seed • {givingCurrency === 'USD' ? `$${givingAmount} USD` : `ZiG ${givingAmount * 15}`}
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Live Decrees & Comments Feed (Screenshot 2) */}
         <View style={styles.commentsContainer}>
@@ -398,62 +465,167 @@ export function HomeScreen({
         </Pressable>
       </View>
 
-      {/* Today at Gateway Devotionals */}
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Today at Gateway</Text>
-      </View>
-
-      {devotionals.length > 0 ? devotionals.slice(0, 2).map(d => (
-        <View key={d.id} style={styles.card}>
-          <Text style={styles.eyebrow}>DEVOTIONAL • {String(d.metadata?.date || 'TODAY')}</Text>
-          <Text style={styles.cardTitle}>{d.title}</Text>
-          <Text style={styles.cardBody} numberOfLines={3}>{d.body}</Text>
-          <Pressable style={styles.btn} onPress={() => setActiveDevotional(d)}>
-            <Text style={styles.btnText}>Read Full Devotional</Text>
-            <Ionicons name="arrow-forward" size={12} color={Colors.textInverse} />
-          </Pressable>
+      {/* 1. Daily Bread Card (Clean, elegant scripture of the day with gold quotation styling) */}
+      <View style={styles.dailyBreadCard}>
+        <View style={styles.dailyBreadHeader}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="sparkles" size={14} color={Colors.gold} />
+            <Text style={styles.dailyBreadEyebrow}>DAILY BREAD • SCRIPTURE OF THE DAY</Text>
+          </View>
+          <View style={styles.dailyBreadGoldTag}>
+            <Text style={styles.dailyBreadGoldTagText}>TODAY</Text>
+          </View>
         </View>
-      )) : (
-        <View style={styles.card}>
-          <Text style={styles.eyebrow}>DEVOTIONAL</Text>
-          <Text style={styles.cardTitle}>Daily Apostolic Devotional</Text>
-          <Text style={styles.cardBody}>
-            Receive daily prophetic revelations and prayers from Apostle Joe Daniels.
+
+        <View style={styles.dailyBreadQuoteRow}>
+          <Text style={styles.dailyBreadQuoteMark}>“</Text>
+          <Text style={styles.dailyBreadScripture}>
+            Arise, shine; for thy light is come, and the glory of the LORD is risen upon thee.
           </Text>
         </View>
-      )}
 
-      {/* Recent Sermons list */}
-      {sermons.length > 0 && (
-        <>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Recent Sermons</Text>
-            {onNavigateSermons && (
-              <Pressable onPress={onNavigateSermons}>
-                <Text style={styles.viewAllText}>View All →</Text>
-              </Pressable>
-            )}
-          </View>
-          {sermons.slice(0, 3).map(s => (
-            <View key={s.id} style={styles.card}>
-              <Text style={styles.eyebrow}>SERMON{s.metadata?.speaker ? ` • ${String(s.metadata.speaker).toUpperCase()}` : ''}</Text>
-              <Text style={styles.cardTitle}>{s.title}</Text>
-              {s.body ? <Text style={styles.cardBody} numberOfLines={2}>{s.body}</Text> : null}
-              {s.metadata?.series ? (
-                <Text style={[styles.cardBody, { color: Colors.textMuted, marginTop: 2 }]}>
-                  Series: {String(s.metadata.series)} • {String(s.metadata?.duration || '40m')}
-                </Text>
-              ) : null}
-              {onNavigateSermons && (
-                <Pressable style={styles.btn} onPress={onNavigateSermons}>
-                  <Ionicons name="play" size={12} color={Colors.textInverse} />
-                  <Text style={styles.btnText}>Watch / Listen</Text>
+        <Text style={styles.dailyBreadRef}>Isaiah 60:1 (KJV)</Text>
+
+        <Text style={styles.dailyBreadExcerpt} numberOfLines={2}>
+          Walk in supernatural dominion today. What looked like a setback was God setting you up for rapid acceleration. You are established in kingdom authority!
+        </Text>
+
+        {/* Compact Pro Action Buttons */}
+        <View style={styles.dailyBreadActionsRow}>
+          <Pressable
+            style={[styles.proAmenBtn, dailyBreadLiked && styles.proAmenBtnActive]}
+            onPress={() => {
+              setDailyBreadLiked(!dailyBreadLiked);
+              setDailyBreadLikes(dailyBreadLiked ? dailyBreadLikes - 1 : dailyBreadLikes + 1);
+              triggerToast(dailyBreadLiked ? 'Decree unpinned' : '🙏 Amen! Daily Bread received in faith!');
+            }}
+          >
+            <Ionicons
+              name={dailyBreadLiked ? 'heart' : 'heart-outline'}
+              size={14}
+              color={dailyBreadLiked ? '#ef4444' : Colors.gold}
+            />
+            <Text style={[styles.proAmenBtnText, dailyBreadLiked && { color: '#ef4444' }]}>
+              Amen ({dailyBreadLikes})
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.proShareBtn}
+            onPress={() => triggerToast('Scripture copied to share!')}
+          >
+            <Ionicons name="share-social-outline" size={14} color={Colors.gold} />
+            <Text style={styles.proShareBtnText}>Share</Text>
+          </Pressable>
+
+          {devotionals.length > 0 ? (
+            <Pressable
+              style={styles.proReadBtn}
+              onPress={() => setActiveDevotional(devotionals[0])}
+            >
+              <Text style={styles.proReadBtnText}>Read Full</Text>
+              <Ionicons name="arrow-forward" size={13} color={Colors.textInverse} />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      {/* 2. Trending Posts / Decrees Feed */}
+      <View style={styles.sectionHeaderRow}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Ionicons name="flame" size={16} color="#f59e0b" />
+          <Text style={styles.sectionTitle}>Trending Decrees & Praise</Text>
+        </View>
+        <Text style={styles.viewAllText}>Community Feed</Text>
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.trendingScroll}>
+        {TRENDING_DECREES.map(item => {
+          const state = decreeLikesState[item.id] || { count: item.initialLikes, liked: false };
+          return (
+            <View key={item.id} style={styles.trendingCard}>
+              <View style={styles.trendingCardTop}>
+                <View style={styles.trendingAvatar}>
+                  <Text style={styles.trendingAvatarText}>{item.avatarText}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.trendingAuthor} numberOfLines={1}>{item.author}</Text>
+                  <Text style={styles.trendingBadge}>{item.badgeLabel} • {item.time}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.trendingText} numberOfLines={3}>{item.text}</Text>
+
+              <View style={styles.trendingBottom}>
+                <Pressable
+                  style={styles.trendingLikeBtn}
+                  onPress={() => {
+                    const nextLiked = !state.liked;
+                    setDecreeLikesState(prev => ({
+                      ...prev,
+                      [item.id]: {
+                        count: nextLiked ? state.count + 1 : state.count - 1,
+                        liked: nextLiked,
+                      },
+                    }));
+                    triggerToast('❤️ Decreed with believer!');
+                  }}
+                >
+                  <Ionicons
+                    name={state.liked ? 'heart' : 'heart-outline'}
+                    size={13}
+                    color={state.liked ? '#ef4444' : Colors.gold}
+                  />
+                  <Text style={styles.trendingLikeText}>{state.count}</Text>
                 </Pressable>
-              )}
+
+                <Pressable
+                  style={styles.trendingAmenBtn}
+                  onPress={() => triggerToast(`Amen sent to ${item.author}!`)}
+                >
+                  <Ionicons name="chatbubble-ellipses-outline" size={12} color={Colors.textMuted} />
+                  <Text style={styles.trendingAmenText}>Amen</Text>
+                </Pressable>
+              </View>
             </View>
-          ))}
-        </>
-      )}
+          );
+        })}
+      </ScrollView>
+
+      {/* 3. Upcoming Kingdom Events */}
+      <View style={styles.sectionHeaderRow}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Ionicons name="calendar" size={16} color={Colors.gold} />
+          <Text style={styles.sectionTitle}>Upcoming Services</Text>
+        </View>
+        <Text style={styles.viewAllText}>Believers Calendar</Text>
+      </View>
+
+      <View style={styles.eventsGrid}>
+        {UPCOMING_SERVICES.map(ev => (
+          <View key={ev.id} style={styles.upcomingEventCard}>
+            <View style={styles.eventIconWrap}>
+              <Ionicons name={ev.icon as any} size={18} color={Colors.gold} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.upcomingEventTitle}>{ev.title}</Text>
+                <View style={styles.eventTagPill}>
+                  <Text style={styles.eventTagPillText}>{ev.tag}</Text>
+                </View>
+              </View>
+              <Text style={styles.upcomingEventTime}>{ev.time}</Text>
+              <Text style={styles.upcomingEventVenue}>{ev.venue}</Text>
+            </View>
+            <Pressable
+              style={styles.proEventRemindBtn}
+              onPress={() => triggerToast(`Reminder active for ${ev.title}`)}
+            >
+              <Ionicons name="notifications-outline" size={14} color={Colors.gold} />
+            </Pressable>
+          </View>
+        ))}
+      </View>
 
       {/* Full Devotional Modal */}
       <Modal visible={!!activeDevotional} animationType="slide" transparent>
@@ -662,17 +834,20 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   inStreamGivingCard: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 240,
-    backgroundColor: 'rgba(18, 18, 22, 0.95)',
+    backgroundColor: '#121622',
     borderRadius: Radii.md,
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
+    padding: 12,
+    marginHorizontal: 10,
+    marginTop: 6,
+    marginBottom: 8,
+    gap: 8,
+  },
+  seedToggleBtnActive: {
+    backgroundColor: 'rgba(223, 167, 50, 0.2)',
     borderWidth: 1,
     borderColor: Colors.gold,
-    padding: 10,
-    zIndex: 10,
-    gap: 6,
   },
   inStreamHeader: {
     flexDirection: 'row',
@@ -1008,28 +1183,278 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 14,
   },
-  cardBody: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 4,
+  // Daily Bread Pro Card Styles
+  dailyBreadCard: {
+    backgroundColor: '#0e121a',
+    borderRadius: Radii.lg,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(223, 167, 50, 0.35)',
+    shadowColor: Colors.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  btn: {
+  dailyBreadHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.sm,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    alignSelf: 'flex-start',
-    marginTop: 10,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  btnText: {
+  dailyBreadEyebrow: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 9,
+    letterSpacing: 1.2,
+  },
+  dailyBreadGoldTag: {
+    backgroundColor: 'rgba(223, 167, 50, 0.2)',
+    borderRadius: Radii.full,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  dailyBreadGoldTagText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 8,
+    letterSpacing: 0.5,
+  },
+  dailyBreadQuoteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  dailyBreadQuoteMark: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 28,
+    lineHeight: 28,
+    marginTop: -4,
+  },
+  dailyBreadScripture: {
+    flex: 1,
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  dailyBreadRef: {
     fontFamily: Typography.fontSemiBold,
-    color: Colors.textInverse,
+    color: Colors.gold,
     fontSize: 11,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  dailyBreadExcerpt: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  dailyBreadActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    flexWrap: 'wrap',
+  },
+  proAmenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(223, 167, 50, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: 'rgba(223, 167, 50, 0.25)',
+  },
+  proAmenBtnActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  proAmenBtnText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.gold,
+    fontSize: 10.5,
+  },
+  proShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#161a24',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  proShareBtnText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.gold,
+    fontSize: 10.5,
+  },
+  proReadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.gold,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radii.full,
+  },
+  proReadBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textInverse,
+    fontSize: 10.5,
+  },
+
+  // Trending Posts & Decrees
+  trendingScroll: {
+    marginHorizontal: -4,
+  },
+  trendingCard: {
+    width: 220,
+    backgroundColor: '#10141e',
+    borderRadius: Radii.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#1e2638',
+    marginHorizontal: 4,
+    justifyContent: 'space-between',
+  },
+  trendingCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  trendingAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(223, 167, 50, 0.18)',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trendingAvatarText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 11,
+  },
+  trendingAuthor: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 12,
+  },
+  trendingBadge: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 9,
+  },
+  trendingText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 15,
+    marginBottom: 10,
+  },
+  trendingBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  trendingLikeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trendingLikeText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 11,
+  },
+  trendingAmenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trendingAmenText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textMuted,
+    fontSize: 10,
+  },
+
+  // Upcoming Events Grid
+  eventsGrid: {
+    gap: 8,
+  },
+  upcomingEventCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#10141e',
+    borderRadius: Radii.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#1e2638',
+  },
+  eventIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(223, 167, 50, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(223, 167, 50, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upcomingEventTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 12,
+  },
+  eventTagPill: {
+    backgroundColor: 'rgba(223, 167, 50, 0.15)',
+    borderRadius: Radii.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  eventTagPillText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 8,
+  },
+  upcomingEventTime: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.gold,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  upcomingEventVenue: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 10,
+    marginTop: 1,
+  },
+  proEventRemindBtn: {
+    padding: 8,
+    backgroundColor: '#161a24',
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   modalOverlay: {
     flex: 1,

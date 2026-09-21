@@ -177,11 +177,69 @@ const INITIAL_MESSAGES: Record<string, Omit<GroupChatMessage, 'id'>[]> = {
   ],
 };
 
-// In-memory / dynamic store for real-time messages sent during session
-const localGroupMessages: Record<string, GroupChatMessage[]> = {};
+export interface GroupChatMessage {
+  id: string;
+  group_id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_role?: string;
+  text: string;
+  created_at: string;
+  receipt_status?: 'sent' | 'delivered' | 'read';
+  attachment?: {
+    type: 'image' | 'document' | 'link' | 'scripture';
+    name: string;
+    uri?: string;
+    url?: string;
+  };
+}
+
+// Custom created groups store
+let customGroups: Group[] = [];
+let localGroupMessages: Record<string, GroupChatMessage[]> = {};
 
 export function getGroups(): Group[] {
-  return OFFICIAL_GROUPS;
+  return [...OFFICIAL_GROUPS, ...customGroups];
+}
+
+export function createGroup(
+  name: string,
+  description: string,
+  category = 'Fellowship',
+  isPaid = false,
+  creatorId = 'usr_admin'
+): Group {
+  const newGroup: Group = {
+    id: `group_${Date.now()}`,
+    name: name.trim(),
+    description: description.trim(),
+    category: category.trim(),
+    is_paid: isPaid,
+    location: 'Gateway Harare & Virtual',
+    updated_at: new Date().toISOString(),
+  };
+  customGroups.push(newGroup);
+  try {
+    joinGroup(newGroup.id, creatorId);
+  } catch {}
+  return newGroup;
+}
+
+export function dissolveGroup(groupId: string): boolean {
+  customGroups = customGroups.filter(g => g.id !== groupId);
+  delete localGroupMessages[groupId];
+  return true;
+}
+
+export function deleteGroupMessage(groupId: string, messageId: string): boolean {
+  if (localGroupMessages[groupId]) {
+    localGroupMessages[groupId] = localGroupMessages[groupId].filter(m => m.id !== messageId);
+  }
+  return true;
+}
+
+export function generateGroupInviteLink(groupId: string): string {
+  return `https://gatewayconnect.joedaniels.org/invite/group/${groupId}`;
 }
 
 export function isGroupMember(groupId: string, userId: string): boolean {
@@ -227,19 +285,30 @@ export function getGroupMessages(groupId: string): GroupChatMessage[] {
   const initial = (INITIAL_MESSAGES[groupId] || []).map((m, idx) => ({
     ...m,
     id: `init_${groupId}_${idx}`,
+    receipt_status: 'read' as const,
   }));
   const dynamic = localGroupMessages[groupId] || [];
   return [...initial, ...dynamic];
 }
 
-export function sendGroupMessage(groupId: string, senderId: string, senderName: string, text: string): GroupChatMessage {
+export function sendGroupMessage(
+  groupId: string,
+  senderId: string,
+  senderName: string,
+  text: string,
+  senderRole?: string,
+  attachment?: GroupChatMessage['attachment']
+): GroupChatMessage {
   const newMsg: GroupChatMessage = {
     id: `msg_${Date.now()}`,
     group_id: groupId,
     sender_id: senderId,
     sender_name: senderName,
+    sender_role: senderRole,
     text: text.trim(),
     created_at: 'Just now',
+    receipt_status: 'read',
+    attachment,
   };
 
   if (!localGroupMessages[groupId]) {

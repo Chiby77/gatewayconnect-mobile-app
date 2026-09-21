@@ -15,16 +15,129 @@ interface ProfileScreenProps {
   profile: MobileUser | null;
   onGuest: () => void;
   onNavigateBible?: () => void;
+  onNavigateCommunity?: (groupId?: string) => void;
   onRequestAuth?: (prompt?: string) => void;
 }
 
+export function getUserBadgeInfo(user: MobileUser | null) {
+  if (!user) {
+    return {
+      type: 'guest',
+      label: 'Guest Believer',
+      icon: 'person-outline',
+      badgeBg: 'rgba(255, 255, 255, 0.08)',
+      borderColor: '#4b5563',
+      iconColor: '#9ca3af',
+      textColor: '#d1d5db',
+    };
+  }
+
+  // Developer: Blue/Purple Shield with code/star icon
+  if (user.is_developer || user.role === 'developer' || user.badge_type === 'developer' || user.handle?.toLowerCase() === '@mr_juice7') {
+    return {
+      type: 'developer',
+      label: 'Developer',
+      icon: 'code-slash',
+      badgeBg: 'rgba(99, 102, 241, 0.22)',
+      borderColor: '#6366f1',
+      iconColor: '#818cf8',
+      textColor: '#a5b4fc',
+    };
+  }
+
+  // Gold Badge / Overseer: Gold shield with checkmark
+  if (user.badge_type === 'gold' || user.role === 'super_admin' || user.handle?.includes('daniels')) {
+    return {
+      type: 'gold',
+      label: user.role === 'super_admin' ? 'Overseer' : 'Gold Partner',
+      icon: 'shield-checkmark',
+      badgeBg: 'rgba(223, 167, 50, 0.2)',
+      borderColor: Colors.gold,
+      iconColor: Colors.gold,
+      textColor: Colors.gold,
+    };
+  }
+
+  // Blue Badge: Verified blue checkmark
+  if (user.badge_type === 'blue' || user.role === 'moderator') {
+    return {
+      type: 'blue',
+      label: 'Verified Believer',
+      icon: 'checkmark-circle',
+      badgeBg: 'rgba(56, 189, 248, 0.2)',
+      borderColor: '#0284c7',
+      iconColor: '#38bdf8',
+      textColor: '#7dd3fc',
+    };
+  }
+
+  // Covenant Member: Sleek emerald green verified badge
+  return {
+    type: 'covenant',
+    label: 'Covenant Believer',
+    icon: 'checkmark-circle',
+    badgeBg: 'rgba(16, 185, 129, 0.18)',
+    borderColor: '#10b981',
+    iconColor: '#10b981',
+    textColor: '#34d399',
+  };
+}
+
 const FELLOWSHIP_PAGES = [
-  { id: '1', name: 'Ignite Worship Team', category: 'Atmospheric Worship', members: '8 Members', icon: 'musical-notes' },
-  { id: '2', name: 'Pride Of Lions', category: "Men's Directorate", members: '8 Members', icon: 'shield-checkmark' },
-  { id: '3', name: 'Passion Ladies', category: "Women's Directorate", members: '4 Members', icon: 'heart' },
-  { id: '4', name: 'Foundation School', category: 'Apostolic Academy', members: '8 Members (Paid)', icon: 'school' },
-  { id: '5', name: 'Gymstars Foundation', category: 'Youth & Juniors', members: '7 Members', icon: 'flame' },
-  { id: '6', name: 'International School of Mentoship', category: 'Prophetic Impartation', members: '12 Members (Paid)', icon: 'ribbon' },
+  {
+    id: '1',
+    groupId: 'group_ignite_worship',
+    name: 'Ignite Worship Team',
+    category: 'Atmospheric Worship',
+    members: '8 Members',
+    icon: 'musical-notes',
+    desc: 'Awakening the consciousness of God through atmospheric praise, vocal training, and sanctuary ministry.',
+  },
+  {
+    id: '2',
+    groupId: 'group_pride_of_lions',
+    name: 'Pride Of Lions',
+    category: "Men's Directorate",
+    members: '8 Members',
+    icon: 'shield-checkmark',
+    desc: "Men's brotherhood groomed in the way of God to be godly husbands, kingdom providers, and spiritual pillars.",
+  },
+  {
+    id: '3',
+    groupId: 'group_passion_ladies',
+    name: 'Passion Ladies',
+    category: "Women's Directorate",
+    members: '4 Members',
+    icon: 'heart',
+    desc: 'Founded by Prophetess Melinda Daniels. Mentoring women in dignity, prayer, marital honor, and spiritual power.',
+  },
+  {
+    id: '4',
+    groupId: 'group_foundation_school',
+    name: 'Foundation School',
+    category: 'Apostolic Academy',
+    members: '8 Members (Paid)',
+    icon: 'school',
+    desc: 'Enroll in this essential curriculum on Christ doctrine, believers authority, and spiritual maturity.',
+  },
+  {
+    id: '5',
+    groupId: 'group_gymstars_foundation',
+    name: 'Gymstars Foundation',
+    category: 'Youth & Juniors',
+    members: '7 Members',
+    icon: 'flame',
+    desc: 'Grooming the next generation to encounter God early, build godly character, and lead boldly.',
+  },
+  {
+    id: '6',
+    groupId: 'group_international_school_of_mentorship',
+    name: 'International School of Mentorship',
+    category: 'Prophetic Impartation',
+    members: '12 Members (Paid)',
+    icon: 'ribbon',
+    desc: 'Intensive leadership mentoring, prophetic calibration, and kingdom dominion with Apostle Joe Daniels.',
+  },
 ];
 
 const REELS_DATA = [
@@ -34,13 +147,17 @@ const REELS_DATA = [
   { id: 'r4', title: 'Mwari Ngaakubvisirewo Nhamo Inokutadzisa', speaker: 'Apostle Joe Daniels', views: '27.5K', duration: '1:00', youtubeId: '6STJ8Hv4RE8' },
 ];
 
-export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: ProfileScreenProps) {
+export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, onRequestAuth }: ProfileScreenProps) {
   const [lowData, setLowData] = useState(SettingsRepository.getLowDataMode());
   const [analytics, setAnalytics] = useState(SettingsRepository.getAnalyticsOptIn());
   const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | null>(null);
 
   // Subtab navigation matching Screenshot 5: Posts | Reels | Downloads | Saved | Pages | Settings
   const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'downloads' | 'saved' | 'pages' | 'settings'>('posts');
+
+  // Selected Fellowship Page Modal
+  const [selectedPage, setSelectedPage] = useState<typeof FELLOWSHIP_PAGES[0] | null>(null);
+  const userBadge = getUserBadgeInfo(profile);
 
   // Stats and offline data
   const [bookmarks, setBookmarks] = useState<string[]>([]);
@@ -209,18 +326,13 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
       ) : (
         /* 2. Member Profile Card - EXACT MATCH to Screenshot 5 */
         <View style={styles.profileHeroCard}>
-          {/* Top Bar: @handle + [✓ Member] + [•••] */}
+          {/* Top Bar: @handle + [Dynamic Status Badge] + [•••] */}
           <View style={styles.topBarRow}>
             <View style={styles.topBarUser}>
-              <Text style={styles.topBarHandle}>
+              <Text style={styles.topBarHandle} numberOfLines={1}>
                 {profile.handle || `@${profile.name.toLowerCase().replace(/\s+/g, '_')}`}
               </Text>
-              <View style={styles.verifiedMemberPill}>
-                <Ionicons name="checkmark" size={11} color="#10b981" />
-                <Text style={styles.verifiedMemberPillText}>
-                  {profile.role === 'super_admin' ? 'Overseer' : 'Member'}
-                </Text>
-              </View>
+              <Ionicons name="checkmark-circle" size={15} color={userBadge.iconColor} />
             </View>
             <Pressable onPress={() => setActiveTab('settings')} style={styles.topBarMenuBtn}>
               <Ionicons name="ellipsis-horizontal" size={20} color={Colors.textPrimary} />
@@ -256,12 +368,13 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
             </View>
           </View>
 
-          {/* Full Name & Member Badge */}
+          {/* Full Name & Authentic Role Badge */}
           <View style={styles.nameBadgeRow}>
             <Text style={styles.fullNameText}>{profile.name}</Text>
-            <View style={styles.roleBadgePill}>
-              <Text style={styles.roleBadgePillText}>
-                {profile.role === 'super_admin' ? 'Overseer' : 'Member'}
+            <View style={[styles.roleBadgePill, { backgroundColor: userBadge.badgeBg, borderColor: userBadge.borderColor, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+              <Ionicons name={userBadge.icon as any} size={11} color={userBadge.iconColor} />
+              <Text style={[styles.roleBadgePillText, { color: userBadge.textColor }]}>
+                {userBadge.label}
               </Text>
             </View>
           </View>
@@ -499,7 +612,11 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
         {activeTab === 'pages' && (
           <View style={{ gap: 10 }}>
             {FELLOWSHIP_PAGES.map(page => (
-              <View key={page.id} style={styles.pageItemCard}>
+              <Pressable
+                key={page.id}
+                style={({ pressed }) => [styles.pageItemCard, pressed && { opacity: 0.8, backgroundColor: '#181e2c' }]}
+                onPress={() => setSelectedPage(page)}
+              >
                 <View style={styles.pageItemIcon}>
                   <Ionicons name={page.icon as any} size={20} color={Colors.gold} />
                 </View>
@@ -507,8 +624,11 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
                   <Text style={styles.pageItemTitle}>{page.name}</Text>
                   <Text style={styles.pageItemCategory}>{page.category} • {page.members}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
-              </View>
+                <View style={styles.pageActionRow}>
+                  <Text style={styles.pageActionText}>Join / Chat</Text>
+                  <Ionicons name="chevron-forward" size={15} color={Colors.gold} />
+                </View>
+              </Pressable>
             ))}
           </View>
         )}
@@ -827,6 +947,66 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
         </View>
       </Modal>
 
+      {/* Fellowship Page Details & Chat Launch Modal */}
+      <Modal visible={!!selectedPage} animationType="slide" transparent onRequestClose={() => setSelectedPage(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={styles.pageItemIcon}>
+                  <Ionicons name={(selectedPage?.icon || 'flag') as any} size={22} color={Colors.gold} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalTitle} numberOfLines={1}>{selectedPage?.name}</Text>
+                  <Text style={{ color: Colors.gold, fontFamily: Typography.fontSemiBold, fontSize: 11 }}>
+                    {selectedPage?.category} • {selectedPage?.members}
+                  </Text>
+                </View>
+              </View>
+              <Pressable onPress={() => setSelectedPage(null)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <Text style={[styles.modalParagraph, { marginVertical: 14 }]}>
+              {selectedPage?.desc}
+            </Text>
+
+            <View style={{ gap: 10, marginTop: 6, width: '100%' }}>
+              <Pressable
+                style={styles.btnPrimary}
+                onPress={() => {
+                  const groupId = selectedPage?.groupId;
+                  setSelectedPage(null);
+                  if (onNavigateCommunity) {
+                    onNavigateCommunity(groupId);
+                  } else {
+                    Alert.alert('Fellowship Community', `Opening group chat for ${selectedPage?.name}`);
+                  }
+                }}
+              >
+                <Ionicons name="chatbubbles" size={16} color={Colors.textInverse} />
+                <Text style={styles.btnPrimaryText}>Open Fellowship Chat</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.btnSecondary}
+                onPress={() => {
+                  Alert.alert(
+                    'Joined Fellowship',
+                    `You are now actively connected to ${selectedPage?.name}. You will receive fellowship notifications and ministerial updates!`
+                  );
+                  setSelectedPage(null);
+                }}
+              >
+                <Ionicons name="checkmark-circle-outline" size={16} color={Colors.gold} />
+                <Text style={styles.btnSecondaryText}>Join Fellowship</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Legal Modal */}
       <LegalModal
         visible={!!legalModalTab}
@@ -946,7 +1126,9 @@ const styles = StyleSheet.create({
   topBarUser: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flex: 1,
+    marginRight: 10,
   },
   topBarHandle: {
     fontFamily: Typography.fontBold,
@@ -1329,6 +1511,52 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
+  pageActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(223, 167, 50, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(223, 167, 50, 0.3)',
+  },
+  pageActionText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.gold,
+    fontSize: 11,
+  },
+  btnPrimary: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  btnPrimaryText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textInverse,
+    fontSize: 13,
+  },
+  btnSecondary: {
+    backgroundColor: '#161a24',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  btnSecondaryText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 13,
+  },
 
   settingsSection: {
     backgroundColor: '#10141e',
@@ -1572,5 +1800,11 @@ const styles = StyleSheet.create({
   },
   passwordToggleEye: {
     padding: 8,
+  },
+  modalParagraph: {
+    fontFamily: Typography.fontRegular,
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 19,
   },
 });
