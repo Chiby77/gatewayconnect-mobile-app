@@ -164,6 +164,22 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
     usr_prophetess_melinda: true,
   });
 
+  // 1-on-1 Direct Chat Modal state
+  const [directChatMember, setDirectChatMember] = useState<MemberProfilePreview | null>(null);
+  const [directChatInput, setDirectChatInput] = useState<string>('');
+  const [directMessages, setDirectMessages] = useState<Record<string, Array<{ id: string; text: string; sender: 'me' | 'them'; time: string }>>>({
+    usr_apostle_joe: [
+      { id: 'dm_1', text: 'Shalom beloved! May grace and supernatural peace multiply in your life and family.', sender: 'them', time: '10:00 AM' },
+      { id: 'dm_2', text: 'Amen Apostle! Thank you for the powerful Sunday teaching on kingdom dominion.', sender: 'me', time: '10:05 AM' },
+    ],
+    usr_prophetess_melinda: [
+      { id: 'dm_3', text: 'Grace and honor! How may our intercessory team stand with you in prayer today?', sender: 'them', time: 'Yesterday' },
+    ],
+    usr_tino: [
+      { id: 'dm_4', text: 'Great seeing you in church! Let us know if you would like to volunteer in media & sound ministry.', sender: 'them', time: '2d ago' },
+    ],
+  });
+
   useEffect(() => {
     setGroups(getGroups());
     setTestimonies(listContent('post'));
@@ -318,6 +334,54 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
         followersCount: 1,
         followingCount: 2,
       });
+    }
+  };
+
+  const handleOpenDirectChat = (member: MemberProfilePreview) => {
+    if (!profile) {
+      if (onRequestAuth) {
+        onRequestAuth(`Sign in to send a private message to ${member.name}.`);
+      } else {
+        Alert.alert('Sign In Required', 'Please sign in to send private direct messages.');
+      }
+      return;
+    }
+    setPreviewMember(null);
+    setDirectChatMember(member);
+    setDirectChatInput('');
+  };
+
+  const handleSendDirectMessage = () => {
+    if (!directChatMember || !directChatInput.trim() || !profile) return;
+    const text = directChatInput.trim();
+    const newMsg = {
+      id: `dm_${Date.now()}`,
+      text,
+      sender: 'me' as const,
+      time: 'Just now',
+    };
+    setDirectMessages(prev => ({
+      ...prev,
+      [directChatMember.id]: [...(prev[directChatMember.id] || []), newMsg],
+    }));
+    setDirectChatInput('');
+
+    // Simulated reply after short interval
+    if (!directMessages[directChatMember.id] || directMessages[directChatMember.id].length <= 2) {
+      setTimeout(() => {
+        setDirectMessages(prev => ({
+          ...prev,
+          [directChatMember.id]: [
+            ...(prev[directChatMember.id] || []),
+            {
+              id: `dm_reply_${Date.now()}`,
+              text: `Blessings! Thank you for reaching out to ${directChatMember.name}. We have received your note in faith.`,
+              sender: 'them' as const,
+              time: 'Just now',
+            },
+          ],
+        }));
+      }, 1200);
     }
   };
 
@@ -734,15 +798,99 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
                 <Ionicons
                   name={previewMember && followedMembers[previewMember.id] ? 'checkmark' : 'person-add'}
                   size={15}
-                  color={Colors.textInverse}
+                  color={previewMember && followedMembers[previewMember.id] ? Colors.gold : Colors.textInverse}
                 />
-                <Text style={styles.modalFollowBtnText}>
+                <Text style={[styles.modalFollowBtnText, previewMember && followedMembers[previewMember.id] && { color: Colors.gold }]}>
                   {previewMember && followedMembers[previewMember.id] ? 'Following' : 'Follow'}
                 </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.modalMessageBtn}
+                onPress={() => {
+                  if (previewMember) {
+                    handleOpenDirectChat(previewMember);
+                  }
+                }}
+              >
+                <Ionicons name="chatbubble-ellipses" size={15} color={Colors.gold} />
+                <Text style={styles.modalMessageBtnText}>Message</Text>
               </Pressable>
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* 1-on-1 Private Direct Chat Modal */}
+      <Modal visible={!!directChatMember} animationType="slide" transparent onRequestClose={() => setDirectChatMember(null)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.chatOverlay}
+        >
+          <View style={styles.chatSheet}>
+            {/* Direct Chat Header */}
+            <View style={styles.chatHeader}>
+              <View style={styles.chatHeaderLeft}>
+                <View style={[styles.chatAvatar, styles.directChatAvatar]}>
+                  <Text style={styles.directChatAvatarText}>
+                    {directChatMember?.avatarText || 'M'}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.chatGroupName} numberOfLines={1}>{directChatMember?.name}</Text>
+                  <Text style={styles.chatGroupSub}>{directChatMember?.role || directChatMember?.handle} • Private Chat</Text>
+                </View>
+              </View>
+              <Pressable onPress={() => setDirectChatMember(null)} style={{ padding: 6 }}>
+                <Ionicons name="close" size={22} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            {/* Direct Messages Stream */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.chatMessagesScroll}>
+              <View style={styles.directChatEncryptedBanner}>
+                <Ionicons name="lock-closed" size={12} color={Colors.gold} />
+                <Text style={styles.directChatEncryptedText}>
+                  Private 1-on-1 conversation with {directChatMember?.name}
+                </Text>
+              </View>
+              {(directChatMember ? (directMessages[directChatMember.id] || []) : []).map(msg => {
+                const isMe = msg.sender === 'me';
+                return (
+                  <View
+                    key={msg.id}
+                    style={[styles.chatBubble, isMe ? styles.chatBubbleMe : styles.chatBubbleOther]}
+                  >
+                    <Text style={[styles.chatMsgText, isMe ? styles.chatMsgTextMe : styles.chatMsgTextOther]}>
+                      {msg.text}
+                    </Text>
+                    <Text style={[styles.chatTimeText, isMe ? styles.chatTimeTextMe : styles.chatTimeTextOther]}>
+                      {msg.time}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            {/* Input Bar */}
+            <View style={styles.chatInputBar}>
+              <TextInput
+                value={directChatInput}
+                onChangeText={setDirectChatInput}
+                placeholder={`Message ${directChatMember?.name ? directChatMember.name.split(' ')[0] : 'member'}...`}
+                placeholderTextColor={Colors.textMuted}
+                style={styles.chatTextInput}
+              />
+              <Pressable
+                style={[styles.chatSendBtn, !directChatInput.trim() && { opacity: 0.5 }]}
+                onPress={handleSendDirectMessage}
+                disabled={!directChatInput.trim()}
+              >
+                <Ionicons name="send" size={16} color={Colors.textInverse} />
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Post Testimony Modal */}
@@ -1475,9 +1623,12 @@ const styles = StyleSheet.create({
   },
   profileModalActions: {
     width: '100%',
-    marginTop: 10,
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
   },
   modalFollowBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1495,6 +1646,50 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
     fontSize: 12,
+  },
+  modalMessageBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#1a1a22',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingVertical: 10,
+  },
+  modalMessageBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 12,
+  },
+  directChatAvatar: {
+    backgroundColor: '#1a1a22',
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
+  },
+  directChatAvatarText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 13,
+  },
+  directChatEncryptedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(223,167,50,0.08)',
+    borderRadius: Radii.sm,
+    marginBottom: 12,
+  },
+  directChatEncryptedText: {
+    fontFamily: Typography.fontRegular,
+    fontSize: 11,
+    color: Colors.textMuted,
+    textAlign: 'center',
   },
   shareModalOverlay: {
     flex: 1,

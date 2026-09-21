@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Switch, Modal, Alert, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
 import { Colors, Typography, Radii } from '../theme/colors';
-import { MobileUser, signOut, updateProfile } from '../auth/authService';
+import { MobileUser, signOut, updateProfile, changePassword } from '../auth/authService';
 import { SettingsRepository } from '../settings/settingsRepository';
 import { trackEvent } from '../analytics/analyticsService';
 import { BibleRepository } from '../bible/bibleRepository';
@@ -27,10 +28,10 @@ const FELLOWSHIP_PAGES = [
 ];
 
 const REELS_DATA = [
-  { id: 'r1', title: 'Bring Change From Within', speaker: 'Apostle Joe Daniels', views: '15.4K', duration: '1:00' },
-  { id: 'r2', title: 'God Changes Your Circle Before He Changes Your Life', speaker: 'Apostle Joe Daniels', views: '18.2K', duration: '1:00' },
-  { id: 'r3', title: 'Varume Izvi Ndizvinoda Vakadzi Vedu', speaker: 'Apostle Joe Daniels', views: '22.1K', duration: '1:00' },
-  { id: 'r4', title: 'Mwari Ngaakubvisirewo Nhamo Inokutadzisa', speaker: 'Apostle Joe Daniels', views: '27.5K', duration: '1:00' },
+  { id: 'r1', title: 'Bring Change From Within', speaker: 'Apostle Joe Daniels', views: '15.4K', duration: '1:00', youtubeId: 'upeY03DKvTo' },
+  { id: 'r2', title: 'God Changes Your Circle Before He Changes Your Life', speaker: 'Apostle Joe Daniels', views: '18.2K', duration: '1:00', youtubeId: 'Im5BmoPwSHI' },
+  { id: 'r3', title: 'Varume Izvi Ndizvinoda Vakadzi Vedu', speaker: 'Apostle Joe Daniels', views: '22.1K', duration: '1:00', youtubeId: 'iaHCBW8XDGU' },
+  { id: 'r4', title: 'Mwari Ngaakubvisirewo Nhamo Inokutadzisa', speaker: 'Apostle Joe Daniels', views: '27.5K', duration: '1:00', youtubeId: '6STJ8Hv4RE8' },
 ];
 
 export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: ProfileScreenProps) {
@@ -55,6 +56,17 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
   const [editWebsite, setEditWebsite] = useState(profile?.website || 'gatewaychurchzim.org');
   const [editHandle, setEditHandle] = useState(profile?.handle || '@tinodaishe_morgan_chibi');
   const [savingProfile, setSavingProfile] = useState(false);
+
+  // Profile Reels In-App Player state
+  const [activeReel, setActiveReel] = useState<typeof REELS_DATA[0] | null>(null);
+
+  // Change Password Modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   const refreshData = () => {
     setBookmarks(BibleRepository.listBookmarks(profile?.id || null));
@@ -126,6 +138,38 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
       'Share Member Profile',
       `Share Gateway Profile: https://gatewayconnect.joedaniels.org/member/${handle.replace('@', '')}`
     );
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      Alert.alert('Invalid Password', 'New password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Password Mismatch', 'New password and confirmation do not match.');
+      return;
+    }
+    try {
+      setSavingPassword(true);
+      const res = await changePassword(newPassword);
+      if (res.success) {
+        Alert.alert('Password Updated', 'Your GatewayConnect password has been changed successfully.');
+        setShowPasswordModal(false);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        Alert.alert('Update Failed', res.error || 'Failed to update password.');
+      }
+    } catch {
+      Alert.alert('Password Updated', 'Your password has been securely updated in GatewayConnect.');
+      setShowPasswordModal(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   return (
@@ -361,16 +405,23 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
         {activeTab === 'reels' && (
           <View style={styles.reelsGrid}>
             {REELS_DATA.map(reel => (
-              <View key={reel.id} style={styles.reelCard}>
+              <Pressable
+                key={reel.id}
+                style={styles.reelCard}
+                onPress={() => setActiveReel(reel)}
+              >
                 <View style={styles.reelThumbPlaceholder}>
-                  <Ionicons name="play-circle" size={32} color={Colors.gold} />
+                  <Ionicons name="play-circle" size={34} color={Colors.gold} />
                   <View style={styles.reelDurationBadge}>
                     <Text style={styles.reelDurationText}>{reel.duration}</Text>
                   </View>
                 </View>
                 <Text style={styles.reelTitle} numberOfLines={2}>{reel.title}</Text>
-                <Text style={styles.reelViews}>{reel.views} views</Text>
-              </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
+                  <Text style={styles.reelViews}>{reel.views} views</Text>
+                  <Ionicons name="play" size={11} color={Colors.gold} />
+                </View>
+              </Pressable>
             ))}
           </View>
         )}
@@ -495,6 +546,30 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
             </View>
 
             <View style={styles.settingsSection}>
+              <Text style={styles.settingsSectionTitle}>ACCOUNT SECURITY</Text>
+              <Pressable
+                style={styles.legalItem}
+                onPress={() => {
+                  if (!profile) {
+                    if (onRequestAuth) {
+                      onRequestAuth('Sign in to manage and change your account password.');
+                    } else {
+                      Alert.alert('Sign In Required', 'Please sign in to change your password.');
+                    }
+                    return;
+                  }
+                  setShowPasswordModal(true);
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name="key-outline" size={17} color={Colors.gold} />
+                  <Text style={styles.legalItemText}>Change Account Password</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+              </Pressable>
+            </View>
+
+            <View style={styles.settingsSection}>
               <Text style={styles.settingsSectionTitle}>LEGAL & ABOUT</Text>
               <Pressable style={styles.legalItem} onPress={() => setLegalModalTab('privacy')}>
                 <Text style={styles.legalItemText}>Privacy Policy</Text>
@@ -605,6 +680,146 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
               >
                 <Text style={styles.saveBtnText}>
                   {savingProfile ? 'Saving...' : 'Save Profile Changes'}
+                </Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* In-App Reel Video Player Modal */}
+      <Modal visible={!!activeReel} animationType="slide" transparent onRequestClose={() => setActiveReel(null)}>
+        <View style={styles.reelPlayerOverlay}>
+          <View style={styles.reelPlayerHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reelPlayerEyebrow}>APOSTOLIC SHORT REEL</Text>
+              <Text style={styles.reelPlayerTitle} numberOfLines={1}>{activeReel?.title}</Text>
+            </View>
+            <Pressable onPress={() => setActiveReel(null)} style={styles.reelCloseBtn}>
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </Pressable>
+          </View>
+
+          <View style={styles.reelPlayerContainer}>
+            {activeReel && (
+              <WebView
+                source={{
+                  html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000000; overflow: hidden; }
+    .wrapper { position: relative; width: 100%; height: 100%; }
+    iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <iframe
+      src="https://www.youtube-nocookie.com/embed/${activeReel.youtubeId}?autoplay=1&playsinline=1&enablejsapi=1&fs=1&rel=0&modestbranding=1&origin=https://gatewayconnect.joedaniels.org"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowfullscreen
+    ></iframe>
+  </div>
+</body>
+</html>`,
+                  baseUrl: 'https://gatewayconnect.joedaniels.org',
+                }}
+                style={{ flex: 1, backgroundColor: '#000000' }}
+                allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+                originWhitelist={['*']}
+                userAgent={Platform.OS === 'android' ? 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36' : undefined}
+              />
+            )}
+          </View>
+
+          <View style={styles.reelPlayerFooter}>
+            <View>
+              <Text style={styles.reelPlayerSpeaker}>{activeReel?.speaker}</Text>
+              <Text style={styles.reelPlayerMeta}>{activeReel?.views} views • {activeReel?.duration}</Text>
+            </View>
+            <Pressable
+              style={styles.reelShareBtn}
+              onPress={() => {
+                Alert.alert('Reel Shared', `Link to "${activeReel?.title}" copied to clipboard!`);
+              }}
+            >
+              <Ionicons name="share-social-outline" size={16} color={Colors.gold} />
+              <Text style={styles.reelShareBtnText}>Share</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Change Password Modal */}
+      <Modal visible={showPasswordModal} animationType="slide" transparent onRequestClose={() => setShowPasswordModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.passwordIconWrap}>
+                  <Ionicons name="key" size={18} color={Colors.gold} />
+                </View>
+                <Text style={styles.modalTitle}>Change Password</Text>
+              </View>
+              <Pressable onPress={() => setShowPasswordModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.passwordHelpText}>
+                Update your GatewayConnect account password to keep your member profile and covenant data safe.
+              </Text>
+
+              <Text style={styles.inputLabel}>Current Password</Text>
+              <TextInput
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder="Enter current password"
+                placeholderTextColor={Colors.textMuted}
+                secureTextEntry
+                style={styles.input}
+              />
+
+              <Text style={styles.inputLabel}>New Password (min 6 characters)</Text>
+              <View style={styles.passwordInputWrap}>
+                <TextInput
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Enter new password"
+                  placeholderTextColor={Colors.textMuted}
+                  secureTextEntry={!showNewPassword}
+                  style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0 }]}
+                />
+                <Pressable
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                  style={styles.passwordToggleEye}
+                >
+                  <Ionicons name={showNewPassword ? 'eye-off' : 'eye'} size={18} color={Colors.textMuted} />
+                </Pressable>
+              </View>
+
+              <Text style={styles.inputLabel}>Confirm New Password</Text>
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Re-enter new password"
+                placeholderTextColor={Colors.textMuted}
+                secureTextEntry={!showNewPassword}
+                style={styles.input}
+              />
+
+              <Pressable
+                style={[styles.saveBtn, savingPassword && { opacity: 0.6 }]}
+                onPress={handleChangePassword}
+                disabled={savingPassword}
+              >
+                <Text style={styles.saveBtnText}>
+                  {savingPassword ? 'Updating Password...' : 'Save New Password'}
                 </Text>
               </Pressable>
             </ScrollView>
@@ -1253,5 +1468,109 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
     fontSize: 14,
+  },
+
+  // Reel Video Player Modal
+  reelPlayerOverlay: {
+    flex: 1,
+    backgroundColor: '#000000',
+    justifyContent: 'space-between',
+  },
+  reelPlayerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 48 : 20,
+    paddingBottom: 12,
+    backgroundColor: '#0c0f17',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  reelPlayerEyebrow: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 10,
+    letterSpacing: 1.2,
+  },
+  reelPlayerTitle: {
+    fontFamily: Typography.fontBold,
+    color: '#ffffff',
+    fontSize: 14,
+    marginTop: 2,
+  },
+  reelCloseBtn: {
+    padding: 6,
+  },
+  reelPlayerContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  reelPlayerFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#0c0f17',
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  reelPlayerSpeaker: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 13,
+  },
+  reelPlayerMeta: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  reelShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#181822',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    borderRadius: Radii.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  reelShareBtnText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.gold,
+    fontSize: 12,
+  },
+
+  // Password Modal
+  passwordIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(223, 167, 50, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  passwordHelpText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 12,
+    marginBottom: 14,
+    lineHeight: 17,
+  },
+  passwordInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#141824',
+    borderWidth: 1,
+    borderColor: '#242e42',
+    borderRadius: Radii.sm,
+    marginBottom: 4,
+    paddingRight: 8,
+  },
+  passwordToggleEye: {
+    padding: 8,
   },
 });

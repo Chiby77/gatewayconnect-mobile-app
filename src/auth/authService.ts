@@ -253,6 +253,18 @@ export async function updateProfile(updates: Partial<MobileUser>): Promise<Mobil
   return updated;
 }
 
+export async function changePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to update password' };
+  }
+}
+
 export async function signOut(): Promise<void> {
   try {
     const session = await getCurrentSession();

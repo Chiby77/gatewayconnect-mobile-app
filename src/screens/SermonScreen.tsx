@@ -150,6 +150,9 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
   const [activePlayingSermon, setActivePlayingSermon] = useState<ContentItem | null>(null);
   const [playerQuality, setPlayerQuality] = useState<string>('720p HD');
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
   const loadData = () => {
     const list = listContent('sermon');
     setSermons(list);
@@ -165,8 +168,15 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
   ))] as string[];
 
   const filteredSermons = sermons.filter(s => {
-    if (selectedSeries === 'All') return true;
-    return s.metadata?.series === selectedSeries;
+    const matchesSeries = selectedSeries === 'All' || s.metadata?.series === selectedSeries;
+    if (!matchesSeries) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const title = s.title.toLowerCase();
+    const speaker = (s.metadata?.speaker ? String(s.metadata.speaker) : '').toLowerCase();
+    const body = (s.body || '').toLowerCase();
+    const series = (s.metadata?.series ? String(s.metadata.series) : '').toLowerCase();
+    return title.includes(q) || speaker.includes(q) || body.includes(q) || series.includes(q);
   });
 
   const handleDownloadChoice = async (quality: '720p' | '480p' | 'audio') => {
@@ -323,6 +333,27 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
           </Pressable>
         </View>
       </View>
+
+      {/* Search Input */}
+      {activeTab === 'sermons' && (
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={17} color={Colors.textMuted} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search sermons by title, speaker, series..."
+            placeholderTextColor={Colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery('')} hitSlop={8} style={styles.searchClearBtn}>
+              <Ionicons name="close-circle" size={17} color={Colors.textMuted} />
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {/* Series Filter Chips */}
       {activeTab === 'sermons' && seriesList.length > 1 && (
@@ -733,6 +764,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.bgCard,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radii.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: Typography.fontRegular,
+    fontSize: 14,
+    color: Colors.textPrimary,
+    padding: 0,
+  },
+  searchClearBtn: {
+    padding: 2,
+    marginLeft: 6,
   },
   eyebrow: {
     fontFamily: Typography.fontBold,
