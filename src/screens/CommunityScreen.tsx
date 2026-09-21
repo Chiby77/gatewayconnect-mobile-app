@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, Image, Alert, Platform } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, Alert, KeyboardAvoidingView, Platform, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 import { MobileUser } from '../auth/authService';
 import { saveTestimony, listContent } from '../data/contentRepository';
 import { ContentItem } from '../types/domain';
-import { getGroups, Group, isGroupMember, joinGroup, leaveGroup } from '../data/groupRepository';
+import { getGroups, Group, isGroupMember, joinGroup, leaveGroup, getGroupMessages, sendGroupMessage, GroupChatMessage } from '../data/groupRepository';
 import { getEvents, Event } from '../data/eventRepository';
 import { trackEvent } from '../analytics/analyticsService';
 
@@ -35,6 +35,9 @@ interface MemberProfilePreview {
   bio: string;
   joinedYear: string;
   testimoniesCount: number;
+  followersCount: number;
+  followingCount: number;
+  isFollowing?: boolean;
 }
 
 const CHURCH_STORIES: ChurchStory[] = [
@@ -50,30 +53,30 @@ const CHURCH_STORIES: ChurchStory[] = [
   },
   {
     id: 'story_cynthia',
-    author: 'Pastor Cynthia Daniels',
-    shortName: 'Pastor C',
-    role: 'Passion Women Ministry',
-    avatarText: 'CD',
+    author: 'Prophetess Melinda Daniels',
+    shortName: 'Prophetess',
+    role: 'Co-Founder & Passion Ladies',
+    avatarText: 'MD',
     caption: 'Women of Grace prayer breakfast was powerful this morning. Daughters of Zion, keep standing in faith for your families!',
     scripture: 'Proverbs 31:25 • Strength and honour are her clothing; and she shall rejoice in time to come.',
     timeAgo: '4h ago',
   },
   {
     id: 'story_worship',
-    author: 'Gateway Praise & Worship',
+    author: 'Ignite Worship Team',
     shortName: 'Worship',
     role: 'Music Ministry',
-    avatarText: 'GW',
+    avatarText: 'IW',
     caption: 'Rehearsing for Sunday Dominion Service! The sound of revival is already resounding in the sanctuary.',
     scripture: 'Psalm 150:6 • Let every thing that hath breath praise the LORD.',
     timeAgo: '6h ago',
   },
   {
     id: 'story_youth',
-    author: 'Ignite Youth Fellowship',
+    author: 'Gymstars Youth',
     shortName: 'Youth',
     role: 'Youth Ministry',
-    avatarText: 'IY',
+    avatarText: 'GY',
     caption: 'Fire Friday was electric! Over 200 young adults gathered, passionate for Christ. Don’t miss next week!',
     scripture: '1 Timothy 4:12 • Let no man despise thy youth; but be thou an example of the believers.',
     timeAgo: '8h ago',
@@ -92,48 +95,43 @@ const CHURCH_STORIES: ChurchStory[] = [
 
 const COMMUNITY_MEMBERS: Record<string, MemberProfilePreview> = {
   'Apostle Joe Daniels': {
-    id: 'mem_joe',
+    id: 'usr_apostle_joe',
     name: 'Apostle Joe Daniels',
-    handle: '@apostle_joe',
+    handle: '@apostle_joe_daniels',
     avatarText: 'JD',
-    role: 'Senior Pastor & Overseer',
+    role: 'Senior Pastor & Founder',
     campus: 'Harare Main Sanctuary',
     bio: 'Father, Teacher & Apostolic Overseer of Gateway Church International. Advancing kingdom dominion across the nations.',
     joinedYear: 'Founding Overseer',
     testimoniesCount: 42,
+    followersCount: 14200,
+    followingCount: 12,
   },
-  'Tinodaishe Chibi': {
-    id: 'mem_tino',
-    name: 'Tinodaishe Chibi',
-    handle: '@tino_c',
+  'Prophetess Melinda Daniels': {
+    id: 'usr_prophetess_melinda',
+    name: 'Prophetess Melinda Daniels',
+    handle: '@prophetess_melinda',
+    avatarText: 'MD',
+    role: 'Co-Founder & Passion Ladies',
+    campus: 'Harare Main Sanctuary',
+    bio: 'Apostolic and Prophetic teacher raising women of honor, prayer, and faith.',
+    joinedYear: 'Co-Founder',
+    testimoniesCount: 28,
+    followersCount: 9800,
+    followingCount: 15,
+  },
+  'Tinodaishe Morgan Chibi': {
+    id: 'usr_tino',
+    name: 'Tinodaishe Morgan Chibi',
+    handle: '@tinodaishe_morgan_chibi',
     avatarText: 'TC',
     role: 'Covenant Partner & Media Lead',
     campus: 'Harare Main Campus',
-    bio: 'Software Engineer & Tech Lead at BlueWave Technologies • Walking in supernatural wisdom and kingdom prosperity.',
+    bio: 'Walking in supernatural dominion & apostolic grace • Gateway Church Harare',
     joinedYear: 'Member since 2021',
     testimoniesCount: 8,
-  },
-  'Sister Rutendo Moyo': {
-    id: 'mem_rutendo',
-    name: 'Sister Rutendo Moyo',
-    handle: '@rutendo_m',
-    avatarText: 'RM',
-    role: 'Passion Ladies Deaconess',
-    campus: 'Bulawayo Campus',
-    bio: 'Saved by Grace, standing on the promises of God. Mother of 3, passionate about intercession and worship.',
-    joinedYear: 'Member since 2023',
-    testimoniesCount: 5,
-  },
-  'Brother Tendai Kondo': {
-    id: 'mem_tendai',
-    name: 'Brother Tendai Kondo',
-    handle: '@tendai_k',
-    avatarText: 'TK',
-    role: 'Pride of Lions Men Fellowship',
-    campus: 'Chitungwiza Branch',
-    bio: 'Kingdom Entrepreneur & Deacon. Believing God for financial breakthrough and church building expansion.',
-    joinedYear: 'Member since 2022',
-    testimoniesCount: 4,
+    followersCount: 24,
+    followingCount: 2,
   },
 };
 
@@ -150,11 +148,21 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
   const [postBody, setPostBody] = useState<string>('');
   const [postSaved, setPostSaved] = useState<boolean>(false);
 
-  // Stories Modal state
+  // Instagram Story Viewer Modal state
   const [activeStory, setActiveStory] = useState<ChurchStory | null>(null);
+  const storyProgress = useRef(new Animated.Value(0)).current;
+
+  // Group Chat Modal state
+  const [activeChatGroup, setActiveChatGroup] = useState<Group | null>(null);
+  const [chatMessages, setChatMessages] = useState<GroupChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState<string>('');
 
   // Profile Preview Modal state
   const [previewMember, setPreviewMember] = useState<MemberProfilePreview | null>(null);
+  const [followedMembers, setFollowedMembers] = useState<Record<string, boolean>>({
+    usr_apostle_joe: true,
+    usr_prophetess_melinda: true,
+  });
 
   useEffect(() => {
     setGroups(getGroups());
@@ -164,6 +172,27 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
     getGroups().forEach(g => { gMap[g.id] = isGroupMember(g.id, profile?.id ?? ''); });
     setJoinedGroups(gMap);
   }, [profile]);
+
+  // Story auto-advance animation
+  useEffect(() => {
+    if (activeStory) {
+      storyProgress.setValue(0);
+      Animated.timing(storyProgress, {
+        toValue: 1,
+        duration: 5000,
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished) {
+          const currentIndex = CHURCH_STORIES.findIndex(s => s.id === activeStory.id);
+          if (currentIndex !== -1 && currentIndex < CHURCH_STORIES.length - 1) {
+            setActiveStory(CHURCH_STORIES[currentIndex + 1]);
+          } else {
+            setActiveStory(null);
+          }
+        }
+      });
+    }
+  }, [activeStory?.id]);
 
   const handleOpenShare = () => {
     if (!profile) {
@@ -194,33 +223,81 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
     }, 1500);
   };
 
-  const handleJoinToggle = (groupId: string) => {
+  const handleJoinToggle = (group: Group) => {
     if (!profile) {
       if (onRequestAuth) {
-        onRequestAuth('Sign in to join church fellowship groups and receive ministry updates.');
+        onRequestAuth('Sign in to join church fellowship groups.');
       } else {
         Alert.alert('Sign In Required', 'Please sign in to join fellowship groups.');
       }
       return;
     }
-    if (joinedGroups[groupId]) {
-      leaveGroup(groupId, profile.id);
-    } else {
-      joinGroup(groupId, profile.id);
+
+    if (group.is_paid && !joinedGroups[group.id]) {
+      Alert.alert(
+        'Kingdom Enrollment Required',
+        `${group.name} is a 3-month apostolic curriculum ($150 USD / ZiG equivalent). Contact administration desk to activate full pass!`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Enroll & Enter',
+            onPress: () => {
+              joinGroup(group.id, profile.id);
+              setJoinedGroups(prev => ({ ...prev, [group.id]: true }));
+              openGroupChat(group);
+            },
+          },
+        ]
+      );
+      return;
     }
-    setJoinedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+
+    if (joinedGroups[group.id]) {
+      leaveGroup(group.id, profile.id);
+      setJoinedGroups(prev => ({ ...prev, [group.id]: false }));
+    } else {
+      joinGroup(group.id, profile.id);
+      setJoinedGroups(prev => ({ ...prev, [group.id]: true }));
+    }
   };
 
-  const handleMessageMember = (member: MemberProfilePreview) => {
+  const openGroupChat = (group: Group) => {
     if (!profile) {
       if (onRequestAuth) {
-        onRequestAuth(`Sign in to send a private message to ${member.name}.`);
+        onRequestAuth(`Sign in to chat in ${group.name}.`);
       } else {
-        Alert.alert('Sign In Required', `Please sign in to send a direct message to ${member.name}.`);
+        Alert.alert('Sign In Required', 'Please sign in to view and send fellowship messages.');
       }
       return;
     }
-    Alert.alert('Direct Message', `Opening direct messaging thread with ${member.name}...`);
+
+    setActiveChatGroup(group);
+    setChatMessages(getGroupMessages(group.id));
+    setChatInput('');
+  };
+
+  const handleSendChatMessage = () => {
+    if (!activeChatGroup || !chatInput.trim() || !profile) return;
+    const newMsg = sendGroupMessage(
+      activeChatGroup.id,
+      profile.id,
+      profile.name || 'Member',
+      chatInput.trim()
+    );
+    setChatMessages(prev => [...prev, newMsg]);
+    setChatInput('');
+  };
+
+  const handleToggleFollow = (memberId: string) => {
+    if (!profile) {
+      if (onRequestAuth) {
+        onRequestAuth('Sign in to follow members of the congregation.');
+      } else {
+        Alert.alert('Sign In Required', 'Please sign in to follow church members.');
+      }
+      return;
+    }
+    setFollowedMembers(prev => ({ ...prev, [memberId]: !prev[memberId] }));
   };
 
   const openMemberProfile = (name: string) => {
@@ -238,12 +315,14 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
         bio: 'Living in fellowship with Gateway Church International • Walking by faith and not by sight.',
         joinedYear: 'Member',
         testimoniesCount: 1,
+        followersCount: 1,
+        followingCount: 2,
       });
     }
   };
 
   return (
-    <>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -252,22 +331,22 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
         </View>
 
         <Pressable style={styles.shareBtn} onPress={handleOpenShare}>
-          <Ionicons name="add-circle" size={16} color={Colors.textInverse} />
+          <Ionicons name="add-circle" size={15} color={Colors.textInverse} />
           <Text style={styles.shareBtnText}>Share Story</Text>
         </Pressable>
       </View>
 
-      {/* Stories Bar (WhatsApp / Instagram Style) */}
+      {/* Stories Bar (Instagram Style) */}
       <View style={styles.storiesSection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
           {/* Your Story item */}
           <Pressable style={styles.storyItem} onPress={handleOpenShare}>
             <View style={styles.yourStoryRing}>
               <View style={styles.yourStoryAvatar}>
-                <Ionicons name="person" size={22} color={Colors.gold} />
+                <Ionicons name="person" size={20} color={Colors.gold} />
               </View>
               <View style={styles.addStoryPlus}>
-                <Ionicons name="add" size={12} color="#ffffff" />
+                <Ionicons name="add" size={10} color="#ffffff" />
               </View>
             </View>
             <Text style={styles.storyLabel}>Your Story</Text>
@@ -293,17 +372,13 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
         </ScrollView>
       </View>
 
-      {/* Sub Tabs: Feed vs Groups vs Events */}
+      {/* Sub Tabs: Feed vs Groups (4 Free + 2 Paid) vs Events */}
       <View style={styles.subTabRow}>
         <Pressable
           style={[styles.subTabBtn, activeSubTab === 'feed' && styles.subTabBtnActive]}
           onPress={() => setActiveSubTab('feed')}
         >
-          <Ionicons
-            name="chatbubbles"
-            size={14}
-            color={activeSubTab === 'feed' ? Colors.gold : Colors.textMuted}
-          />
+          <Ionicons name="newspaper-outline" size={13} color={activeSubTab === 'feed' ? Colors.textInverse : Colors.textMuted} />
           <Text style={[styles.subTabBtnText, activeSubTab === 'feed' && styles.subTabBtnTextActive]}>
             Church Feed
           </Text>
@@ -313,13 +388,9 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
           style={[styles.subTabBtn, activeSubTab === 'groups' && styles.subTabBtnActive]}
           onPress={() => setActiveSubTab('groups')}
         >
-          <Ionicons
-            name="people"
-            size={14}
-            color={activeSubTab === 'groups' ? Colors.gold : Colors.textMuted}
-          />
+          <Ionicons name="people-outline" size={13} color={activeSubTab === 'groups' ? Colors.textInverse : Colors.textMuted} />
           <Text style={[styles.subTabBtnText, activeSubTab === 'groups' && styles.subTabBtnTextActive]}>
-            Groups ({groups.length})
+            Fellowship Groups (6)
           </Text>
         </Pressable>
 
@@ -327,100 +398,73 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
           style={[styles.subTabBtn, activeSubTab === 'events' && styles.subTabBtnActive]}
           onPress={() => setActiveSubTab('events')}
         >
-          <Ionicons
-            name="calendar"
-            size={14}
-            color={activeSubTab === 'events' ? Colors.gold : Colors.textMuted}
-          />
+          <Ionicons name="calendar-outline" size={13} color={activeSubTab === 'events' ? Colors.textInverse : Colors.textMuted} />
           <Text style={[styles.subTabBtnText, activeSubTab === 'events' && styles.subTabBtnTextActive]}>
-            Events ({events.length})
+            Upcoming Events
           </Text>
         </Pressable>
       </View>
 
-      {/* FEED TAB */}
+      {/* Main Tab Content */}
       {activeSubTab === 'feed' && (
-        <View style={styles.feedContainer}>
-          {/* Seeded and User Testimonies */}
+        <View style={styles.feedList}>
           {testimonies.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Ionicons name="chatbubbles-outline" size={42} color={Colors.textMuted} />
-              <Text style={styles.emptyTitle}>Be the first to share</Text>
-              <Text style={styles.emptyBody}>
-                Share how God has favored and restored you at Gateway Church.
-              </Text>
-              <Pressable style={styles.btnSmall} onPress={handleOpenShare}>
-                <Text style={styles.btnSmallText}>Post a Testimony</Text>
-              </Pressable>
+              <Ionicons name="chatbubbles-outline" size={40} color={Colors.textMuted} />
+              <Text style={styles.emptyTitle}>No community stories yet</Text>
+              <Text style={styles.emptyBody}>Tap "+ Share Story" to share what God has done in your life.</Text>
             </View>
           ) : (
             testimonies.map(t => {
-              const authorName = t.metadata?.author ? String(t.metadata.author) : 'Church Member';
-              const campus = t.metadata?.campus ? String(t.metadata.campus) : 'Gateway Church';
-              const initial = authorName.slice(0, 2).toUpperCase();
-
+              const authorName = (t.metadata?.author as string) || 'Church Member';
+              const isApostle = authorName.includes('Apostle');
               return (
-                <View key={t.id} style={styles.postCard}>
-                  {/* Post Top Bar */}
+                <View key={t.id} style={styles.feedCard}>
+                  {/* Post Header */}
                   <View style={styles.postHeader}>
                     <Pressable
                       style={styles.authorRow}
                       onPress={() => openMemberProfile(authorName)}
                     >
-                      <View style={styles.postAvatar}>
-                        <Text style={styles.postAvatarText}>{initial}</Text>
+                      <View style={[styles.authorAvatar, isApostle && { borderColor: Colors.gold }]}>
+                        <Text style={styles.authorAvatarText}>{authorName.slice(0, 2).toUpperCase()}</Text>
                       </View>
                       <View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <Text style={styles.postAuthorName}>{authorName}</Text>
-                          <Ionicons name="checkmark-circle" size={14} color={Colors.gold} />
+                          <Text style={styles.authorName}>{authorName}</Text>
+                          {isApostle && <Ionicons name="checkmark-circle" size={13} color={Colors.gold} />}
                         </View>
-                        <Text style={styles.postAuthorSub}>{campus} • Verified Member</Text>
+                        <Text style={styles.postTime}>Today • Harare Main Sanctuary</Text>
                       </View>
                     </Pressable>
 
                     <Pressable
-                      style={styles.viewProfileBtn}
-                      onPress={() => openMemberProfile(authorName)}
+                      style={[styles.followBtn, followedMembers[authorName] && styles.followBtnActive]}
+                      onPress={() => handleToggleFollow(authorName)}
                     >
-                      <Text style={styles.viewProfileBtnText}>View Profile</Text>
+                      <Text style={[styles.followBtnText, followedMembers[authorName] && styles.followBtnTextActive]}>
+                        {followedMembers[authorName] ? 'Following' : '+ Follow'}
+                      </Text>
                     </Pressable>
                   </View>
 
-                  {/* Content */}
+                  {/* Post Content */}
                   <Text style={styles.postTitle}>{t.title}</Text>
                   <Text style={styles.postBody}>{t.body}</Text>
 
-                  {/* Actions (Like & Comments) */}
-                  <View style={styles.postActions}>
-                    <Pressable
-                      style={styles.actionPill}
-                      onPress={() => {
-                        if (!profile) {
-                          if (onRequestAuth) onRequestAuth('Sign in to like testimonies.');
-                          else Alert.alert('Sign In Required', 'Sign in to like testimonies.');
-                        } else {
-                          Alert.alert('Blessed', 'You celebrated this testimony! 🙏');
-                        }
-                      }}
-                    >
-                      <Ionicons name="heart-outline" size={16} color={Colors.gold} />
-                      <Text style={styles.actionPillText}>Amen (24)</Text>
+                  {/* Reactions */}
+                  <View style={styles.reactionsRow}>
+                    <Pressable style={styles.reactionBtn}>
+                      <Ionicons name="heart" size={14} color="#ef4444" />
+                      <Text style={styles.reactionCount}>{String(t.metadata?.likes || 12)}</Text>
                     </Pressable>
-
-                    <Pressable
-                      style={styles.actionPill}
-                      onPress={() => {
-                        if (!profile) {
-                          if (onRequestAuth) onRequestAuth('Sign in to post comments.');
-                          else Alert.alert('Sign In Required', 'Sign in to comment on testimonies.');
-                        } else {
-                          Alert.alert('Comments', 'Comments are enabled for authenticated members.');
-                        }
-                      }}
-                    >
-                      <Ionicons name="chatbubble-ellipses-outline" size={15} color={Colors.textMuted} />
-                      <Text style={styles.actionPillText}>Comments (8)</Text>
+                    <Pressable style={styles.reactionBtn}>
+                      <Ionicons name="chatbubble-outline" size={13} color={Colors.textMuted} />
+                      <Text style={styles.reactionCount}>Amen</Text>
+                    </Pressable>
+                    <Pressable style={styles.reactionBtn}>
+                      <Ionicons name="share-social-outline" size={13} color={Colors.textMuted} />
+                      <Text style={styles.reactionCount}>Share</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -430,329 +474,396 @@ export function CommunityScreen({ profile, onRequestAuth }: CommunityScreenProps
         </View>
       )}
 
-      {/* GROUPS TAB */}
+      {/* Fellowship Groups Tab (4 Free + 2 Paid Premium) */}
       {activeSubTab === 'groups' && (
-        <View style={styles.feedContainer}>
-          {groups.map(group => (
-            <View key={group.id} style={styles.groupCard}>
-              <View style={styles.groupHeader}>
-                <View style={styles.groupIconWrap}>
-                  <Ionicons name="people" size={24} color={Colors.gold} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.groupName}>{group.name}</Text>
-                  {group.location ? (
-                    <View style={styles.locationRow}>
-                      <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
-                      <Text style={styles.groupLocation}>{group.location}</Text>
+        <View style={styles.groupsList}>
+          {groups.map(group => {
+            const isMember = !!joinedGroups[group.id];
+            return (
+              <View key={group.id} style={styles.groupCard}>
+                <View style={styles.groupTopRow}>
+                  <View style={styles.groupIconWrap}>
+                    <Ionicons
+                      name={group.is_paid ? 'school' : 'people'}
+                      size={20}
+                      color={group.is_paid ? Colors.gold : Colors.textPrimary}
+                    />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.groupName}>{group.name}</Text>
+                      {group.is_paid ? (
+                        <View style={styles.paidBadge}>
+                          <Ionicons name="star" size={9} color={Colors.gold} />
+                          <Text style={styles.paidBadgeText}>PREMIUM ($150)</Text>
+                        </View>
+                      ) : (
+                        <View style={styles.freeBadge}>
+                          <Text style={styles.freeBadgeText}>FREE</Text>
+                        </View>
+                      )}
                     </View>
-                  ) : null}
+                    <Text style={styles.groupLocation}>{group.location || 'Harare Central'}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.groupDesc}>{group.description}</Text>
+
+                <View style={styles.groupActionsRow}>
+                  <Pressable
+                    style={styles.chatActionBtn}
+                    onPress={() => openGroupChat(group)}
+                  >
+                    <Ionicons name="chatbubbles" size={14} color={Colors.textInverse} />
+                    <Text style={styles.chatActionBtnText}>Open Chat</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[styles.joinBtn, isMember && styles.joinedBtn]}
+                    onPress={() => handleJoinToggle(group)}
+                  >
+                    <Ionicons
+                      name={isMember ? 'checkmark-circle' : 'add-circle-outline'}
+                      size={14}
+                      color={isMember ? Colors.success : Colors.gold}
+                    />
+                    <Text style={[styles.joinBtnText, isMember && styles.joinedBtnText]}>
+                      {isMember ? 'Joined' : 'Join Group'}
+                    </Text>
+                  </Pressable>
                 </View>
               </View>
-
-              {group.description ? (
-                <Text style={styles.groupDesc}>{group.description}</Text>
-              ) : null}
-
-              <Pressable
-                style={joinedGroups[group.id] ? styles.btnJoined : styles.btnJoin}
-                onPress={() => handleJoinToggle(group.id)}
-              >
-                <Ionicons
-                  name={joinedGroups[group.id] ? 'checkmark-circle' : 'person-add-outline'}
-                  size={15}
-                  color={joinedGroups[group.id] ? Colors.success : Colors.textInverse}
-                />
-                <Text style={joinedGroups[group.id] ? styles.btnJoinedText : styles.btnJoinText}>
-                  {joinedGroups[group.id] ? '✓ Joined Fellowship' : 'Join Group'}
-                </Text>
-              </Pressable>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
 
-      {/* EVENTS TAB */}
+      {/* Upcoming Events Tab */}
       {activeSubTab === 'events' && (
-        <View style={styles.feedContainer}>
+        <View style={styles.eventsList}>
           {events.map(ev => (
             <View key={ev.id} style={styles.eventCard}>
               <View style={styles.eventDateBadge}>
-                <Text style={styles.eventDateText}>
-                  {ev.event_date ? ev.event_date.slice(0, 10) : 'SUNDAY'}
-                </Text>
-                <Text style={styles.eventTimeText}>{ev.event_time || '09:00 AM'}</Text>
+                <Ionicons name="calendar" size={16} color={Colors.gold} />
+                <Text style={styles.eventDateText}>{ev.event_date}</Text>
               </View>
-
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.eventTitle}>{ev.title}</Text>
-                {ev.location ? (
-                  <View style={styles.locationRow}>
-                    <Ionicons name="location" size={12} color={Colors.gold} />
-                    <Text style={styles.eventLocation}>{ev.location}</Text>
-                  </View>
-                ) : null}
-                {ev.description ? (
-                  <Text style={styles.eventDesc} numberOfLines={2}>{ev.description}</Text>
-                ) : null}
-              </View>
+              <Text style={styles.eventTitle}>{ev.title}</Text>
+              <Text style={styles.eventTime}>{ev.event_time} • {ev.location}</Text>
+              <Text style={styles.eventDesc}>{ev.description}</Text>
             </View>
           ))}
         </View>
       )}
 
-      {/* Story Viewer Modal (IG / WhatsApp Full Screen Style) */}
-      <Modal visible={!!activeStory} animationType="fade" transparent>
-        <View style={styles.storyModalOverlay}>
-          <View style={styles.storyModalSheet}>
-            {/* Top Progress Indicator */}
-            <View style={styles.storyProgressBar}>
-              <View style={styles.storyProgressFill} />
-            </View>
-
-            {/* Story Author Header */}
-            <View style={styles.storyAuthorHeader}>
-              <View style={styles.storyAuthorInfo}>
-                <View style={styles.storyAvatarMini}>
-                  <Text style={styles.storyAvatarMiniText}>{activeStory?.avatarText}</Text>
-                </View>
-                <View>
-                  <Text style={styles.storyAuthorName}>{activeStory?.author}</Text>
-                  <Text style={styles.storyAuthorRole}>{activeStory?.role} • {activeStory?.timeAgo}</Text>
-                </View>
-              </View>
-              <Pressable onPress={() => setActiveStory(null)} style={{ padding: 6 }}>
-                <Ionicons name="close" size={24} color="#ffffff" />
-              </Pressable>
-            </View>
-
-            {/* Story Main Body */}
-            <View style={styles.storyContentWrap}>
-              <View style={styles.storyScripturePill}>
-                <Ionicons name="book" size={14} color={Colors.gold} />
-                <Text style={styles.storyScriptureText}>{activeStory?.scripture}</Text>
-              </View>
-
-              <Text style={styles.storyCaption}>{activeStory?.caption}</Text>
-            </View>
-
-            {/* Bottom Interaction */}
-            <View style={styles.storyBottomBar}>
-              <Pressable
-                style={styles.storyReplyInput}
-                onPress={() => {
-                  if (!profile) {
-                    setActiveStory(null);
-                    if (onRequestAuth) onRequestAuth('Sign in to reply to church stories.');
-                    else Alert.alert('Sign In Required', 'Sign in to reply to stories.');
-                  } else {
-                    Alert.alert('Story Reply', `Sent encouraging message to ${activeStory?.author}! 🙏`);
-                    setActiveStory(null);
-                  }
-                }}
-              >
-                <Text style={styles.storyReplyInputText}>Send encouraging reply...</Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.storyHeartBtn}
-                onPress={() => Alert.alert('Amen', 'Blessed by this word! 🔥')}
-              >
-                <Ionicons name="heart" size={26} color={Colors.gold} />
-              </Pressable>
-            </View>
+      {/* Instagram Story Fullscreen Viewer Modal */}
+      <Modal visible={!!activeStory} animationType="fade" transparent onRequestClose={() => setActiveStory(null)}>
+        <View style={styles.storyViewerOverlay}>
+          {/* Progressive Progress Bar */}
+          <View style={styles.storyProgressTrack}>
+            <Animated.View
+              style={[
+                styles.storyProgressFill,
+                {
+                  width: storyProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                },
+              ]}
+            />
           </View>
-        </View>
-      </Modal>
 
-      {/* Member Profile Preview Modal (Viewable by Guest and Members) */}
-      <Modal visible={!!previewMember} animationType="slide" transparent>
-        <View style={styles.profileModalOverlay}>
-          <View style={styles.profileModalSheet}>
-            <View style={styles.profileModalHeader}>
-              <Text style={styles.profileModalEyebrow}>CHURCH MEMBER PROFILE</Text>
-              <Pressable onPress={() => setPreviewMember(null)} style={{ padding: 4 }}>
-                <Ionicons name="close" size={24} color={Colors.textPrimary} />
-              </Pressable>
-            </View>
-
-            {/* Avatar & Identifiers */}
-            <View style={styles.memberProfileTop}>
-              <View style={styles.memberLargeAvatar}>
-                <Text style={styles.memberLargeAvatarText}>{previewMember?.avatarText}</Text>
+          {/* Top Bar with Author and Close */}
+          <View style={styles.storyViewerHeader}>
+            <View style={styles.storyViewerAuthor}>
+              <View style={styles.storyViewerAvatar}>
+                <Text style={styles.storyViewerAvatarText}>{activeStory?.avatarText}</Text>
               </View>
-              <Text style={styles.memberLargeName}>{previewMember?.name}</Text>
-              <Text style={styles.memberHandle}>{previewMember?.handle}</Text>
-              <View style={styles.memberRoleBadge}>
-                <Ionicons name="ribbon" size={12} color={Colors.gold} />
-                <Text style={styles.memberRoleBadgeText}>{previewMember?.role}</Text>
+              <View>
+                <Text style={styles.storyViewerName}>{activeStory?.author}</Text>
+                <Text style={styles.storyViewerTime}>{activeStory?.timeAgo} • {activeStory?.role}</Text>
               </View>
             </View>
-
-            {/* Details */}
-            <View style={styles.memberDetailsBox}>
-              <View style={styles.detailRow}>
-                <Ionicons name="location-outline" size={16} color={Colors.gold} />
-                <Text style={styles.detailText}>{previewMember?.campus}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Ionicons name="calendar-outline" size={16} color={Colors.gold} />
-                <Text style={styles.detailText}>{previewMember?.joinedYear}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Ionicons name="chatbubbles-outline" size={16} color={Colors.gold} />
-                <Text style={styles.detailText}>{previewMember?.testimoniesCount} Testimonies Shared</Text>
-              </View>
-              <Text style={styles.memberBioText}>{previewMember?.bio}</Text>
-            </View>
-
-            {/* Message Action Button */}
-            <Pressable
-              style={styles.memberMessageBtn}
-              onPress={() => previewMember && handleMessageMember(previewMember)}
-            >
-              <Ionicons name="mail" size={16} color={Colors.textInverse} />
-              <Text style={styles.memberMessageBtnText}>Send Message to {previewMember?.name.split(' ')[0]}</Text>
+            <Pressable onPress={() => setActiveStory(null)} style={{ padding: 6 }}>
+              <Ionicons name="close" size={24} color="#ffffff" />
             </Pressable>
           </View>
+
+          {/* Story Body */}
+          <View style={styles.storyViewerBody}>
+            <Ionicons name="sparkles" size={32} color={Colors.gold} style={{ alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={styles.storyViewerCaption}>{activeStory?.caption}</Text>
+            {activeStory?.scripture ? (
+              <View style={styles.storyScriptureCard}>
+                <Ionicons name="book" size={14} color={Colors.gold} />
+                <Text style={styles.storyScriptureText}>{activeStory.scripture}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Interactive Reactions */}
+          <View style={styles.storyReactionsBar}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {['❤️', '🙏', '🔥', '⚡', '🙌'].map(emoji => (
+                <Pressable
+                  key={emoji}
+                  style={styles.storyEmojiBtn}
+                  onPress={() => {
+                    Alert.alert('Decree Sent', `Sent ${emoji} to ${activeStory?.author}`);
+                  }}
+                >
+                  <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         </View>
       </Modal>
 
-      {/* Share Testimony Modal */}
-      <Modal visible={showShareModal} animationType="slide" transparent>
-        <View style={styles.profileModalOverlay}>
-          <View style={styles.profileModalSheet}>
-            <View style={styles.profileModalHeader}>
-              <Text style={styles.profileModalEyebrow}>POST TO CHURCH FEED</Text>
-              <Pressable onPress={() => setShowShareModal(false)} style={{ padding: 4 }}>
-                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+      {/* In-App WhatsApp-style Group Chat Modal */}
+      <Modal visible={!!activeChatGroup} animationType="slide" transparent onRequestClose={() => setActiveChatGroup(null)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.chatOverlay}
+        >
+          <View style={styles.chatSheet}>
+            {/* Group Chat Header */}
+            <View style={styles.chatHeader}>
+              <View style={styles.chatHeaderLeft}>
+                <View style={styles.chatAvatar}>
+                  <Ionicons name={activeChatGroup?.is_paid ? 'school' : 'people'} size={18} color={Colors.gold} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.chatGroupName} numberOfLines={1}>{activeChatGroup?.name}</Text>
+                  <Text style={styles.chatGroupSub}>{activeChatGroup?.category} Fellowship • Active</Text>
+                </View>
+              </View>
+              <Pressable onPress={() => setActiveChatGroup(null)} style={{ padding: 6 }}>
+                <Ionicons name="close" size={22} color={Colors.textPrimary} />
               </Pressable>
             </View>
 
-            <Text style={styles.modalSheetTitle}>Share Your Testimony</Text>
-            <Text style={styles.modalSheetSub}>
-              Inspire the saints across Harare, Zimbabwe, and the nations.
-            </Text>
+            {/* Message Stream */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.chatMessagesScroll}>
+              {chatMessages.map(msg => {
+                const isMe = msg.sender_id === profile?.id;
+                return (
+                  <View
+                    key={msg.id}
+                    style={[styles.chatBubble, isMe ? styles.chatBubbleMe : styles.chatBubbleOther]}
+                  >
+                    {!isMe && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                        <Text style={styles.chatSenderName}>{msg.sender_name}</Text>
+                        {msg.sender_role ? (
+                          <View style={styles.chatRolePill}>
+                            <Text style={styles.chatRoleText}>{msg.sender_role}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    )}
+                    <Text style={[styles.chatMsgText, isMe ? styles.chatMsgTextMe : styles.chatMsgTextOther]}>
+                      {msg.text}
+                    </Text>
+                    <Text style={[styles.chatTimeText, isMe ? styles.chatTimeTextMe : styles.chatTimeTextOther]}>
+                      {msg.created_at}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            {/* Input Bar */}
+            <View style={styles.chatInputBar}>
+              <TextInput
+                value={chatInput}
+                onChangeText={setChatInput}
+                placeholder="Message fellowship..."
+                placeholderTextColor={Colors.textMuted}
+                style={styles.chatTextInput}
+              />
+              <Pressable
+                style={[styles.chatSendBtn, !chatInput.trim() && { opacity: 0.5 }]}
+                onPress={handleSendChatMessage}
+                disabled={!chatInput.trim()}
+              >
+                <Ionicons name="send" size={16} color={Colors.textInverse} />
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Member Profile Modal */}
+      <Modal visible={!!previewMember} animationType="slide" transparent onRequestClose={() => setPreviewMember(null)}>
+        <View style={styles.profileModalOverlay}>
+          <View style={styles.profileModalCard}>
+            <Pressable onPress={() => setPreviewMember(null)} style={styles.profileModalCloseBtn}>
+              <Ionicons name="close" size={22} color={Colors.textPrimary} />
+            </Pressable>
+
+            <View style={styles.profileModalAvatarWrap}>
+              <Text style={styles.profileModalAvatarText}>{previewMember?.avatarText}</Text>
+            </View>
+
+            <Text style={styles.profileModalName}>{previewMember?.name}</Text>
+            <Text style={styles.profileModalHandle}>{previewMember?.handle}</Text>
+
+            <View style={styles.profileStatsRow}>
+              <View style={styles.profileStatItem}>
+                <Text style={styles.profileStatNum}>{previewMember?.testimoniesCount}</Text>
+                <Text style={styles.profileStatLabel}>Posts</Text>
+              </View>
+              <View style={styles.profileStatItem}>
+                <Text style={styles.profileStatNum}>{previewMember?.followersCount}</Text>
+                <Text style={styles.profileStatLabel}>Followers</Text>
+              </View>
+              <View style={styles.profileStatItem}>
+                <Text style={styles.profileStatNum}>{previewMember?.followingCount}</Text>
+                <Text style={styles.profileStatLabel}>Following</Text>
+              </View>
+            </View>
+
+            <Text style={styles.profileModalBio}>{previewMember?.bio}</Text>
+
+            <View style={styles.profileModalActions}>
+              <Pressable
+                style={[styles.modalFollowBtn, previewMember && followedMembers[previewMember.id] && styles.modalFollowBtnActive]}
+                onPress={() => previewMember && handleToggleFollow(previewMember.id)}
+              >
+                <Ionicons
+                  name={previewMember && followedMembers[previewMember.id] ? 'checkmark' : 'person-add'}
+                  size={15}
+                  color={Colors.textInverse}
+                />
+                <Text style={styles.modalFollowBtnText}>
+                  {previewMember && followedMembers[previewMember.id] ? 'Following' : 'Follow'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Post Testimony Modal */}
+      <Modal visible={showShareModal} animationType="slide" transparent onRequestClose={() => setShowShareModal(false)}>
+        <View style={styles.shareModalOverlay}>
+          <View style={styles.shareModalCard}>
+            <View style={styles.shareModalHeader}>
+              <Text style={styles.shareModalTitle}>Share Testimony / Story</Text>
+              <Pressable onPress={() => setShowShareModal(false)}>
+                <Ionicons name="close" size={22} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
 
             <TextInput
               value={postTitle}
               onChangeText={setPostTitle}
-              placeholder="Testimony Title (e.g. Healed from Migraines)"
+              placeholder="Title of what God did..."
               placeholderTextColor={Colors.textMuted}
-              style={styles.modalInput}
+              style={styles.shareInput}
             />
-
             <TextInput
               value={postBody}
               onChangeText={setPostBody}
-              placeholder="Describe what God has done..."
+              placeholder="Share the details to glorify Jesus and encourage the church..."
               placeholderTextColor={Colors.textMuted}
-              style={[styles.modalInput, { height: 110, textAlignVertical: 'top' }]}
               multiline
+              style={[styles.shareInput, { minHeight: 90, textAlignVertical: 'top' }]}
             />
 
-            <Pressable
-              style={[styles.modalSubmitBtn, postSaved && { backgroundColor: Colors.success }]}
-              onPress={handleSavePost}
-            >
-              <Ionicons name={postSaved ? 'checkmark-circle' : 'send'} size={16} color={Colors.textInverse} />
-              <Text style={styles.modalSubmitBtnText}>
-                {postSaved ? 'Published to Church Feed!' : 'Post Testimony'}
-              </Text>
+            <Pressable style={styles.shareSubmitBtn} onPress={handleSavePost}>
+              <Text style={styles.shareSubmitBtnText}>{postSaved ? 'Posted to Feed!' : 'Post Story'}</Text>
             </Pressable>
           </View>
         </View>
       </Modal>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    gap: 10,
+  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
-    marginBottom: 4,
+    justifyContent: 'space-between',
+    marginTop: 2,
   },
   eyebrow: {
     fontFamily: Typography.fontBold,
-    color: '#dfa732',
-    fontSize: 10,
-    letterSpacing: 1.3,
+    color: Colors.gold,
+    fontSize: 8,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   title: {
     fontFamily: Typography.fontBold,
-    color: '#fafafa',
-    fontSize: 19,
+    color: Colors.textPrimary,
+    fontSize: 18,
     marginTop: 1,
   },
   shareBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.full,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    gap: 5,
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
   },
   shareBtnText: {
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
-    fontSize: 12,
+    fontSize: 11,
   },
   storiesSection: {
     marginVertical: 4,
   },
   storiesScroll: {
     gap: 12,
-    paddingVertical: 2,
-    paddingHorizontal: 2,
   },
   storyItem: {
     alignItems: 'center',
     width: 66,
-    gap: 4,
   },
   yourStoryRing: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    padding: 2,
-    position: 'relative',
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
   yourStoryAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#18181b',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#16161e',
     alignItems: 'center',
     justifyContent: 'center',
   },
   addStoryPlus: {
     position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#dfa732',
+    bottom: 0,
+    right: 0,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#09090b',
   },
   storyRing: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     borderWidth: 2,
-    borderColor: '#dfa732',
-    padding: 2,
+    borderColor: Colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -760,569 +871,673 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#121216',
+    backgroundColor: '#0c1a14',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(223, 167, 50, 0.25)',
   },
   storyAvatarText: {
     fontFamily: Typography.fontBold,
-    color: '#dfa732',
+    color: Colors.gold,
     fontSize: 13,
   },
   storyLabel: {
     fontFamily: Typography.fontSemiBold,
-    color: '#a1a1aa',
-    fontSize: 11,
-    marginTop: 2,
+    color: Colors.textPrimary,
+    fontSize: 10,
+    marginTop: 4,
     textAlign: 'center',
   },
   subTabRow: {
     flexDirection: 'row',
     backgroundColor: '#121216',
-    borderRadius: Radii.lg,
+    borderRadius: Radii.sm,
     padding: 3,
-    marginVertical: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: Colors.border,
   },
   subTabBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: Radii.md,
+    gap: 5,
+    paddingVertical: 7,
+    borderRadius: Radii.sm,
   },
   subTabBtnActive: {
-    backgroundColor: '#1e1e24',
-    borderWidth: 1,
-    borderColor: 'rgba(223, 167, 50, 0.3)',
+    backgroundColor: Colors.gold,
   },
   subTabBtnText: {
     fontFamily: Typography.fontSemiBold,
-    color: '#71717a',
-    fontSize: 12,
+    color: Colors.textMuted,
+    fontSize: 11,
   },
   subTabBtnTextActive: {
-    color: '#dfa732',
-    fontFamily: Typography.fontBold,
+    color: Colors.textInverse,
   },
-  feedContainer: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  postCard: {
-    backgroundColor: '#121216',
-    borderRadius: Radii.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+  feedList: {
     gap: 10,
+  },
+  feedCard: {
+    backgroundColor: '#121216',
+    borderRadius: Radii.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 8,
   },
   postHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
   },
-  postAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.forestGreen,
+  authorAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#18181f',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.gold,
+    borderColor: Colors.border,
   },
-  postAvatarText: {
+  authorAvatarText: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 13,
+    fontSize: 11,
   },
-  postAuthorName: {
+  authorName: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 14,
+    fontSize: 12,
   },
-  postAuthorSub: {
+  postTime: {
     fontFamily: Typography.fontRegular,
     color: Colors.textMuted,
-    fontSize: 11,
+    fontSize: 9,
   },
-  viewProfileBtn: {
-    backgroundColor: Colors.bg,
+  followBtn: {
+    backgroundColor: '#1a1a22',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: Radii.full,
   },
-  viewProfileBtnText: {
-    fontFamily: Typography.fontSemiBold,
+  followBtnActive: {
+    borderColor: Colors.gold,
+    backgroundColor: 'rgba(217, 119, 6, 0.1)',
+  },
+  followBtnText: {
+    fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 11,
+    fontSize: 10,
+  },
+  followBtnTextActive: {
+    color: Colors.gold,
   },
   postTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
   },
   postBody: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 17,
   },
-  postActions: {
+  reactionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 14,
+    paddingTop: 6,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: 10,
+    borderTopColor: '#1a1a22',
   },
-  actionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.bg,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: Radii.full,
-  },
-  actionPillText: {
-    fontFamily: Typography.fontSemiBold,
-    color: Colors.textSecondary,
-    fontSize: 11,
-  },
-  groupCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radii.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 10,
-  },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  groupIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: Radii.md,
-    backgroundColor: Colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.gold,
-  },
-  groupName: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textPrimary,
-    fontSize: 15,
-  },
-  locationRow: {
+  reactionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 2,
   },
-  groupLocation: {
+  reactionCount: {
     fontFamily: Typography.fontRegular,
     color: Colors.textMuted,
     fontSize: 11,
   },
+  groupsList: {
+    gap: 10,
+  },
+  groupCard: {
+    backgroundColor: '#121216',
+    borderRadius: Radii.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 6,
+  },
+  groupTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  groupIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: Radii.sm,
+    backgroundColor: '#18181f',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  groupName: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+  },
+  paidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(217, 119, 6, 0.15)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+  },
+  paidBadgeText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 8,
+  },
+  freeBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+  },
+  freeBadgeText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.success,
+    fontSize: 8,
+  },
+  groupLocation: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 10,
+  },
   groupDesc: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
   },
-  btnJoin: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 10,
+  groupActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  chatActionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingVertical: 7,
   },
-  btnJoinText: {
+  chatActionBtnText: {
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
-    fontSize: 13,
+    fontSize: 11,
   },
-  btnJoined: {
-    backgroundColor: 'rgba(16,185,129,0.12)',
-    borderWidth: 1,
-    borderColor: Colors.success,
-    borderRadius: Radii.md,
-    paddingVertical: 10,
+  joinBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  btnJoinedText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.success,
-    fontSize: 13,
-  },
-  eventCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radii.lg,
-    padding: 16,
+    gap: 4,
+    backgroundColor: '#18181f',
     borderWidth: 1,
     borderColor: Colors.border,
-    flexDirection: 'row',
-    gap: 14,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  joinedBtn: {
+    borderColor: Colors.success,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+  },
+  joinBtnText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.gold,
+    fontSize: 11,
+  },
+  joinedBtnText: {
+    color: Colors.success,
+  },
+  eventsList: {
+    gap: 8,
+  },
+  eventCard: {
+    backgroundColor: '#121216',
+    borderRadius: Radii.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 4,
   },
   eventDateBadge: {
-    backgroundColor: Colors.forestGreen,
-    borderRadius: Radii.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.gold,
-    minWidth: 70,
+    gap: 5,
   },
   eventDateText: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
     fontSize: 11,
   },
-  eventTimeText: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textInverse,
-    fontSize: 10,
-    marginTop: 2,
-  },
   eventTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 15,
+    fontSize: 14,
   },
-  eventLocation: {
+  eventTime: {
     fontFamily: Typography.fontRegular,
-    color: Colors.gold,
+    color: Colors.textMuted,
     fontSize: 11,
   },
   eventDesc: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
     lineHeight: 16,
-  },
-  storyModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.95)',
-    justifyContent: 'center',
-  },
-  storyModalSheet: {
-    flex: 1,
-    paddingTop: Platform.OS === 'ios' ? 50 : 36,
-    paddingHorizontal: 20,
-    justifyContent: 'space-between',
-    paddingBottom: 30,
-  },
-  storyProgressBar: {
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 16,
-  },
-  storyProgressFill: {
-    height: '100%',
-    width: '75%',
-    backgroundColor: Colors.gold,
-  },
-  storyAuthorHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  storyAuthorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  storyAvatarMini: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.forestGreen,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.gold,
-  },
-  storyAvatarMiniText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 12,
-  },
-  storyAuthorName: {
-    fontFamily: Typography.fontBold,
-    color: '#ffffff',
-    fontSize: 14,
-  },
-  storyAuthorRole: {
-    fontFamily: Typography.fontRegular,
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 11,
-  },
-  storyContentWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    gap: 20,
-  },
-  storyScripturePill: {
-    backgroundColor: 'rgba(245,158,11,0.18)',
-    borderWidth: 1,
-    borderColor: Colors.gold,
-    borderRadius: Radii.full,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  storyScriptureText: {
-    fontFamily: Typography.fontSemiBold,
-    color: Colors.gold,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  storyCaption: {
-    fontFamily: Typography.fontRegular,
-    color: '#ffffff',
-    fontSize: 18,
-    lineHeight: 28,
-    textAlign: 'center',
-  },
-  storyBottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  storyReplyInput: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: Radii.full,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  storyReplyInputText: {
-    fontFamily: Typography.fontRegular,
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
-  },
-  storyHeartBtn: {
-    padding: 6,
-  },
-  profileModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'flex-end',
-  },
-  profileModalSheet: {
-    backgroundColor: Colors.bgCard,
-    borderTopLeftRadius: Radii.xl,
-    borderTopRightRadius: Radii.xl,
-    padding: 22,
-    maxHeight: '88%',
-    borderTopWidth: 1,
-    borderColor: Colors.border,
-  },
-  profileModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  profileModalEyebrow: {
-    fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 10,
-    letterSpacing: 1.2,
-  },
-  memberProfileTop: {
-    alignItems: 'center',
-    gap: 6,
-    marginVertical: 10,
-  },
-  memberLargeAvatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: Colors.forestGreen,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.gold,
-  },
-  memberLargeAvatarText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 22,
-  },
-  memberLargeName: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textPrimary,
-    fontSize: 18,
-  },
-  memberHandle: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textMuted,
-    fontSize: 13,
-  },
-  memberRoleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(245,158,11,0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radii.full,
-    borderWidth: 0.5,
-    borderColor: Colors.gold,
-    marginTop: 4,
-  },
-  memberRoleBadgeText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 11,
-  },
-  memberDetailsBox: {
-    backgroundColor: Colors.bg,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 14,
-    marginVertical: 12,
-    gap: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  detailText: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textSecondary,
-    fontSize: 12,
-  },
-  memberBioText: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textPrimary,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: 8,
-  },
-  memberMessageBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  memberMessageBtnText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textInverse,
-    fontSize: 14,
-  },
-  modalSheetTitle: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textPrimary,
-    fontSize: 18,
-  },
-  modalSheetSub: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textSecondary,
-    fontSize: 12,
     marginTop: 2,
-    marginBottom: 14,
-  },
-  modalInput: {
-    backgroundColor: Colors.bg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radii.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: Colors.textPrimary,
-    fontFamily: Typography.fontRegular,
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  modalSubmitBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  modalSubmitBtnText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textInverse,
-    fontSize: 14,
   },
   emptyCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radii.lg,
-    padding: 32,
+    backgroundColor: '#121216',
+    borderRadius: Radii.md,
+    padding: 24,
     alignItems: 'center',
-    gap: 8,
     borderWidth: 1,
     borderColor: Colors.border,
-    marginVertical: 12,
+    gap: 6,
   },
   emptyTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
-    fontSize: 16,
+    fontSize: 14,
   },
   emptyBody: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 13,
+    fontSize: 11,
     textAlign: 'center',
   },
-  btnSmall: {
-    backgroundColor: Colors.gold,
+  storyViewerOverlay: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingTop: Platform.OS === 'ios' ? 44 : 24,
+    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+    paddingBottom: 36,
+  },
+  storyProgressTrack: {
+    height: 2.5,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: Radii.full,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  storyProgressFill: {
+    height: '100%',
+    backgroundColor: '#ffffff',
+  },
+  storyViewerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  storyViewerAuthor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  storyViewerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.forestGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
+  },
+  storyViewerAvatarText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 13,
+  },
+  storyViewerName: {
+    fontFamily: Typography.fontBold,
+    color: '#ffffff',
+    fontSize: 13,
+  },
+  storyViewerTime: {
+    fontFamily: Typography.fontRegular,
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 10,
+  },
+  storyViewerBody: {
+    paddingHorizontal: 12,
+  },
+  storyViewerCaption: {
+    fontFamily: Typography.fontBold,
+    color: '#ffffff',
+    fontSize: 18,
+    lineHeight: 26,
+    textAlign: 'center',
+  },
+  storyScriptureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: Radii.md,
+    padding: 12,
+    marginTop: 18,
+  },
+  storyScriptureText: {
+    fontFamily: Typography.fontRegular,
+    color: '#ffffff',
+    fontSize: 12,
+    flex: 1,
+    fontStyle: 'italic',
+  },
+  storyReactionsBar: {
+    alignItems: 'center',
+  },
+  storyEmojiBtn: {
+    padding: 8,
+  },
+  chatOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'flex-end',
+  },
+  chatSheet: {
+    backgroundColor: '#0c0c10',
+    borderTopLeftRadius: Radii.xl,
+    borderTopRightRadius: Radii.xl,
+    paddingTop: 14,
+    height: '85%',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  chatHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  chatAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: Radii.sm,
+    backgroundColor: '#18181f',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  chatGroupName: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+  },
+  chatGroupSub: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 10,
+  },
+  chatMessagesScroll: {
+    padding: 14,
+    gap: 10,
+  },
+  chatBubble: {
+    maxWidth: '82%',
+    padding: 10,
+    borderRadius: Radii.md,
+  },
+  chatBubbleMe: {
+    alignSelf: 'flex-end',
+    backgroundColor: Colors.forestGreen,
+    borderBottomRightRadius: 2,
+  },
+  chatBubbleOther: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#18181f',
+    borderBottomLeftRadius: 2,
+  },
+  chatSenderName: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 10,
+  },
+  chatRolePill: {
+    backgroundColor: 'rgba(217, 119, 6, 0.15)',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: Radii.sm,
+  },
+  chatRoleText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 8,
+  },
+  chatMsgText: {
+    fontFamily: Typography.fontRegular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  chatMsgTextMe: {
+    color: '#ffffff',
+  },
+  chatMsgTextOther: {
+    color: Colors.textPrimary,
+  },
+  chatTimeText: {
+    fontFamily: Typography.fontRegular,
+    fontSize: 8,
+    marginTop: 4,
+  },
+  chatTimeTextMe: {
+    color: 'rgba(255,255,255,0.6)',
+    alignSelf: 'flex-end',
+  },
+  chatTimeTextOther: {
+    color: Colors.textMuted,
+    alignSelf: 'flex-end',
+  },
+  chatInputBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#121216',
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  chatTextInput: {
+    flex: 1,
+    backgroundColor: '#18181f',
+    borderRadius: Radii.full,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginTop: 8,
+    color: Colors.textPrimary,
+    fontFamily: Typography.fontRegular,
+    fontSize: 12,
   },
-  btnSmallText: {
+  chatSendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  profileModalCard: {
+    backgroundColor: '#121216',
+    borderRadius: Radii.xl,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    position: 'relative',
+    gap: 6,
+  },
+  profileModalCloseBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    padding: 4,
+  },
+  profileModalAvatarWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#0c1a14',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.gold,
+    marginBottom: 4,
+  },
+  profileModalAvatarText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 22,
+  },
+  profileModalName: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 16,
+  },
+  profileModalHandle: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+  },
+  profileStatsRow: {
+    flexDirection: 'row',
+    gap: 24,
+    marginVertical: 10,
+  },
+  profileStatItem: {
+    alignItems: 'center',
+  },
+  profileStatNum: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 14,
+  },
+  profileStatLabel: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 10,
+  },
+  profileModalBio: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  profileModalActions: {
+    width: '100%',
+    marginTop: 10,
+  },
+  modalFollowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingVertical: 10,
+  },
+  modalFollowBtnActive: {
+    backgroundColor: '#1a1a22',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  modalFollowBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textInverse,
+    fontSize: 12,
+  },
+  shareModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  shareModalCard: {
+    backgroundColor: '#121216',
+    borderRadius: Radii.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 10,
+  },
+  shareModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  shareModalTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 15,
+  },
+  shareInput: {
+    backgroundColor: '#18181f',
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    color: Colors.textPrimary,
+    fontFamily: Typography.fontRegular,
+    fontSize: 12,
+  },
+  shareSubmitBtn: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  shareSubmitBtnText: {
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
     fontSize: 12,

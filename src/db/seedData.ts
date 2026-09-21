@@ -193,6 +193,36 @@ export function seedInitialData(db: SQLite.SQLiteDatabase): void {
           youtube_id: '6STJ8Hv4RE8',
           thumbnail_url: 'https://img.youtube.com/vi/6STJ8Hv4RE8/hqdefault.jpg'
         })
+      },
+      {
+        id: 'sermon_masterclass_1',
+        type: 'sermon',
+        title: 'Apostolic Masterclass: The Mystery of Kingdom Wealth & Acceleration',
+        body: 'Advanced kingdom financial dominion, altar covenants, and supernatural acceleration for ministers and marketplace leaders.',
+        metadata: JSON.stringify({
+          speaker: 'Apostle Joe Daniels',
+          series: 'Apostolic Masterclass',
+          duration: '1h 15m',
+          youtube_id: '-CibsaxijIk',
+          thumbnail_url: 'https://img.youtube.com/vi/-CibsaxijIk/hqdefault.jpg',
+          is_paid: true,
+          price_usd: 30
+        })
+      },
+      {
+        id: 'sermon_mentorship_1',
+        type: 'sermon',
+        title: 'International School of Mentorship: Prophetic Governance & Spiritual Warfare',
+        body: 'Intensive discipleship module on high-level spiritual warfare, territorial gates, and kingdom alignment across the nations.',
+        metadata: JSON.stringify({
+          speaker: 'Apostle Joe Daniels',
+          series: 'Mentorship Academy',
+          duration: '1h 04m',
+          youtube_id: 'upeY03DKvTo',
+          thumbnail_url: 'https://img.youtube.com/vi/upeY03DKvTo/hqdefault.jpg',
+          is_paid: true,
+          price_usd: 50
+        })
       }
     ];
 
@@ -205,7 +235,7 @@ export function seedInitialData(db: SQLite.SQLiteDatabase): void {
     }
   }
 
-  // 4. Seed Fellowship Groups
+  // 4. Seed Fellowship Groups (4 Free + 2 Paid from Web App)
   const groupCount = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM groups')?.count || 0;
   if (groupCount === 0) {
     const groups = [
@@ -228,10 +258,22 @@ export function seedInitialData(db: SQLite.SQLiteDatabase): void {
         location: 'Gateway Center & Virtual'
       },
       {
-        id: 'group_youth_fire',
-        name: 'Generation Next — Youth Cell',
-        description: 'Dynamic campus fellowship, young professionals, music, purpose discovery, and kingdom mentorship.',
-        location: 'Main Auditorium (Saturdays @ 2:00 PM CAT)'
+        id: 'group_gymstars_foundation',
+        name: 'Gymstars Foundation',
+        description: 'Foundation for youth and juniors where we groom and teach the youth to find God at an early age, build character, and excel.',
+        location: 'Youth Arena & Harare West (Saturdays @ 2:00 PM CAT)'
+      },
+      {
+        id: 'group_foundation_school',
+        name: 'Foundation School (Paid Covenant Pass)',
+        description: 'Enroll to learn about Christ, discipleship, spiritual foundation, and how to mature in the Kingdom. ($150 / 3 Months)',
+        location: 'Apostolic Academy & Online Portal'
+      },
+      {
+        id: 'group_international_school_of_mentorship',
+        name: 'International School of Mentorship (Paid)',
+        description: 'Intensive apostolic mentorship, prophetic impartation, and global kingdom leadership academy. ($150 / 3 Months)',
+        location: 'Global Apostolic Portal'
       }
     ];
 

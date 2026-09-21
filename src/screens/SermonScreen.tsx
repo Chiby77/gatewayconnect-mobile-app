@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, Pressable, StyleSheet, ScrollView, Modal, Alert, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, Image, Pressable, StyleSheet, ScrollView, Modal, Alert, Linking, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { Colors, Typography, Radii } from '../theme/colors';
 import { listContent } from '../data/contentRepository';
 import { ContentItem } from '../types/domain';
 import { downloadMedia, deleteDownload, getDownloadStatus, listDownloads, MediaDownload } from '../media/downloadManager';
+
+import { MobileUser } from '../auth/authService';
 
 function getSermonMediaSources(sermon: ContentItem | null) {
   if (!sermon) return { type: 'none', url: '' };
@@ -56,7 +58,7 @@ function buildPlayerHtml(source: ReturnType<typeof getSermonMediaSources>, poste
 <body>
   <div class="wrapper">
     <iframe
-      src="https://www.youtube-nocookie.com/embed/${source.id}?autoplay=1&playsinline=1&enablejsapi=1&fs=1&rel=0&modestbranding=1"
+      src="https://www.youtube-nocookie.com/embed/${source.id}?autoplay=1&playsinline=1&enablejsapi=1&fs=1&rel=0&modestbranding=1&origin=https://gatewayconnect.joedaniels.org"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       allowfullscreen
     ></iframe>
@@ -118,17 +120,31 @@ function buildPlayerHtml(source: ReturnType<typeof getSermonMediaSources>, poste
 
 interface SermonScreenProps {
   onNavigateHome?: () => void;
+  profile?: MobileUser | null;
+  onRequestAuth?: (prompt?: string) => void;
 }
 
-export function SermonScreen({ }: SermonScreenProps) {
+export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
   const [sermons, setSermons] = useState<ContentItem[]>([]);
   const [activeTab, setActiveTab] = useState<'sermons' | 'downloads'>('sermons');
   const [selectedSeries, setSelectedSeries] = useState<string>('All');
   const [downloads, setDownloads] = useState<MediaDownload[]>([]);
   const [downloadingIds, setDownloadingIds] = useState<Record<string, boolean>>({});
 
+  // YouTube-style Live Download Progress notification state
+  const [downloadProgress, setDownloadProgress] = useState<{
+    sermonId: string;
+    title: string;
+    quality: string;
+    percent: number;
+  } | null>(null);
+
   // Quality Selection Modal state
   const [qualityModalSermon, setQualityModalSermon] = useState<ContentItem | null>(null);
+
+  // Covenant Partner / Paid Sermon Modal state
+  const [covenantModalSermon, setCovenantModalSermon] = useState<ContentItem | null>(null);
+  const [covenantVoucher, setCovenantVoucher] = useState('');
 
   // In-App Player Modal state
   const [activePlayingSermon, setActivePlayingSermon] = useState<ContentItem | null>(null);
@@ -160,11 +176,26 @@ export function SermonScreen({ }: SermonScreenProps) {
 
     try {
       setDownloadingIds(prev => ({ ...prev, [sermon.id]: true }));
+      setDownloadProgress({
+        sermonId: sermon.id,
+        title: sermon.title,
+        quality,
+        percent: 5,
+      });
+
       const isVideo = quality !== 'audio';
       const remoteUrl = (isVideo ? sermon.metadata?.video_url : sermon.metadata?.audio_url) as string
         || `https://gatewayconnect.org/media/sermons/${sermon.id}_${quality}.${isVideo ? 'mp4' : 'mp3'}`;
 
-      await downloadMedia(sermon.id, isVideo ? 'video' : 'audio', remoteUrl, quality);
+      await downloadMedia(
+        sermon.id,
+        isVideo ? 'video' : 'audio',
+        remoteUrl,
+        quality,
+        (pct) => {
+          setDownloadProgress(prev => prev ? { ...prev, percent: pct } : null);
+        }
+      );
       loadData();
       Alert.alert(
         'Downloaded for Offline Use',
@@ -174,10 +205,17 @@ export function SermonScreen({ }: SermonScreenProps) {
       Alert.alert('Download Completed', 'Saved to your offline downloads.');
     } finally {
       setDownloadingIds(prev => ({ ...prev, [sermon.id]: false }));
+      setTimeout(() => setDownloadProgress(null), 2500);
     }
   };
 
   const handleToggleDownload = (sermon: ContentItem) => {
+    const isPaid = !!sermon.metadata?.is_paid;
+    if (isPaid && !profile?.is_premium) {
+      setCovenantModalSermon(sermon);
+      return;
+    }
+
     const isDownloaded = !!getDownloadStatus(sermon.id);
     if (isDownloaded) {
       Alert.alert('Remove Download', `Delete offline download for "${sermon.title}"?`, [
@@ -213,12 +251,51 @@ export function SermonScreen({ }: SermonScreenProps) {
   };
 
   const startPlayback = (sermon: ContentItem, qualityLabel = '720p HD') => {
+    const isPaid = !!sermon.metadata?.is_paid;
+    if (isPaid && !profile?.is_premium) {
+      setCovenantModalSermon(sermon);
+      return;
+    }
     setActivePlayingSermon(sermon);
     setPlayerQuality(qualityLabel);
   };
 
+  const handleUnlockCovenant = () => {
+    if (covenantVoucher.trim()) {
+      Alert.alert(
+        'Covenant Access Granted',
+        'Your covenant access code has been activated. You now have full streaming & download access!',
+        [{ text: 'Praise God', onPress: () => setCovenantModalSermon(null) }]
+      );
+    } else {
+      Alert.alert(
+        'Covenant Partnership',
+        'Redirecting to secure Altar Seed giving for Kingdom Pass enrollment.',
+        [{ text: 'Proceed', onPress: () => setCovenantModalSermon(null) }]
+      );
+    }
+  };
+
   return (
     <>
+      {/* Live YouTube-style Download Notification / Progress Bar */}
+      {downloadProgress && (
+        <View style={styles.downloadProgressBanner}>
+          <View style={styles.dlProgressTop}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+              <Ionicons name="cloud-download" size={16} color={Colors.gold} />
+              <Text style={styles.dlProgressTitle} numberOfLines={1}>
+                Downloading "{downloadProgress.title}" ({downloadProgress.quality.toUpperCase()})
+              </Text>
+            </View>
+            <Text style={styles.dlProgressPercent}>{downloadProgress.percent}%</Text>
+          </View>
+          <View style={styles.dlProgressBarBg}>
+            <View style={[styles.dlProgressBarFill, { width: `${downloadProgress.percent}%` }]} />
+          </View>
+        </View>
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -279,6 +356,7 @@ export function SermonScreen({ }: SermonScreenProps) {
             const isDownloading = downloadingIds[s.id];
             const thumb = s.metadata?.thumbnail_url as string | undefined;
             const youtubeId = s.metadata?.youtube_id as string | undefined;
+            const isPaid = !!s.metadata?.is_paid;
 
             return (
               <View key={s.id} style={styles.sermonCard}>
@@ -289,8 +367,14 @@ export function SermonScreen({ }: SermonScreenProps) {
                       style={styles.playOverlay}
                       onPress={() => startPlayback(s)}
                     >
-                      <Ionicons name="play" size={28} color="#ffffff" />
+                      <Ionicons name={isPaid && !profile?.is_premium ? 'lock-closed' : 'play'} size={26} color="#ffffff" />
                     </Pressable>
+                    {isPaid ? (
+                      <View style={styles.covenantBadgeOverlay}>
+                        <Ionicons name="ribbon" size={11} color="#000000" />
+                        <Text style={styles.covenantBadgeOverlayText}>COVENANT PASS</Text>
+                      </View>
+                    ) : null}
                     {s.metadata?.duration ? (
                       <View style={styles.durationBadge}>
                         <Text style={styles.durationText}>{String(s.metadata.duration)}</Text>
@@ -300,20 +384,33 @@ export function SermonScreen({ }: SermonScreenProps) {
                 ) : null}
 
                 <View style={styles.sermonBody}>
-                  <Text style={styles.speakerText}>
-                    {s.metadata?.speaker ? String(s.metadata.speaker).toUpperCase() : 'APOSTLE JOE DANIELS'}
-                    {s.metadata?.series ? ` • ${String(s.metadata.series)}` : ''}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={styles.speakerText}>
+                      {s.metadata?.speaker ? String(s.metadata.speaker).toUpperCase() : 'APOSTLE JOE DANIELS'}
+                      {s.metadata?.series ? ` • ${String(s.metadata.series)}` : ''}
+                    </Text>
+                    {isPaid && (
+                      <View style={styles.covenantPillMini}>
+                        <Text style={styles.covenantPillMiniText}>PAID</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.sermonTitle}>{s.title}</Text>
                   {s.body ? <Text style={styles.sermonDesc} numberOfLines={2}>{s.body}</Text> : null}
 
                   <View style={styles.cardActions}>
                     <Pressable
-                      style={styles.btnWatch}
+                      style={[styles.btnWatch, isPaid && !profile?.is_premium && styles.btnWatchPaid]}
                       onPress={() => startPlayback(s)}
                     >
-                      <Ionicons name="play" size={15} color={Colors.textInverse} />
-                      <Text style={styles.btnWatchText}>Watch in App</Text>
+                      <Ionicons
+                        name={isPaid && !profile?.is_premium ? 'lock-closed' : 'play'}
+                        size={15}
+                        color={isPaid && !profile?.is_premium ? Colors.gold : Colors.textInverse}
+                      />
+                      <Text style={[styles.btnWatchText, isPaid && !profile?.is_premium && styles.btnWatchPaidText]}>
+                        {isPaid && !profile?.is_premium ? 'Unlock Covenant Pass' : 'Watch in App'}
+                      </Text>
                     </Pressable>
 
                     <View style={styles.secondaryActionsRow}>
@@ -498,7 +595,13 @@ export function SermonScreen({ }: SermonScreenProps) {
                       getSermonMediaSources(activePlayingSermon),
                       activePlayingSermon.metadata?.thumbnail_url as string | undefined
                     ),
+                    baseUrl: 'https://gatewayconnect.joedaniels.org',
                   }}
+                  originWhitelist={['*']}
+                  userAgent="Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                  allowFileAccess={true}
+                  allowFileAccessFromFileURLs={true}
+                  allowUniversalAccessFromFileURLs={true}
                   style={{ flex: 1, backgroundColor: '#000000' }}
                   allowsInlineMediaPlayback={true}
                   mediaPlaybackRequiresUserAction={false}
@@ -555,6 +658,66 @@ export function SermonScreen({ }: SermonScreenProps) {
                 onPress={() => setActivePlayingSermon(null)}
               >
                 <Text style={styles.playerDoneBtnText}>Minimize</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Covenant Partner / Paid Sermon Unlock Modal */}
+      <Modal visible={!!covenantModalSermon} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.covenantIconBadge}>
+                  <Ionicons name="ribbon" size={20} color={Colors.gold} />
+                </View>
+                <View>
+                  <Text style={styles.modalEyebrow}>APOSTOLIC COVENANT PASS</Text>
+                  <Text style={styles.modalSheetTitle}>Exclusive Teaching Access</Text>
+                </View>
+              </View>
+              <Pressable onPress={() => setCovenantModalSermon(null)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.covenantHelpText}>
+              "{covenantModalSermon?.title}" is reserved for enrolled Covenant Partners and School of Mentorship disciples.
+            </Text>
+
+            {/* Plans */}
+            <View style={styles.covenantPlanCards}>
+              <Pressable style={styles.covenantPlanCard} onPress={handleUnlockCovenant}>
+                <View>
+                  <Text style={styles.covenantPlanTitle}>3 Months Kingdom Pass</Text>
+                  <Text style={styles.covenantPlanSub}>Standard Covenant Access</Text>
+                </View>
+                <Text style={styles.covenantPlanPrice}>$30 USD</Text>
+              </Pressable>
+
+              <Pressable style={[styles.covenantPlanCard, styles.covenantPlanCardFeatured]} onPress={handleUnlockCovenant}>
+                <View>
+                  <Text style={styles.covenantPlanTitle}>6 Months Apostolic Masterclass</Text>
+                  <Text style={styles.covenantPlanSub}>Includes Mentorship Modules</Text>
+                </View>
+                <Text style={styles.covenantPlanPrice}>$60 USD</Text>
+              </Pressable>
+            </View>
+
+            {/* Voucher input */}
+            <View style={styles.voucherRow}>
+              <TextInput
+                value={covenantVoucher}
+                onChangeText={setCovenantVoucher}
+                placeholder="Enter Covenant Code (e.g. GATEWAY2026)"
+                placeholderTextColor={Colors.textMuted}
+                autoCapitalize="characters"
+                style={styles.voucherInput}
+              />
+              <Pressable style={styles.voucherBtn} onPress={handleUnlockCovenant}>
+                <Text style={styles.voucherBtnText}>Unlock</Text>
               </Pressable>
             </View>
           </View>
@@ -1048,5 +1211,162 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontSemiBold,
     color: Colors.textPrimary,
     fontSize: 13,
+  },
+  downloadProgressBanner: {
+    backgroundColor: '#18181f',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    borderRadius: Radii.md,
+    padding: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  dlProgressTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dlProgressTitle: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 12,
+    flex: 1,
+  },
+  dlProgressPercent: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  dlProgressBarBg: {
+    height: 6,
+    backgroundColor: '#27272a',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  dlProgressBarFill: {
+    height: '100%',
+    backgroundColor: Colors.gold,
+    borderRadius: 3,
+  },
+  covenantBadgeOverlay: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.gold,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radii.sm,
+  },
+  covenantBadgeOverlayText: {
+    fontFamily: Typography.fontBold,
+    color: '#000000',
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  covenantPillMini: {
+    backgroundColor: 'rgba(217, 119, 6, 0.2)',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  covenantPillMiniText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 9,
+  },
+  btnWatchPaid: {
+    backgroundColor: '#1c1917',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  btnWatchPaidText: {
+    color: Colors.gold,
+  },
+  covenantIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: Radii.md,
+    backgroundColor: '#1c1917',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  covenantHelpText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  covenantPlanCards: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  covenantPlanCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#141418',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radii.md,
+    padding: 14,
+  },
+  covenantPlanCardFeatured: {
+    borderColor: Colors.gold,
+    backgroundColor: 'rgba(217, 119, 6, 0.08)',
+  },
+  covenantPlanTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+  },
+  covenantPlanSub: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  covenantPlanPrice: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 14,
+  },
+  voucherRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  voucherInput: {
+    flex: 1,
+    backgroundColor: '#18181f',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: Colors.textPrimary,
+    fontFamily: Typography.fontRegular,
+    fontSize: 12,
+  },
+  voucherBtn: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  voucherBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textInverse,
+    fontSize: 12,
   },
 });

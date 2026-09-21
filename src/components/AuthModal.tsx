@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
-import { MobileUser, signIn, signUp } from '../auth/authService';
+import { MobileUser, signIn, signUp, DEMO_USERS } from '../auth/authService';
 
 interface AuthModalProps {
   visible: boolean;
@@ -13,6 +13,15 @@ interface AuthModalProps {
   onOpenLegal?: (tab: 'privacy' | 'terms') => void;
   onContinueAsGuest?: () => void;
 }
+
+const COUNTRY_CODES = [
+  { code: '+263', label: 'ZW (+263)' },
+  { code: '+27',  label: 'ZA (+27)' },
+  { code: '+44',  label: 'UK (+44)' },
+  { code: '+1',   label: 'US (+1)' },
+];
+
+const CITIES = ['Harare', 'Bulawayo', 'Chitungwiza', 'Gweru', 'Mutare', 'Diaspora'];
 
 export function AuthModal({
   visible,
@@ -25,23 +34,34 @@ export function AuthModal({
 }: AuthModalProps) {
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+263');
   const [password, setPassword] = useState('');
-  const [campus, setCampus] = useState('Harare Main Campus');
+  const [showPassword, setShowPassword] = useState(false);
+  const [location, setLocation] = useState('Harare');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const formatFullPhone = (rawPhone: string, code: string) => {
+    const trimmed = rawPhone.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('@') || /[a-zA-Z]/.test(trimmed)) return trimmed;
+    if (trimmed.startsWith('+')) return trimmed;
+    const cleanLocal = trimmed.replace(/^0+/, '');
+    return `${code}${cleanLocal}`;
+  };
+
   const handleSubmit = async () => {
     setError('');
-    const cleanEmail = email.trim();
+    const rawPhone = phone.trim();
     const cleanPass = password.trim();
 
-    if (!cleanEmail) {
-      setError('Please enter your email address.');
+    if (!rawPhone) {
+      setError('Please enter your mobile phone number.');
       return;
     }
     if (!cleanPass) {
-      setError('Please enter your password.');
+      setError('Please enter your account password.');
       return;
     }
     if (cleanPass.length < 6) {
@@ -53,24 +73,20 @@ export function AuthModal({
       return;
     }
 
+    const fullPhone = formatFullPhone(rawPhone, countryCode);
+
     try {
       setLoading(true);
       const user = mode === 'signup'
-        ? await signUp(cleanEmail, cleanPass, name.trim())
-        : await signIn(cleanEmail, cleanPass);
+        ? await signUp(name.trim(), fullPhone, cleanPass, `${location}, Zimbabwe`)
+        : await signIn(fullPhone, cleanPass);
       setLoading(false);
       onSuccess(user);
       onClose();
     } catch (err) {
       setLoading(false);
-      const msg = err instanceof Error ? err.message : 'Authentication failed. Please try again.';
-      if (msg.includes('Invalid login')) {
-        setError('Incorrect email or password. Please check your credentials.');
-      } else if (msg.includes('already registered')) {
-        setError('This email is already registered. Try signing in.');
-      } else {
-        setError(msg);
-      }
+      const msg = err instanceof Error ? err.message : 'Authentication failed. Please check credentials.';
+      setError(msg);
     }
   };
 
@@ -85,12 +101,12 @@ export function AuthModal({
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.logoBadge}>
-                <Text style={styles.logoBadgeText}>G</Text>
+                <Ionicons name="shield-checkmark" size={20} color={Colors.gold} />
               </View>
               <View>
-                <Text style={styles.eyebrow}>GATEWAY CHURCH</Text>
+                <Text style={styles.eyebrow}>GATEWAY CHURCH INTERNATIONAL</Text>
                 <Text style={styles.title}>
-                  {mode === 'signin' ? 'Sign In to Gateway' : 'Join the Fellowship'}
+                  {mode === 'signin' ? 'Sign In to Gateway' : 'Create Believer Account'}
                 </Text>
               </View>
             </View>
@@ -101,7 +117,7 @@ export function AuthModal({
 
           {promptMessage ? (
             <View style={styles.promptBanner}>
-              <Ionicons name="information-circle-outline" size={18} color={Colors.gold} />
+              <Ionicons name="information-circle-outline" size={16} color={Colors.gold} />
               <Text style={styles.promptBannerText}>{promptMessage}</Text>
             </View>
           ) : null}
@@ -140,103 +156,129 @@ export function AuthModal({
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  placeholder="e.g. Tinodaishe Chibi"
+                  placeholder="e.g. Tinodaishe Morgan Chibi"
                   placeholderTextColor={Colors.textMuted}
-                  style={styles.input}
                   autoCapitalize="words"
+                  style={styles.input}
                 />
               </View>
             )}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email Address</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="your.email@example.com"
-                placeholderTextColor={Colors.textMuted}
-                style={styles.input}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
+              <Text style={styles.label}>Mobile Phone Number</Text>
+              <View style={styles.phoneInputRow}>
+                <View style={styles.countryCodeBadge}>
+                  <Text style={styles.countryCodeText}>{countryCode}</Text>
+                </View>
+                <TextInput
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="077... or 078... (or @handle)"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                  style={[styles.input, { flex: 1 }]}
+                />
+              </View>
+              <Text style={styles.hintText}>Strictly 1 account per mobile number for security</Text>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Minimum 6 characters"
-                placeholderTextColor={Colors.textMuted}
-                style={styles.input}
-                secureTextEntry
-              />
+              <View style={styles.passwordRow}>
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Enter secret password"
+                  placeholderTextColor={Colors.textMuted}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  style={[styles.input, { flex: 1 }]}
+                />
+                <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={Colors.textMuted} />
+                </Pressable>
+              </View>
             </View>
 
             {mode === 'signup' && (
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Home Campus</Text>
-                <TextInput
-                  value={campus}
-                  onChangeText={setCampus}
-                  placeholder="Harare Main / Bulawayo / Online"
-                  placeholderTextColor={Colors.textMuted}
-                  style={styles.input}
-                />
+                <Text style={styles.label}>City / Campus Location</Text>
+                <View style={styles.cityPillRow}>
+                  {CITIES.map(c => (
+                    <Pressable
+                      key={c}
+                      style={[styles.cityPill, location === c && styles.cityPillActive]}
+                      onPress={() => setLocation(c)}
+                    >
+                      <Text style={[styles.cityPillText, location === c && styles.cityPillTextActive]}>{c}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             )}
 
-            <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={loading}>
+            <Pressable
+              style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+              onPress={handleSubmit}
+              disabled={loading}
+            >
               {loading ? (
                 <ActivityIndicator color={Colors.textInverse} size="small" />
               ) : (
                 <>
-                  <Ionicons
-                    name={mode === 'signin' ? 'log-in-outline' : 'person-add-outline'}
-                    size={18}
-                    color={Colors.textInverse}
-                  />
+                  <Ionicons name={mode === 'signin' ? 'log-in-outline' : 'person-add-outline'} size={18} color={Colors.textInverse} />
                   <Text style={styles.submitBtnText}>
-                    {mode === 'signin' ? 'Sign In' : 'Create Member Account'}
+                    {mode === 'signin' ? 'Sign In' : 'Join Fellowship'}
                   </Text>
                 </>
               )}
             </Pressable>
 
-            {/* Optional Continue as Guest Button */}
-            {onContinueAsGuest && (
-              <Pressable
-                style={styles.guestActionBtn}
-                onPress={() => {
-                  onClose();
-                  onContinueAsGuest();
-                }}
-              >
-                <Text style={styles.guestActionBtnText}>Continue as Guest →</Text>
-              </Pressable>
-            )}
-
-            {/* Legal Notice */}
-            <View style={styles.legalRow}>
-              <Text style={styles.legalText}>
-                By continuing, you agree to our{' '}
-                <Text
-                  style={styles.legalLink}
-                  onPress={() => onOpenLegal && onOpenLegal('terms')}
-                >
-                  Terms of Service
-                </Text>{' '}
-                and{' '}
-                <Text
-                  style={styles.legalLink}
-                  onPress={() => onOpenLegal && onOpenLegal('privacy')}
-                >
-                  Privacy Policy
-                </Text>
-                .
-              </Text>
-              <Text style={styles.techCredit}>Developed by BlueWave Technologies</Text>
+            {/* Quick Demo Test Accounts */}
+            <View style={styles.demoSection}>
+              <Text style={styles.demoLabel}>Or tap to test with web demo accounts:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.demoScroll}>
+                {DEMO_USERS.map(u => (
+                  <Pressable
+                    key={u.id}
+                    style={styles.demoChip}
+                    onPress={async () => {
+                      try {
+                        setLoading(true);
+                        const user = await signIn(u.phone || u.handle || u.name);
+                        setLoading(false);
+                        onSuccess(user);
+                        onClose();
+                      } catch {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    <Ionicons name="person-circle" size={14} color={Colors.gold} />
+                    <Text style={styles.demoChipText}>{u.name.split(' ')[0]}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
             </View>
+
+            {onContinueAsGuest ? (
+              <Pressable style={styles.guestBtn} onPress={onContinueAsGuest}>
+                <Text style={styles.guestBtnText}>Continue as Guest</Text>
+              </Pressable>
+            ) : null}
+
+            {onOpenLegal && (
+              <View style={styles.legalLinks}>
+                <Pressable onPress={() => onOpenLegal('privacy')}>
+                  <Text style={styles.legalText}>Privacy Policy</Text>
+                </Pressable>
+                <Text style={styles.legalDot}>•</Text>
+                <Pressable onPress={() => onOpenLegal('terms')}>
+                  <Text style={styles.legalText}>Terms of Service</Text>
+                </Pressable>
+              </View>
+            )}
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -247,27 +289,25 @@ export function AuthModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.78)',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: Colors.bgCard,
+    backgroundColor: '#0c0c10',
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     paddingHorizontal: 20,
     paddingTop: 18,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
     maxHeight: '90%',
-    borderTopWidth: 1,
+    borderWidth: 1,
     borderColor: Colors.border,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    alignItems: 'center',
+    marginBottom: 14,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -275,24 +315,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   logoBadge: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: Radii.md,
-    backgroundColor: Colors.forestGreen,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#16161e',
     borderWidth: 1,
     borderColor: Colors.gold,
-  },
-  logoBadgeText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   eyebrow: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 10,
+    fontSize: 9,
     letterSpacing: 1.2,
   },
   title: {
@@ -307,58 +342,59 @@ const styles = StyleSheet.create({
   promptBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(245,158,11,0.12)',
+    gap: 8,
+    backgroundColor: 'rgba(217, 119, 6, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.3)',
+    borderColor: 'rgba(217, 119, 6, 0.3)',
     borderRadius: Radii.md,
     padding: 10,
-    marginTop: 12,
+    marginBottom: 12,
   },
   promptBannerText: {
     flex: 1,
     fontFamily: Typography.fontRegular,
-    color: Colors.textPrimary,
+    color: Colors.textSecondary,
     fontSize: 12,
     lineHeight: 16,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: Colors.bg,
-    borderRadius: Radii.lg,
-    padding: 4,
-    marginTop: 14,
+    backgroundColor: '#121216',
+    borderRadius: Radii.md,
+    padding: 3,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
-    borderRadius: Radii.md,
+    borderRadius: Radii.sm,
   },
   tabBtnActive: {
-    backgroundColor: Colors.forestGreen,
+    backgroundColor: Colors.gold,
   },
   tabBtnText: {
     fontFamily: Typography.fontSemiBold,
     color: Colors.textMuted,
-    fontSize: 13,
+    fontSize: 12,
   },
   tabBtnTextActive: {
-    color: Colors.gold,
+    color: Colors.textInverse,
   },
   form: {
-    paddingTop: 16,
     gap: 12,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(239,68,68,0.12)',
+    gap: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: Radii.sm,
+    padding: 10,
     borderWidth: 1,
     borderColor: Colors.danger,
-    borderRadius: Radii.md,
-    padding: 10,
   },
   errorText: {
     flex: 1,
@@ -367,75 +403,156 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   inputGroup: {
-    gap: 6,
+    gap: 4,
   },
   label: {
     fontFamily: Typography.fontSemiBold,
     color: Colors.textSecondary,
     fontSize: 12,
   },
-  input: {
-    backgroundColor: Colors.bg,
+  phoneInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  countryCodeBadge: {
+    backgroundColor: '#18181f',
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radii.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countryCodeText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 12,
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181f',
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  eyeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  input: {
+    backgroundColor: '#18181f',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     color: Colors.textPrimary,
     fontFamily: Typography.fontRegular,
-    fontSize: 14,
+    fontSize: 13,
+  },
+  hintText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  cityPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  cityPill: {
+    backgroundColor: '#18181f',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  cityPillActive: {
+    backgroundColor: Colors.gold,
+    borderColor: Colors.gold,
+  },
+  cityPillText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textSecondary,
+    fontSize: 11,
+  },
+  cityPillTextActive: {
+    color: Colors.textInverse,
   },
   submitBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingVertical: 13,
     marginTop: 6,
+  },
+  submitBtnDisabled: {
+    opacity: 0.6,
   },
   submitBtnText: {
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
     fontSize: 14,
   },
-  guestActionBtn: {
-    marginTop: 10,
-    paddingVertical: 12,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  guestActionBtnText: {
-    fontFamily: Typography.fontSemiBold,
-    color: Colors.gold,
-    fontSize: 13,
-  },
-  legalRow: {
-    alignItems: 'center',
+  demoSection: {
     marginTop: 8,
-    gap: 4,
-    paddingBottom: 8,
+    gap: 6,
+  },
+  demoLabel: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+  },
+  demoScroll: {
+    flexDirection: 'row',
+  },
+  demoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#16161e',
+    borderWidth: 1,
+    borderColor: '#2a2a35',
+    borderRadius: Radii.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  demoChipText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 11,
+  },
+  guestBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  guestBtnText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textMuted,
+    fontSize: 12,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
   },
   legalText: {
     fontFamily: Typography.fontRegular,
     color: Colors.textMuted,
     fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 16,
   },
-  legalLink: {
-    color: Colors.gold,
-    textDecorationLine: 'underline',
-  },
-  techCredit: {
-    fontFamily: Typography.fontRegular,
+  legalDot: {
     color: Colors.textMuted,
-    fontSize: 10,
-    opacity: 0.7,
+    fontSize: 11,
   },
 });

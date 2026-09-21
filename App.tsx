@@ -202,13 +202,21 @@ export default function App() {
             networkStatus={networkStatus}
             pendingMutations={pendingMutations}
             syncState={syncState}
+            profile={profile}
+            onRequestAuth={handleRequestAuth}
             onNavigateBible={() => setScreen('bible')}
             onNavigateStore={() => setScreen('store')}
             onNavigateSermons={() => setScreen('sermons')}
             onNavigateLive={() => setScreen('live')}
           />
         )}
-        {screen === 'sermons' && <SermonScreen onNavigateHome={() => setScreen('home')} />}
+        {screen === 'sermons' && (
+          <SermonScreen
+            profile={profile}
+            onRequestAuth={handleRequestAuth}
+            onNavigateHome={() => setScreen('home')}
+          />
+        )}
         {screen === 'bible' && <BibleScreen profile={profile} />}
         {screen === 'community' && <CommunityScreen profile={profile} onRequestAuth={handleRequestAuth} />}
         {screen === 'prayer' && <PrayerScreen profile={profile} onRequestAuth={handleRequestAuth} />}

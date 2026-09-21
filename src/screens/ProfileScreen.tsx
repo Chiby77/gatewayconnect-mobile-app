@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Switch, Modal, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Switch, Modal, Alert, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
-import { MobileUser, signIn, signUp, signOut } from '../auth/authService';
+import { MobileUser, signOut, updateProfile } from '../auth/authService';
 import { SettingsRepository } from '../settings/settingsRepository';
 import { trackEvent } from '../analytics/analyticsService';
 import { BibleRepository } from '../bible/bibleRepository';
 import { listDownloads, deleteDownload, MediaDownload } from '../media/downloadManager';
 import { listPrayerRequests, PrayerRequest } from '../data/contentRepository';
-
 import { LegalModal } from '../components/LegalModal';
 
 interface ProfileScreenProps {
@@ -18,28 +17,44 @@ interface ProfileScreenProps {
   onRequestAuth?: (prompt?: string) => void;
 }
 
+const FELLOWSHIP_PAGES = [
+  { id: '1', name: 'Ignite Worship Team', category: 'Atmospheric Worship', members: '8 Members', icon: 'musical-notes' },
+  { id: '2', name: 'Pride Of Lions', category: "Men's Directorate", members: '8 Members', icon: 'shield-checkmark' },
+  { id: '3', name: 'Passion Ladies', category: "Women's Directorate", members: '4 Members', icon: 'heart' },
+  { id: '4', name: 'Foundation School', category: 'Apostolic Academy', members: '8 Members (Paid)', icon: 'school' },
+  { id: '5', name: 'Gymstars Foundation', category: 'Youth & Juniors', members: '7 Members', icon: 'flame' },
+  { id: '6', name: 'International School of Mentoship', category: 'Prophetic Impartation', members: '12 Members (Paid)', icon: 'ribbon' },
+];
+
+const REELS_DATA = [
+  { id: 'r1', title: 'Bring Change From Within', speaker: 'Apostle Joe Daniels', views: '15.4K', duration: '1:00' },
+  { id: 'r2', title: 'God Changes Your Circle Before He Changes Your Life', speaker: 'Apostle Joe Daniels', views: '18.2K', duration: '1:00' },
+  { id: 'r3', title: 'Varume Izvi Ndizvinoda Vakadzi Vedu', speaker: 'Apostle Joe Daniels', views: '22.1K', duration: '1:00' },
+  { id: 'r4', title: 'Mwari Ngaakubvisirewo Nhamo Inokutadzisa', speaker: 'Apostle Joe Daniels', views: '27.5K', duration: '1:00' },
+];
+
 export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: ProfileScreenProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
   const [lowData, setLowData] = useState(SettingsRepository.getLowDataMode());
   const [analytics, setAnalytics] = useState(SettingsRepository.getAnalyticsOptIn());
   const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | null>(null);
 
-  // Profile active subtab
-  const [activeTab, setActiveTab] = useState<'saved' | 'downloads' | 'prayers' | 'settings'>('saved');
+  // Subtab navigation matching Screenshot 5: Posts | Reels | Downloads | Saved | Pages | Settings
+  const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'downloads' | 'saved' | 'pages' | 'settings'>('posts');
 
-  // User content stats
+  // Stats and offline data
   const [bookmarks, setBookmarks] = useState<string[]>([]);
   const [downloads, setDownloads] = useState<MediaDownload[]>([]);
   const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
 
   // Edit profile state
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editName, setEditName] = useState(profile?.name || 'Tinodaishe Chibi');
-  const [editBio, setEditBio] = useState('Walking in supernatural dominion & apostolic grace • Gateway Church Harare');
-  const [editLocation, setEditLocation] = useState('Harare, Zimbabwe');
+  const [editName, setEditName] = useState(profile?.name || '');
+  const [editPhone, setEditPhone] = useState(profile?.phone || '');
+  const [editBio, setEditBio] = useState(profile?.bio || 'Walking in supernatural dominion & apostolic grace • Gateway Church Harare');
+  const [editLocation, setEditLocation] = useState(profile?.location || 'Harare');
+  const [editWebsite, setEditWebsite] = useState(profile?.website || 'gatewaychurchzim.org');
+  const [editHandle, setEditHandle] = useState(profile?.handle || '@tinodaishe_morgan_chibi');
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const refreshData = () => {
     setBookmarks(BibleRepository.listBookmarks(profile?.id || null));
@@ -49,6 +64,17 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
 
   useEffect(() => {
     refreshData();
+  }, [profile]);
+
+  useEffect(() => {
+    if (profile) {
+      setEditName(profile.name);
+      setEditPhone(profile.phone || '');
+      setEditBio(profile.bio || 'Walking in supernatural dominion & apostolic grace • Gateway Church Harare');
+      setEditLocation(profile.location || 'Harare');
+      setEditWebsite(profile.website || 'gatewaychurchzim.org');
+      setEditHandle(profile.handle || `@${profile.name.toLowerCase().replace(/\s+/g, '_')}`);
+    }
   }, [profile]);
 
   const handleLowDataToggle = () => {
@@ -65,37 +91,46 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
     if (next) trackEvent('analytics_enabled');
   };
 
-  const authenticate = async (create: boolean) => {
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      Alert.alert('Name Required', 'Please enter your full name.');
+      return;
+    }
     try {
-      setError('');
-      if (!email.trim()) { setError('Please enter your email address.'); return; }
-      if (!password.trim()) { setError('Please enter your password.'); return; }
-      const next = create
-        ? await signUp(email, password, name.trim() || 'Gateway Member')
-        : await signIn(email, password);
-      setError(`Welcome, ${next.name}! ✓`);
-    } catch (caught) {
-      const msg = caught instanceof Error ? caught.message : 'Something went wrong. Please try again.';
-      if (msg.includes('Invalid login')) setError('Incorrect email or password. Please try again.');
-      else if (msg.includes('already registered')) setError('This email is already registered. Try signing in instead.');
-      else if (msg.includes('not configured')) setError('Authentication is not available in this build.');
-      else setError(msg);
+      setSavingProfile(true);
+      await updateProfile({
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        bio: editBio.trim(),
+        location: editLocation.trim(),
+        website: editWebsite.trim(),
+        handle: editHandle.trim().startsWith('@') ? editHandle.trim() : `@${editHandle.trim()}`,
+      });
+      setSavingProfile(false);
+      setShowEditModal(false);
+      Alert.alert('Profile Saved', 'Your member details have been updated successfully.');
+    } catch {
+      setSavingProfile(false);
+      Alert.alert('Update Failed', 'Could not save profile changes.');
     }
   };
 
-  return (
-    <>
-      <View style={styles.pageHeader}>
-        <Text style={styles.sectionTitle}>Account & Profile</Text>
-        {profile && (
-          <Pressable style={styles.editBtn} onPress={() => setShowEditModal(true)}>
-            <Ionicons name="create-outline" size={16} color={Colors.gold} />
-            <Text style={styles.editBtnText}>Edit</Text>
-          </Pressable>
-        )}
-      </View>
+  const handleCopyMemberId = () => {
+    const id = profile?.member_id || 'GCZ-MEM-5323';
+    Alert.alert('Member ID Copied', `Official Member ID: ${id}`);
+  };
 
-      {/* Member Profile Hero Card vs Guest Visitor Card */}
+  const handleShareProfile = () => {
+    const handle = profile?.handle || '@tinodaishe_morgan_chibi';
+    Alert.alert(
+      'Share Member Profile',
+      `Share Gateway Profile: https://gatewayconnect.joedaniels.org/member/${handle.replace('@', '')}`
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* 1. If Guest: Show guest sign in invitation */}
       {!profile ? (
         <View style={styles.guestHero}>
           <View style={styles.guestAvatar}>
@@ -106,7 +141,7 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
           </View>
           <Text style={styles.guestTitle}>Welcome to Gateway Church</Text>
           <Text style={styles.guestBody}>
-            You are browsing in Guest Mode. Sign in or create a member account to receive your official Member ID, save personal notes, download sermons offline, submit prayer requests, and connect with fellowship groups.
+            You are browsing in Guest Mode. Sign in or create an account with your phone number to receive your official Member ID, save personal verses, download sermons offline, and access all fellowship groups.
           </Text>
 
           <View style={styles.guestActionRow}>
@@ -128,283 +163,370 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
           </View>
         </View>
       ) : (
-        <View style={styles.profileHero}>
-          <View style={styles.heroTop}>
-            <View style={styles.avatarBorder}>
-              <View style={styles.avatarInner}>
-                <Ionicons name="person" size={32} color={Colors.gold} />
+        /* 2. Member Profile Card - EXACT MATCH to Screenshot 5 */
+        <View style={styles.profileHeroCard}>
+          {/* Top Bar: @handle + [✓ Member] + [•••] */}
+          <View style={styles.topBarRow}>
+            <View style={styles.topBarUser}>
+              <Text style={styles.topBarHandle}>
+                {profile.handle || `@${profile.name.toLowerCase().replace(/\s+/g, '_')}`}
+              </Text>
+              <View style={styles.verifiedMemberPill}>
+                <Ionicons name="checkmark" size={11} color="#10b981" />
+                <Text style={styles.verifiedMemberPillText}>
+                  {profile.role === 'super_admin' ? 'Overseer' : 'Member'}
+                </Text>
               </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <View style={styles.badgeRow}>
-                <Text style={styles.badgeText}>COVENANT MEMBER</Text>
-                <View style={styles.memberIdPill}>
-                  <Text style={styles.memberIdText}>GCZ-{profile.id.slice(0, 7).toUpperCase()}</Text>
-                </View>
+            <Pressable onPress={() => setActiveTab('settings')} style={styles.topBarMenuBtn}>
+              <Ionicons name="ellipsis-horizontal" size={20} color={Colors.textPrimary} />
+            </Pressable>
+          </View>
+
+          {/* Avatar with Camera Overlay & 3 Stats Columns */}
+          <View style={styles.avatarStatsRow}>
+            <View style={styles.avatarCircleWrap}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarInitial}>
+                  {profile.name ? profile.name.charAt(0).toUpperCase() : 'T'}
+                </Text>
               </View>
-              <Text style={styles.userName}>{profile.name}</Text>
-              <Text style={styles.userHandle}>@{profile.name.toLowerCase().replace(/\s+/g, '_')}</Text>
+              <Pressable style={styles.cameraIconBadge} onPress={() => setShowEditModal(true)}>
+                <Ionicons name="camera" size={13} color="#000000" />
+              </Pressable>
+            </View>
+
+            <View style={styles.statsCols}>
+              <Pressable style={styles.statCol} onPress={() => setActiveTab('posts')}>
+                <Text style={styles.statColNum}>0</Text>
+                <Text style={styles.statColLabel}>Posts</Text>
+              </Pressable>
+              <View style={styles.statCol}>
+                <Text style={styles.statColNum}>{profile.followers_count ?? 0}</Text>
+                <Text style={styles.statColLabel}>Followers</Text>
+              </View>
+              <View style={styles.statCol}>
+                <Text style={styles.statColNum}>{profile.following_count ?? 2}</Text>
+                <Text style={styles.statColLabel}>Following</Text>
+              </View>
             </View>
           </View>
 
-          <Text style={styles.userBio}>{editBio}</Text>
-          <View style={styles.locationRow}>
-            <Ionicons name="location-sharp" size={14} color={Colors.gold} />
-            <Text style={styles.locationText}>{editLocation}</Text>
+          {/* Full Name & Member Badge */}
+          <View style={styles.nameBadgeRow}>
+            <Text style={styles.fullNameText}>{profile.name}</Text>
+            <View style={styles.roleBadgePill}>
+              <Text style={styles.roleBadgePillText}>
+                {profile.role === 'super_admin' ? 'Overseer' : 'Member'}
+              </Text>
+            </View>
           </View>
 
-          {/* Quick Stats Banner (Only for Logged-In Members) */}
-          <View style={styles.statsRow}>
-            <Pressable style={styles.statItem} onPress={() => setActiveTab('saved')}>
-              <Text style={styles.statNumber}>{bookmarks.length}</Text>
-              <Text style={styles.statLabel}>Saved Verses</Text>
+          {/* Chips: Phone • Location • Member ID */}
+          <View style={styles.infoPillsRow}>
+            {profile.phone ? (
+              <View style={styles.infoPill}>
+                <Ionicons name="call" size={11} color={Colors.gold} />
+                <Text style={styles.infoPillText}>{profile.phone}</Text>
+              </View>
+            ) : null}
+            <View style={styles.infoPill}>
+              <Ionicons name="location-sharp" size={11} color={Colors.gold} />
+              <Text style={styles.infoPillText}>{profile.location || 'Harare'}</Text>
+            </View>
+            <Pressable style={styles.infoPill} onPress={handleCopyMemberId}>
+              <Text style={styles.infoPillText}>ID: {profile.member_id || 'GCZ-MEM-5323'}</Text>
+              <Ionicons name="copy-outline" size={11} color={Colors.gold} />
             </Pressable>
-            <View style={styles.statDivider} />
-            <Pressable style={styles.statItem} onPress={() => setActiveTab('downloads')}>
-              <Text style={styles.statNumber}>{downloads.length}</Text>
-              <Text style={styles.statLabel}>Downloads</Text>
+          </View>
+
+          {/* Bio text */}
+          <Text style={styles.bioText}>
+            {profile.bio || 'Walking in supernatural dominion & apostolic grace • Gateway Church Harare'}
+          </Text>
+
+          {/* Website link */}
+          <Pressable style={styles.websiteRow}>
+            <Ionicons name="link" size={13} color={Colors.gold} />
+            <Text style={styles.websiteText}>{profile.website || 'gatewaychurchzim.org'}</Text>
+          </Pressable>
+
+          {/* Followers note */}
+          <View style={styles.followersNoteRow}>
+            <Ionicons name="people-outline" size={13} color={Colors.textMuted} />
+            <Text style={styles.followersNoteText}>{profile.followers_count ?? 0} followers</Text>
+          </View>
+
+          {/* Action Buttons: Edit | Share | Crown */}
+          <View style={styles.profileActionBtnsRow}>
+            <Pressable style={styles.profileEditBtn} onPress={() => setShowEditModal(true)}>
+              <Ionicons name="pencil" size={14} color={Colors.textPrimary} />
+              <Text style={styles.profileEditBtnText}>Edit</Text>
             </Pressable>
-            <View style={styles.statDivider} />
-            <Pressable style={styles.statItem} onPress={() => setActiveTab('prayers')}>
-              <Text style={styles.statNumber}>{prayers.length}</Text>
-              <Text style={styles.statLabel}>Prayers</Text>
+
+            <Pressable style={styles.profileShareBtn} onPress={handleShareProfile}>
+              <Ionicons name="share-social-outline" size={14} color={Colors.textPrimary} />
+              <Text style={styles.profileShareBtnText}>Share</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.profileCrownBtn}
+              onPress={() => {
+                Alert.alert('Covenant Membership', 'Active Covenant Partner • Full Ministry Access');
+              }}
+            >
+              <Ionicons name="ribbon" size={18} color="#000000" />
             </Pressable>
           </View>
         </View>
       )}
 
-      {/* Profile Section Tabs */}
-      <View style={styles.tabNav}>
+      {/* 3. Horizontal Sub-Tabs Matching Screenshot 5: Posts | Reels | Downloads | Saved | Pages | Settings */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subtabScroll}>
         <Pressable
-          style={[styles.tabNavItem, activeTab === 'saved' && styles.tabNavItemActive]}
-          onPress={() => setActiveTab('saved')}
+          style={[styles.subtabBtn, activeTab === 'posts' && styles.subtabBtnActive]}
+          onPress={() => setActiveTab('posts')}
         >
-          <Ionicons name="bookmark" size={14} color={activeTab === 'saved' ? Colors.gold : Colors.textMuted} />
-          <Text style={[styles.tabNavText, activeTab === 'saved' && styles.tabNavTextActive]}>Saved Verses</Text>
+          <Ionicons name="grid" size={14} color={activeTab === 'posts' ? '#000000' : Colors.textMuted} />
+          <Text style={[styles.subtabBtnText, activeTab === 'posts' && styles.subtabBtnTextActive]}>
+            Posts
+          </Text>
         </Pressable>
+
         <Pressable
-          style={[styles.tabNavItem, activeTab === 'downloads' && styles.tabNavItemActive]}
+          style={[styles.subtabBtn, activeTab === 'reels' && styles.subtabBtnActive]}
+          onPress={() => setActiveTab('reels')}
+        >
+          <Ionicons name="play" size={14} color={activeTab === 'reels' ? '#000000' : Colors.textMuted} />
+          <Text style={[styles.subtabBtnText, activeTab === 'reels' && styles.subtabBtnTextActive]}>
+            Reels
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.subtabBtn, activeTab === 'downloads' && styles.subtabBtnActive]}
           onPress={() => setActiveTab('downloads')}
         >
-          <Ionicons name="cloud-download" size={14} color={activeTab === 'downloads' ? Colors.gold : Colors.textMuted} />
-          <Text style={[styles.tabNavText, activeTab === 'downloads' && styles.tabNavTextActive]}>Downloads</Text>
+          <Ionicons name="download" size={14} color={activeTab === 'downloads' ? '#000000' : Colors.textMuted} />
+          <Text style={[styles.subtabBtnText, activeTab === 'downloads' && styles.subtabBtnTextActive]}>
+            Downloads ({downloads.length})
+          </Text>
         </Pressable>
+
         <Pressable
-          style={[styles.tabNavItem, activeTab === 'prayers' && styles.tabNavItemActive]}
-          onPress={() => setActiveTab('prayers')}
+          style={[styles.subtabBtn, activeTab === 'saved' && styles.subtabBtnActive]}
+          onPress={() => setActiveTab('saved')}
         >
-          <Ionicons name="heart" size={14} color={activeTab === 'prayers' ? Colors.gold : Colors.textMuted} />
-          <Text style={[styles.tabNavText, activeTab === 'prayers' && styles.tabNavTextActive]}>My Prayers</Text>
+          <Ionicons name="bookmark" size={14} color={activeTab === 'saved' ? '#000000' : Colors.textMuted} />
+          <Text style={[styles.subtabBtnText, activeTab === 'saved' && styles.subtabBtnTextActive]}>
+            Saved ({bookmarks.length})
+          </Text>
         </Pressable>
+
         <Pressable
-          style={[styles.tabNavItem, activeTab === 'settings' && styles.tabNavItemActive]}
+          style={[styles.subtabBtn, activeTab === 'pages' && styles.subtabBtnActive]}
+          onPress={() => setActiveTab('pages')}
+        >
+          <Ionicons name="flag" size={14} color={activeTab === 'pages' ? '#000000' : Colors.textMuted} />
+          <Text style={[styles.subtabBtnText, activeTab === 'pages' && styles.subtabBtnTextActive]}>
+            Pages
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.subtabBtn, activeTab === 'settings' && styles.subtabBtnActive]}
           onPress={() => setActiveTab('settings')}
         >
-          <Ionicons name="settings-sharp" size={14} color={activeTab === 'settings' ? Colors.gold : Colors.textMuted} />
-          <Text style={[styles.tabNavText, activeTab === 'settings' && styles.tabNavTextActive]}>Settings</Text>
+          <Ionicons name="settings" size={14} color={activeTab === 'settings' ? '#000000' : Colors.textMuted} />
+          <Text style={[styles.subtabBtnText, activeTab === 'settings' && styles.subtabBtnTextActive]}>
+            Settings
+          </Text>
         </Pressable>
-      </View>
+      </ScrollView>
 
-      {/* Tab 1: Saved Verses */}
-      {activeTab === 'saved' && (
-        <View style={styles.sectionContainer}>
-          {bookmarks.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="bookmark-outline" size={38} color={Colors.textMuted} />
-              <Text style={styles.emptyTitle}>No saved verses yet</Text>
-              <Text style={styles.emptyBody}>
-                Tap the star icon on any Bible verse to bookmark it for quick access and meditation.
-              </Text>
-              {onNavigateBible && (
-                <Pressable style={styles.actionBtn} onPress={onNavigateBible}>
-                  <Text style={styles.actionBtnText}>Open Bible Reader</Text>
-                </Pressable>
-              )}
-            </View>
-          ) : (
-            bookmarks.map(bm => (
-              <View key={bm} style={styles.savedCard}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.savedTitle}>{bm}</Text>
-                  <Text style={styles.savedSubtitle}>Saved to your personal offline meditation library</Text>
+      {/* 4. Subtab Content */}
+      <View style={styles.tabContentArea}>
+        {/* Tab: Posts */}
+        {activeTab === 'posts' && (
+          <View style={styles.emptySubtabCard}>
+            <Ionicons name="grid-outline" size={40} color={Colors.textMuted} />
+            <Text style={styles.emptySubtabTitle}>No posts yet</Text>
+            <Text style={styles.emptySubtabBody}>
+              Your shared decrees, testimonies, and fellowship posts will appear here.
+            </Text>
+          </View>
+        )}
+
+        {/* Tab: Reels */}
+        {activeTab === 'reels' && (
+          <View style={styles.reelsGrid}>
+            {REELS_DATA.map(reel => (
+              <View key={reel.id} style={styles.reelCard}>
+                <View style={styles.reelThumbPlaceholder}>
+                  <Ionicons name="play-circle" size={32} color={Colors.gold} />
+                  <View style={styles.reelDurationBadge}>
+                    <Text style={styles.reelDurationText}>{reel.duration}</Text>
+                  </View>
                 </View>
-                <Pressable
-                  onPress={() => {
-                    BibleRepository.toggleBookmark(profile?.id || null, 'KJV', bm);
-                    refreshData();
-                  }}
-                >
-                  <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-                </Pressable>
+                <Text style={styles.reelTitle} numberOfLines={2}>{reel.title}</Text>
+                <Text style={styles.reelViews}>{reel.views} views</Text>
               </View>
-            ))
-          )}
-        </View>
-      )}
+            ))}
+          </View>
+        )}
 
-      {/* Tab 2: Offline Downloads */}
-      {activeTab === 'downloads' && (
-        <View style={styles.sectionContainer}>
-          {downloads.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="cloud-download-outline" size={38} color={Colors.textMuted} />
-              <Text style={styles.emptyTitle}>No offline media downloaded</Text>
-              <Text style={styles.emptyBody}>
-                Download sermons and audio messages to listen anywhere without internet or data usage.
+        {/* Tab: Downloads */}
+        {activeTab === 'downloads' && (
+          downloads.length === 0 ? (
+            <View style={styles.emptySubtabCard}>
+              <Ionicons name="cloud-download-outline" size={40} color={Colors.textMuted} />
+              <Text style={styles.emptySubtabTitle}>No offline downloads</Text>
+              <Text style={styles.emptySubtabBody}>
+                Download sermons in 720p, 480p, or Audio to watch or listen anywhere without mobile data.
               </Text>
             </View>
           ) : (
             downloads.map(dl => (
               <View key={dl.id} style={styles.savedCard}>
-                <Ionicons name="musical-notes" size={20} color={Colors.gold} />
-                <View style={{ flex: 1, marginLeft: 8 }}>
+                <Ionicons name={dl.media_type.includes('video') ? 'videocam' : 'musical-notes'} size={20} color={Colors.gold} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={styles.savedTitle}>{dl.content_id}</Text>
-                  <Text style={styles.savedSubtitle}>Offline Ready • Full Apostolic Audio</Text>
+                  <Text style={styles.savedSubtitle}>Offline Ready • Full Apostolic Media</Text>
                 </View>
                 <Pressable
                   onPress={async () => {
                     await deleteDownload(dl.content_id);
                     refreshData();
                   }}
+                  style={{ padding: 6 }}
                 >
                   <Ionicons name="trash-outline" size={18} color={Colors.danger} />
                 </Pressable>
               </View>
             ))
-          )}
-        </View>
-      )}
+          )
+        )}
 
-      {/* Tab 3: My Prayers */}
-      {activeTab === 'prayers' && (
-        <View style={styles.sectionContainer}>
-          {prayers.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="heart-outline" size={38} color={Colors.textMuted} />
-              <Text style={styles.emptyTitle}>No prayer requests yet</Text>
-              <Text style={styles.emptyBody}>
-                Submit your prayer needs in the Prayer tab. They are saved securely on your device.
+        {/* Tab: Saved Verses */}
+        {activeTab === 'saved' && (
+          bookmarks.length === 0 ? (
+            <View style={styles.emptySubtabCard}>
+              <Ionicons name="bookmark-outline" size={40} color={Colors.textMuted} />
+              <Text style={styles.emptySubtabTitle}>No saved verses yet</Text>
+              <Text style={styles.emptySubtabBody}>
+                Tap the star icon on any Bible verse to bookmark it for your personal meditation library.
               </Text>
+              {onNavigateBible && (
+                <Pressable style={styles.openBibleBtn} onPress={onNavigateBible}>
+                  <Text style={styles.openBibleBtnText}>Open Bible Reader</Text>
+                </Pressable>
+              )}
             </View>
           ) : (
-            prayers.map(p => (
-              <View key={p.id} style={styles.prayerCard}>
-                <View style={styles.prayerHeader}>
-                  <Text style={styles.prayerTitle}>{p.title}</Text>
-                  <View style={styles.prayerBadge}>
-                    <Text style={styles.prayerBadgeText}>✓ SUBMITTED</Text>
-                  </View>
+            bookmarks.map(bm => (
+              <View key={bm} style={styles.savedCard}>
+                <Ionicons name="bookmark" size={18} color={Colors.gold} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.savedTitle}>{bm}</Text>
+                  <Text style={styles.savedSubtitle}>Saved to offline scripture meditation</Text>
                 </View>
-                <Text style={styles.prayerBody}>{p.body}</Text>
+                <Pressable
+                  onPress={() => {
+                    BibleRepository.toggleBookmark(profile?.id || null, 'KJV', bm);
+                    refreshData();
+                  }}
+                  style={{ padding: 6 }}
+                >
+                  <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                </Pressable>
               </View>
             ))
-          )}
-        </View>
-      )}
+          )
+        )}
 
-      {/* Tab 4: Settings */}
-      {activeTab === 'settings' && (
-        <View style={styles.sectionContainer}>
-          {!profile && (
-            <View style={styles.card}>
-              <Text style={styles.eyebrow}>MEMBERSHIP</Text>
-              <Text style={styles.cardTitle}>Connect Your Gateway Account</Text>
-              <Text style={styles.cardBody}>
-                Sign in or register to sync your saved scriptures, offline downloads, and prayer requests across all devices.
-              </Text>
-              <Pressable
-                style={styles.signInCardBtn}
-                onPress={() => onRequestAuth?.('Sign in or register to sync your profile.')}
-              >
-                <Ionicons name="log-in-outline" size={16} color={Colors.textInverse} />
-                <Text style={styles.signInCardBtnText}>Sign In / Register</Text>
+        {/* Tab: Pages (Ministries & Fellowship Groups) */}
+        {activeTab === 'pages' && (
+          <View style={{ gap: 10 }}>
+            {FELLOWSHIP_PAGES.map(page => (
+              <View key={page.id} style={styles.pageItemCard}>
+                <View style={styles.pageItemIcon}>
+                  <Ionicons name={page.icon as any} size={20} color={Colors.gold} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.pageItemTitle}>{page.name}</Text>
+                  <Text style={styles.pageItemCategory}>{page.category} • {page.members}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Tab: Settings */}
+        {activeTab === 'settings' && (
+          <View style={{ gap: 14 }}>
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsSectionTitle}>DATA & SYNC</Text>
+              <View style={styles.settingRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingLabel}>Low Data Mode</Text>
+                  <Text style={styles.settingSub}>Reduces thumbnail resolutions on mobile networks</Text>
+                </View>
+                <Switch
+                  value={lowData}
+                  onValueChange={handleLowDataToggle}
+                  trackColor={{ false: '#3f3f46', true: Colors.gold }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              <View style={styles.settingRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingLabel}>Anonymous Analytics</Text>
+                  <Text style={styles.settingSub}>Helps us improve streaming and app stability</Text>
+                </View>
+                <Switch
+                  value={analytics}
+                  onValueChange={handleAnalyticsToggle}
+                  trackColor={{ false: '#3f3f46', true: Colors.gold }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+            </View>
+
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsSectionTitle}>LEGAL & ABOUT</Text>
+              <Pressable style={styles.legalItem} onPress={() => setLegalModalTab('privacy')}>
+                <Text style={styles.legalItemText}>Privacy Policy</Text>
+                <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+              </Pressable>
+              <Pressable style={styles.legalItem} onPress={() => setLegalModalTab('terms')}>
+                <Text style={styles.legalItemText}>Terms of Service</Text>
+                <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
               </Pressable>
             </View>
-          )}
-
-          <View style={styles.card}>
-            <Text style={styles.eyebrow}>PREFERENCES</Text>
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Low-Data Mode</Text>
-                <Text style={styles.cardBody}>Saves mobile data by reducing media downloads.</Text>
-              </View>
-              <Switch
-                value={lowData}
-                onValueChange={handleLowDataToggle}
-                trackColor={{ false: Colors.bgSecondary, true: Colors.goldMuted }}
-                thumbColor={lowData ? Colors.gold : Colors.textMuted}
-              />
-            </View>
-
-            <View style={[styles.settingRow, { marginTop: 20 }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Analytics</Text>
-                <Text style={styles.cardBody}>Share anonymous usage data to help us improve.</Text>
-              </View>
-              <Switch
-                value={analytics}
-                onValueChange={handleAnalyticsToggle}
-                trackColor={{ false: Colors.bgSecondary, true: Colors.goldMuted }}
-                thumbColor={analytics ? Colors.gold : Colors.textMuted}
-              />
-            </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.eyebrow}>LEGAL & COMPLIANCE</Text>
-            <Pressable
-              style={styles.legalNavRow}
-              onPress={() => setLegalModalTab('privacy')}
-            >
-              <View style={styles.legalNavLeft}>
-                <Ionicons name="shield-checkmark-outline" size={18} color={Colors.gold} />
-                <Text style={styles.cardTitle}>Privacy Policy</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-            </Pressable>
-
-            <View style={styles.navDivider} />
-
-            <Pressable
-              style={styles.legalNavRow}
-              onPress={() => setLegalModalTab('terms')}
-            >
-              <View style={styles.legalNavLeft}>
-                <Ionicons name="document-text-outline" size={18} color={Colors.gold} />
-                <Text style={styles.cardTitle}>Terms of Service</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-            </Pressable>
 
             <View style={styles.blueWaveBadge}>
               <Text style={styles.blueWaveBadgeTitle}>App Engineering & Technology Partner</Text>
               <Text style={styles.blueWaveBadgeName}>BlueWave Technologies</Text>
               <Text style={styles.blueWaveBadgeLink}>bluewavetechnologies.co.zw • info@bluewavetechnologies.co.zw</Text>
             </View>
+
+            {profile && (
+              <Pressable
+                style={styles.btnDanger}
+                onPress={() => {
+                  void signOut();
+                  trackEvent('sign_out');
+                }}
+              >
+                <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
+                <Text style={styles.btnDangerText}>Sign Out of GatewayConnect</Text>
+              </Pressable>
+            )}
           </View>
-
-          {profile && (
-            <Pressable
-              style={styles.btnDanger}
-              onPress={() => {
-                void signOut();
-                trackEvent('sign_out');
-              }}
-            >
-              <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
-              <Text style={styles.btnDangerText}>Sign Out of GatewayConnect</Text>
-            </Pressable>
-          )}
-        </View>
-      )}
-
-      {/* Legal Modal */}
-      <LegalModal
-        visible={!!legalModalTab}
-        onClose={() => setLegalModalTab(null)}
-        initialTab={legalModalTab || 'privacy'}
-      />
+        )}
+      </View>
 
       {/* Edit Profile Modal */}
       <Modal visible={showEditModal} animationType="slide" transparent>
@@ -417,147 +539,145 @@ export function ProfileScreen({ profile, onNavigateBible, onRequestAuth }: Profi
               </Pressable>
             </View>
 
-            <Text style={styles.inputLabel}>Full Name</Text>
-            <TextInput
-              value={editName}
-              onChangeText={setEditName}
-              placeholder="Your full name"
-              placeholderTextColor={Colors.textMuted}
-              style={styles.input}
-            />
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Full Name</Text>
+              <TextInput
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Your full name"
+                placeholderTextColor={Colors.textMuted}
+                style={styles.input}
+              />
 
-            <Text style={styles.inputLabel}>Bio / Testimony</Text>
-            <TextInput
-              value={editBio}
-              onChangeText={setEditBio}
-              placeholder="Your bio..."
-              placeholderTextColor={Colors.textMuted}
-              multiline
-              style={[styles.input, { minHeight: 70 }]}
-            />
+              <Text style={styles.inputLabel}>Handle</Text>
+              <TextInput
+                value={editHandle}
+                onChangeText={setEditHandle}
+                placeholder="@handle"
+                placeholderTextColor={Colors.textMuted}
+                autoCapitalize="none"
+                style={styles.input}
+              />
 
-            <Text style={styles.inputLabel}>Location / Cell Hub</Text>
-            <TextInput
-              value={editLocation}
-              onChangeText={setEditLocation}
-              placeholder="City, Country"
-              placeholderTextColor={Colors.textMuted}
-              style={styles.input}
-            />
+              <Text style={styles.inputLabel}>Mobile Phone</Text>
+              <TextInput
+                value={editPhone}
+                onChangeText={setEditPhone}
+                placeholder="+263..."
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="phone-pad"
+                style={styles.input}
+              />
 
-            <Pressable
-              style={styles.saveBtn}
-              onPress={() => {
-                setShowEditModal(false);
-                Alert.alert('Profile Updated', 'Your profile details have been saved.');
-              }}
-            >
-              <Text style={styles.saveBtnText}>Save Profile</Text>
-            </Pressable>
+              <Text style={styles.inputLabel}>Location / Cell Hub</Text>
+              <TextInput
+                value={editLocation}
+                onChangeText={setEditLocation}
+                placeholder="e.g. Harare, Zimbabwe"
+                placeholderTextColor={Colors.textMuted}
+                style={styles.input}
+              />
+
+              <Text style={styles.inputLabel}>Bio / Mandate</Text>
+              <TextInput
+                value={editBio}
+                onChangeText={setEditBio}
+                placeholder="Your bio..."
+                placeholderTextColor={Colors.textMuted}
+                multiline
+                style={[styles.input, { minHeight: 70 }]}
+              />
+
+              <Text style={styles.inputLabel}>Website</Text>
+              <TextInput
+                value={editWebsite}
+                onChangeText={setEditWebsite}
+                placeholder="website link"
+                placeholderTextColor={Colors.textMuted}
+                autoCapitalize="none"
+                style={styles.input}
+              />
+
+              <Pressable
+                style={[styles.saveBtn, savingProfile && { opacity: 0.6 }]}
+                onPress={handleSaveProfile}
+                disabled={savingProfile}
+              >
+                <Text style={styles.saveBtnText}>
+                  {savingProfile ? 'Saving...' : 'Save Profile Changes'}
+                </Text>
+              </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>
-    </>
+
+      {/* Legal Modal */}
+      <LegalModal
+        visible={!!legalModalTab}
+        onClose={() => setLegalModalTab(null)}
+        initialTab={legalModalTab || 'privacy'}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  pageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-    marginBottom: 4,
-  },
-  sectionTitle: {
-    fontFamily: Typography.fontBold,
-    color: '#fafafa',
-    fontSize: 19,
-  },
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.bgCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  editBtnText: {
-    fontFamily: Typography.fontSemiBold,
-    color: Colors.gold,
-    fontSize: 12,
-  },
-  signInCardBtn: {
-    backgroundColor: '#dfa732',
-    borderRadius: Radii.md,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 14,
-  },
-  signInCardBtnText: {
-    fontFamily: Typography.fontBold,
-    color: '#09090b',
-    fontSize: 14,
+  container: {
+    paddingBottom: 24,
   },
   guestHero: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radii.xl,
-    padding: 22,
+    backgroundColor: '#0c0e14',
     borderWidth: 1,
     borderColor: Colors.border,
-    marginBottom: 14,
+    borderRadius: Radii.lg,
+    padding: 20,
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 16,
   },
   guestAvatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(245,158,11,0.12)',
+    backgroundColor: '#16161e',
     borderWidth: 1.5,
     borderColor: Colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 12,
   },
   guestBadge: {
-    backgroundColor: 'rgba(245,158,11,0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: Radii.full,
-    borderWidth: 0.5,
+    backgroundColor: 'rgba(217, 119, 6, 0.15)',
+    borderWidth: 1,
     borderColor: Colors.gold,
+    borderRadius: Radii.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 8,
   },
   guestBadgeText: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
     fontSize: 10,
-    letterSpacing: 1.2,
+    letterSpacing: 1,
   },
   guestTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
     fontSize: 18,
-    marginTop: 2,
+    marginBottom: 6,
   },
   guestBody: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
-    lineHeight: 19,
-    paddingHorizontal: 8,
+    lineHeight: 18,
+    marginBottom: 16,
   },
   guestActionRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 10,
+    gap: 10,
     width: '100%',
   },
   guestSignInBtn: {
@@ -573,11 +693,11 @@ const styles = StyleSheet.create({
   guestSignInBtnText: {
     fontFamily: Typography.fontBold,
     color: Colors.textInverse,
-    fontSize: 14,
+    fontSize: 13,
   },
   guestSignUpBtn: {
     flex: 1,
-    backgroundColor: Colors.bg,
+    backgroundColor: '#16161e',
     borderWidth: 1,
     borderColor: Colors.gold,
     borderRadius: Radii.md,
@@ -590,412 +710,548 @@ const styles = StyleSheet.create({
   guestSignUpBtnText: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 14,
+    fontSize: 13,
   },
-  profileHero: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radii.xl,
-    padding: 20,
+
+  // Member Profile Hero Card (Screenshot 5 Match)
+  profileHeroCard: {
+    backgroundColor: '#0c0f17',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#1e2433',
+    borderRadius: Radii.xl,
+    padding: 16,
     marginBottom: 14,
   },
-  heroTop: {
+  topBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    justifyContent: 'space-between',
+    marginBottom: 14,
   },
-  avatarBorder: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 2,
-    borderColor: Colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 2,
-  },
-  avatarInner: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 32,
-    backgroundColor: Colors.bgSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeRow: {
+  topBarUser: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 2,
   },
-  badgeText: {
+  topBarHandle: {
     fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
+    color: Colors.textPrimary,
+    fontSize: 15,
   },
-  memberIdPill: {
-    backgroundColor: 'rgba(245,158,11,0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  verifiedMemberPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: '#10b981',
     borderRadius: Radii.full,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
   },
-  memberIdText: {
+  verifiedMemberPillText: {
+    fontFamily: Typography.fontBold,
+    color: '#10b981',
+    fontSize: 10,
+  },
+  topBarMenuBtn: {
+    padding: 6,
+    backgroundColor: '#161a24',
+    borderRadius: Radii.sm,
+  },
+
+  avatarStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  avatarCircleWrap: {
+    position: 'relative',
+  },
+  avatarCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    borderColor: Colors.gold,
+    backgroundColor: '#121622',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 9,
+    fontSize: 30,
   },
-  userName: {
+  cameraIconBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#0c0f17',
+  },
+  statsCols: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginLeft: 16,
+  },
+  statCol: {
+    alignItems: 'center',
+  },
+  statColNum: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
     fontSize: 18,
   },
-  userHandle: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textMuted,
-    fontSize: 12,
-  },
-  userBio: {
+  statColLabel: {
     fontFamily: Typography.fontRegular,
     color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 12,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-  },
-  locationText: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textMuted,
-    fontSize: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: Radii.lg,
-    paddingVertical: 12,
-    marginTop: 16,
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: Colors.border,
-  },
-  statNumber: {
-    fontFamily: Typography.fontBold,
-    color: Colors.gold,
-    fontSize: 17,
-  },
-  statLabel: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textMuted,
     fontSize: 11,
     marginTop: 2,
   },
-  tabNav: {
+
+  nameBadgeRow: {
     flexDirection: 'row',
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radii.lg,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: 14,
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
   },
-  tabNavItem: {
+  fullNameText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 16,
+  },
+  roleBadgePill: {
+    backgroundColor: 'rgba(217, 119, 6, 0.25)',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  roleBadgePillText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 9,
+    letterSpacing: 0.5,
+  },
+
+  infoPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  infoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#131824',
+    borderWidth: 1,
+    borderColor: '#222b3d',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  infoPillText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textSecondary,
+    fontSize: 11,
+  },
+
+  bioText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 6,
+  },
+  websiteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  websiteText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.gold,
+    fontSize: 11,
+  },
+  followersNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 12,
+  },
+  followersNoteText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+  },
+
+  profileActionBtnsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  profileEditBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 8,
+    gap: 6,
+    backgroundColor: '#181e2b',
+    borderWidth: 1,
+    borderColor: '#263147',
     borderRadius: Radii.md,
+    paddingVertical: 10,
   },
-  tabNavItemActive: {
-    backgroundColor: 'rgba(245,158,11,0.15)',
+  profileEditBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
   },
-  tabNavText: {
-    fontFamily: Typography.fontSemiBold,
-    color: Colors.textMuted,
-    fontSize: 10,
-  },
-  tabNavTextActive: {
-    color: Colors.gold,
-  },
-  sectionContainer: {
-    gap: 10,
-    paddingBottom: 24,
-  },
-  savedCard: {
+  profileShareBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgCard,
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#181e2b',
+    borderWidth: 1,
+    borderColor: '#263147',
     borderRadius: Radii.md,
-    padding: 14,
+    paddingVertical: 10,
+  },
+  profileShareBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+  },
+  profileCrownBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: Radii.md,
+    backgroundColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Subtabs Horizontal Scroll Bar
+  subtabScroll: {
+    flexDirection: 'row',
+    marginBottom: 14,
+  },
+  subtabBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radii.md,
+    backgroundColor: '#121622',
+    borderWidth: 1,
+    borderColor: '#1d2334',
+    marginRight: 8,
+  },
+  subtabBtnActive: {
+    backgroundColor: Colors.gold,
+    borderColor: Colors.gold,
+  },
+  subtabBtnText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textMuted,
+    fontSize: 12,
+  },
+  subtabBtnTextActive: {
+    color: '#000000',
+    fontFamily: Typography.fontBold,
+  },
+
+  // Subtab Content
+  tabContentArea: {
+    gap: 12,
+  },
+  emptySubtabCard: {
+    backgroundColor: '#0d1017',
     borderWidth: 1,
     borderColor: Colors.border,
+    borderRadius: Radii.md,
+    padding: 24,
+    alignItems: 'center',
+    gap: 8,
   },
-  savedTitle: {
+  emptySubtabTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.textPrimary,
     fontSize: 14,
+  },
+  emptySubtabBody: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  openBibleBtn: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 6,
+  },
+  openBibleBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textInverse,
+    fontSize: 12,
+  },
+
+  reelsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  reelCard: {
+    width: '48%',
+    backgroundColor: '#121622',
+    borderWidth: 1,
+    borderColor: '#1e2538',
+    borderRadius: Radii.md,
+    padding: 10,
+    gap: 4,
+  },
+  reelThumbPlaceholder: {
+    height: 100,
+    backgroundColor: '#0a0d14',
+    borderRadius: Radii.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginBottom: 4,
+  },
+  reelDurationBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+  },
+  reelDurationText: {
+    fontFamily: Typography.fontBold,
+    color: '#ffffff',
+    fontSize: 9,
+  },
+  reelTitle: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  reelViews: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.gold,
+    fontSize: 10,
+  },
+
+  savedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#121622',
+    borderWidth: 1,
+    borderColor: '#1e2538',
+    borderRadius: Radii.md,
+    padding: 12,
+  },
+  savedTitle: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
   },
   savedSubtitle: {
     fontFamily: Typography.fontRegular,
     color: Colors.textMuted,
+    fontSize: 10,
+    marginTop: 2,
+  },
+
+  pageItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#121622',
+    borderWidth: 1,
+    borderColor: '#1e2538',
+    borderRadius: Radii.md,
+    padding: 12,
+  },
+  pageItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#181e2b',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageItemTitle: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+  },
+  pageItemCategory: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
     fontSize: 11,
     marginTop: 2,
   },
-  prayerCard: {
-    backgroundColor: Colors.bgCard,
+
+  settingsSection: {
+    backgroundColor: '#10141e',
+    borderWidth: 1,
+    borderColor: '#1d2334',
     borderRadius: Radii.md,
     padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 6,
+    gap: 12,
   },
-  prayerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  prayerTitle: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textPrimary,
-    fontSize: 14,
-  },
-  prayerBadge: {
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radii.full,
-  },
-  prayerBadgeText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.success,
-    fontSize: 9,
-  },
-  prayerBody: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  emptyCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radii.lg,
-    padding: 32,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textPrimary,
-    fontSize: 16,
-  },
-  emptyBody: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textSecondary,
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 17,
-  },
-  actionBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginTop: 10,
-  },
-  actionBtnText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textInverse,
-    fontSize: 12,
-  },
-  card: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radii.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 8,
-  },
-  eyebrow: {
+  settingsSectionTitle: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
     fontSize: 10,
     letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  cardTitle: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textPrimary,
-    fontSize: 16,
-  },
-  cardBody: {
-    fontFamily: Typography.fontRegular,
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  input: {
-    backgroundColor: Colors.bgMuted,
-    borderRadius: Radii.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: Colors.textPrimary,
-    fontFamily: Typography.fontRegular,
-    fontSize: 13,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginTop: 6,
-  },
-  inputLabel: {
-    fontFamily: Typography.fontSemiBold,
-    color: Colors.textPrimary,
-    fontSize: 12,
-    marginTop: 10,
-  },
-  authRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-  },
-  btn: {
-    flex: 1,
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  btnText: {
-    fontFamily: Typography.fontSemiBold,
-    color: Colors.textInverse,
-    fontSize: 13,
-  },
-  btnOutline: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  btnOutlineText: {
-    fontFamily: Typography.fontSemiBold,
-    color: Colors.gold,
-    fontSize: 13,
-  },
-  btnDanger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1.5,
-    borderColor: Colors.danger,
-    borderRadius: Radii.md,
-    paddingVertical: 14,
-    marginTop: 14,
-  },
-  btnDangerText: {
-    fontFamily: Typography.fontSemiBold,
-    color: Colors.danger,
-    fontSize: 13,
   },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    backgroundColor: Colors.bgCard,
-    borderTopLeftRadius: Radii.xl,
-    borderTopRightRadius: Radii.xl,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  modalTitle: {
-    fontFamily: Typography.fontBold,
+  settingLabel: {
+    fontFamily: Typography.fontSemiBold,
     color: Colors.textPrimary,
-    fontSize: 18,
+    fontSize: 13,
   },
-  saveBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.md,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 20,
+  settingSub: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
   },
-  saveBtnText: {
-    fontFamily: Typography.fontBold,
-    color: Colors.textInverse,
-    fontSize: 14,
-  },
-  legalNavRow: {
+  legalItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 6,
   },
-  legalNavLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  navDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
+  legalItemText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
   },
   blueWaveBadge: {
-    backgroundColor: Colors.bg,
-    borderRadius: Radii.md,
+    backgroundColor: '#0a0d14',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#181e2b',
+    borderRadius: Radii.md,
     padding: 12,
-    marginTop: 14,
+    alignItems: 'center',
     gap: 3,
   },
   blueWaveBadgeTitle: {
     fontFamily: Typography.fontRegular,
     color: Colors.textMuted,
     fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
   },
   blueWaveBadgeName: {
     fontFamily: Typography.fontBold,
     color: Colors.gold,
-    fontSize: 13,
+    fontSize: 12,
   },
   blueWaveBadgeLink: {
     fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 10,
+  },
+  btnDanger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: Colors.danger,
+    borderRadius: Radii.md,
+    paddingVertical: 12,
+  },
+  btnDangerText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.danger,
+    fontSize: 13,
+  },
+
+  // Edit Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#0e121a',
+    borderTopLeftRadius: Radii.xl,
+    borderTopRightRadius: Radii.xl,
+    padding: 20,
+    maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: '#1f2638',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 18,
+  },
+  inputLabel: {
+    fontFamily: Typography.fontSemiBold,
     color: Colors.textSecondary,
-    fontSize: 11,
+    fontSize: 12,
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  input: {
+    backgroundColor: '#141824',
+    borderWidth: 1,
+    borderColor: '#242e42',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: Colors.textPrimary,
+    fontFamily: Typography.fontRegular,
+    fontSize: 13,
+  },
+  saveBtn: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radii.sm,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 12,
+  },
+  saveBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textInverse,
+    fontSize: 14,
   },
 });
