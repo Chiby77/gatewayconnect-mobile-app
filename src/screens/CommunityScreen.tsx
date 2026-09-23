@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+﻿import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -211,8 +211,8 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
   const [commentInput, setCommentInput] = useState('');
   const [commentsMap, setCommentsMap] = useState<Record<string, Array<{ id: string; author: string; handle: string; text: string; time: string; likes: number; liked: boolean }>>>({
     default: [
-      { id: 'c1', author: 'Apostle Joe Daniels', handle: '@apostle_joe_daniels', text: 'Amen! Let supernatural increase locate your household! 🙌', time: '1h', likes: 14, liked: false },
-      { id: 'c2', author: 'Prophetess Melinda Daniels', handle: '@prophetess_melinda', text: 'Glory to God! Standing with you in persistent faith. 🕊️', time: '35m', likes: 8, liked: false },
+      { id: 'c1', author: 'Apostle Joe Daniels', handle: '@apostle_joe_daniels', text: 'Amen! Let supernatural increase locate your household! ðŸ™Œ', time: '1h', likes: 14, liked: false },
+      { id: 'c2', author: 'Prophetess Melinda Daniels', handle: '@prophetess_melinda', text: 'Glory to God! Standing with you in persistent faith. ðŸ•Šï¸', time: '35m', likes: 8, liked: false },
     ],
   });
   const [repostPost, setRepostPost] = useState<ContentItem | null>(null);
@@ -257,8 +257,8 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
     if (!activeChatGroup) return;
 
     const channel = supabase
-      .channel(group_)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages', filter: group_id=eq. }, payload => {
+      .channel(`group_`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages', filter: `group_id=eq.` }, payload => {
         setChatMessages(prev => [...prev, payload.new as GroupChatMessage]);
       })
       .subscribe();
@@ -595,7 +595,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
         avatarText: name.slice(0, 2).toUpperCase(),
         role: 'Gateway Church Member',
         campus: 'Harare Main Campus',
-        bio: 'Living in fellowship with Gateway Church International • Walking by faith and not by sight.',
+        bio: 'Living in fellowship with Gateway Church International â€¢ Walking by faith and not by sight.',
         joinedYear: 'Member',
         testimoniesCount: 1,
         followersCount: 1,
@@ -812,7 +812,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
                     <Text style={styles.whatsappChatSnippet} numberOfLines={1}>
-                      {lastMsg?.text || `${member.role} • Tap to message`}
+                      {lastMsg?.text || `${member.role} â€¢ Tap to message`}
                     </Text>
                     {unread > 0 && (
                       <View style={styles.whatsappUnreadPill}>
@@ -862,7 +862,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
                     <Text style={styles.whatsappChatSnippet} numberOfLines={1}>
-                      {group.category} • {group.description}
+                      {group.category} â€¢ {group.description}
                     </Text>
                     {unread > 0 && (
                       <View style={styles.whatsappUnreadPill}>
@@ -915,7 +915,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                           <Text style={styles.freeBadgeText}>OPEN</Text>
                         </View>
                       )}
-                      <Text style={styles.groupLocation}>• {group.location || 'Harare Central'}</Text>
+                      <Text style={styles.groupLocation}>â€¢ {group.location || 'Harare Central'}</Text>
                     </View>
                   </View>
                 </View>
@@ -1012,7 +1012,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                             color={isApostle ? Colors.gold : '#38bdf8'}
                           />
                         </View>
-                        <Text style={styles.igLocationText}>Harare Main Sanctuary • Harare, Zimbabwe</Text>
+                        <Text style={styles.igLocationText}>Harare Main Sanctuary â€¢ Harare, Zimbabwe</Text>
                       </View>
                     </Pressable>
 
@@ -1223,7 +1223,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                   <Text style={{ fontSize: 32, color: '#fff', fontWeight: 'bold' }}>{activeChatGroup?.name?.slice(0, 2).toUpperCase()}</Text>
                 </View>
                 <Text style={{ fontSize: 20, color: '#fff', fontWeight: 'bold', marginTop: 12 }}>{activeChatGroup?.name}</Text>
-                <Text style={{ fontSize: 14, color: Colors.textMuted, marginTop: 4 }}>{activeChatGroup?.category} Fellowship � 42 members</Text>
+                <Text style={{ fontSize: 14, color: Colors.textMuted, marginTop: 4 }}>{activeChatGroup?.category} Fellowship • 42 members</Text>
               </View>
               
               <View style={{ padding: 16 }}>
@@ -1288,7 +1288,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                       </View>
                     )}
                   </View>
-                  <Text style={styles.chatGroupSub}>{activeChatGroup?.category} Fellowship • 42 members</Text>
+                  <Text style={styles.chatGroupSub}>{activeChatGroup?.category} Fellowship â€¢ 42 members</Text>
                 </View>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1482,7 +1482,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                     {/* Quick Reactions Bar */}
                     {activeReactionMsgId === msg.id && (
                       <View style={styles.quickReactionsBar}>
-                        {['🙏', '❤️', '🔥', '✝️', '👍', '😂'].map(emoji => (
+                        {['ðŸ™', 'â¤ï¸', 'ðŸ”¥', 'âœï¸', 'ðŸ‘', 'ðŸ˜‚'].map(emoji => (
                           <Pressable
                             key={emoji}
                             style={styles.quickEmojiBtn}
@@ -1554,7 +1554,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
                 <Pressable
                   style={styles.attachmentTrayItem}
-                  onPress={() => handleSendChatMessage({ type: 'scripture', name: 'Romans 8:37 • More than conquerors' })}
+                  onPress={() => handleSendChatMessage({ type: 'scripture', name: 'Romans 8:37 â€¢ More than conquerors' })}
                 >
                   <View style={[styles.attachmentTrayIconCircle, { backgroundColor: Colors.gold }]}>
                     <Ionicons name="book" size={18} color="#000000" />
@@ -1629,7 +1629,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                     <Text style={styles.chatGroupName} numberOfLines={1}>{directChatMember?.name}</Text>
                     <Ionicons name="checkmark-circle" size={14} color={Colors.gold} />
                   </View>
-                  <Text style={styles.chatGroupSub}>{directChatMember?.role} • Online</Text>
+                  <Text style={styles.chatGroupSub}>{directChatMember?.role} â€¢ Online</Text>
                 </View>
               </View>
               <Pressable onPress={() => setDirectChatMember(null)} style={{ padding: 6 }}>
@@ -1701,7 +1701,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
               </View>
               <View>
                 <Text style={styles.storyViewerName}>{activeStory?.author}</Text>
-                <Text style={styles.storyViewerTime}>{activeStory?.timeAgo} • {activeStory?.role}</Text>
+                <Text style={styles.storyViewerTime}>{activeStory?.timeAgo} â€¢ {activeStory?.role}</Text>
               </View>
             </View>
             <Pressable onPress={() => setActiveStory(null)} style={{ padding: 6 }}>
@@ -1722,7 +1722,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
           <View style={styles.storyReactionsBar}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              {['❤️', '🙏', '🔥', '⚡', '🙌'].map(emoji => (
+              {['â¤ï¸', 'ðŸ™', 'ðŸ”¥', 'âš¡', 'ðŸ™Œ'].map(emoji => (
                 <Pressable
                   key={emoji}
                   style={styles.storyEmojiBtn}
@@ -3010,6 +3010,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
 });
+
 
 
 
