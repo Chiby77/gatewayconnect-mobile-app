@@ -1,4 +1,4 @@
-import { getDatabase } from '../db/database';
+﻿import { getDatabase } from '../db/database';
 import { supabase } from '../remote/supabase';
 
 export interface Group {
@@ -100,3 +100,34 @@ export async function sendGroupMessageToDB(msg: Partial<GroupChatMessage>): Prom
 export function generateGroupInviteLink(groupId: string): string {
   return `https://gatewayconnect.joedaniels.org/invite/group/${groupId}`;
 }
+export async function checkIsGroupMember(groupId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabase.from('group_members').select('*').eq('group_id', groupId).eq('user_id', userId).single();
+  return !!data && !error;
+}
+export async function fetchUserGroups(userId: string): Promise<Record<string, boolean>> {
+  const { data, error } = await supabase.from('group_members').select('group_id').eq('user_id', userId);
+  if (error || !data) return {};
+  const map: Record<string, boolean> = {};
+  data.forEach(row => map[row.group_id] = true);
+  return map;
+}
+export async function joinGroupInDB(groupId: string, userId: string) {
+  await supabase.from('group_members').insert({ group_id: groupId, user_id: userId });
+}
+export async function leaveGroupInDB(groupId: string, userId: string) {
+  await supabase.from('group_members').delete().eq('group_id', groupId).eq('user_id', userId);
+}
+export async function dissolveGroupInDB(groupId: string) {
+  await supabase.from('groups').delete().eq('id', groupId);
+}
+export async function deleteGroupMessageInDB(messageId: string) {
+  await supabase.from('group_messages').delete().eq('id', messageId);
+}
+export async function toggleGroupMessageReactionInDB(messageId: string, emoji: string, currentReactions: string[] = []) {
+  const hasReaction = currentReactions.includes(emoji);
+  const updatedReactions = hasReaction ? currentReactions.filter(r => r !== emoji) : [...currentReactions, emoji];
+  await supabase.from('group_messages').update({ reactions: updatedReactions }).eq('id', messageId);
+  return updatedReactions;
+}
+
+
