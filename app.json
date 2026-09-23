@@ -49,8 +49,6 @@
     },
     "android": {
       "package": "org.gatewaychurch.gatewayconnect",
-      "versionCode": 2,
-      "targetSdkVersion": 36,
       "permissions": [
         "android.permission.INTERNET"
       ]
