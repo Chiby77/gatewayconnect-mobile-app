@@ -57,44 +57,55 @@ export async function signIn(phoneOrIdentifier: string, password?: string): Prom
   // 1. Try Supabase Auth first
   if (isSupabaseConfigured) {
     const syntheticEmail = `${cleanPhone(query)}@gatewayconnect.joedaniels.org`;
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: query.includes('@') ? query : syntheticEmail,
-        password: password || 'gateway2026',
-      });
-      if (!error && data.user) {
-        const mapped = mapSupabaseUser(data.user, query);
-        await saveProfile(mapped);
-        notifySubscribers(mapped);
-        return mapped;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: query.includes('@') ? query : syntheticEmail,
+      password: password || 'gateway2026',
+    });
+
+    if (error) {
+      const msg = error.message?.toLowerCase() || '';
+      if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+        throw new Error('Invalid phone number or password. If you do not have an account yet, please tap "Create Account".');
       }
-    } catch {
-      // Fallback
+      throw new Error(error.message || 'Authentication failed. Please verify credentials.');
+    }
+
+    if (data.user) {
+      let mapped = mapSupabaseUser(data.user, query);
+      // Fetch latest profile from Supabase users table to ensure sync with web
+      try {
+        const { data: dbUser } = await supabase.from('users').select('*').eq('id', data.user.id).single();
+        if (dbUser) {
+          mapped = {
+            ...mapped,
+            name: dbUser.full_name || mapped.name,
+            phone: dbUser.phone || mapped.phone,
+            handle: dbUser.handle || mapped.handle,
+            role: dbUser.role || mapped.role,
+            location: dbUser.location || dbUser.city_location || mapped.location,
+            avatar_url: dbUser.avatar_url || mapped.avatar_url,
+            bio: dbUser.bio || mapped.bio,
+            website: dbUser.website || mapped.website,
+            member_id: dbUser.member_id || mapped.member_id,
+            badge_type: dbUser.badge_type || mapped.badge_type,
+          };
+        }
+      } catch {}
+
+      await saveProfile(mapped);
+      notifySubscribers(mapped);
+      return mapped;
     }
   }
 
+  // 2. Check cached profile for offline usage
+  const cached = await getCachedProfile();
+  if (cached && (arePhoneNumbersEqual(cached.phone || '', query) || cached.handle?.toLowerCase() === query.toLowerCase())) {
+    notifySubscribers(cached);
+    return cached;
+  }
 
-
-  // 3. Auto-create local user
-  const localUser: MobileUser = {
-    id: `usr_${Date.now().toString().slice(-8)}`,
-    name: query.startsWith('+') || /^\d+$/.test(query) ? `Member ${query.slice(-4)}` : query,
-    phone: query.startsWith('+') || /^\d+$/.test(query) ? query : undefined,
-    handle: `@${query.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
-    role: 'member',
-    location: 'Harare, Zimbabwe',
-    bio: 'Walking in supernatural dominion & apostolic grace • Gateway Church Harare',
-    website: 'gatewaychurchzim.org',
-    member_id: `GCZ-MEM-${Math.floor(1000 + Math.random() * 9000)}`,
-    followers_count: 0,
-    following_count: 3,
-    is_premium: false,
-    badge_type: 'none',
-  };
-
-  await saveProfile(localUser);
-  notifySubscribers(localUser);
-  return localUser;
+  throw new Error('No account found for this phone number. Please tap "Create Account" to register.');
 }
 
 export const AUTO_FOLLOW_ACCOUNTS = [
@@ -120,9 +131,60 @@ export async function signUp(
   const handle = `@${cleanN.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
   const memberId = `GCZ-MEM-${Math.floor(1000 + Math.random() * 9000)}`;
 
-  // Every new believer auto-follows Developer, Apostle Joe Daniels, and Prophetess Melinda
+  let userId = `usr_${Date.now().toString().slice(-8)}`;
+
+  if (isSupabaseConfigured && password) {
+    const syntheticEmail = `${cleanPhone(cleanP)}@gatewayconnect.joedaniels.org`;
+    const { data, error } = await supabase.auth.signUp({
+      email: syntheticEmail,
+      password,
+      options: {
+        data: {
+          full_name: cleanN,
+          phone: cleanP,
+          handle,
+          role: 'member',
+          location,
+          member_id: memberId,
+          dob,
+          gender,
+        },
+      },
+    });
+
+    if (error) {
+      if (error.message?.toLowerCase().includes('already registered')) {
+        throw new Error('An account with this phone number already exists. Please tap "Sign In".');
+      }
+      throw new Error(error.message || 'Failed to create account.');
+    }
+
+    if (data.user) {
+      userId = data.user.id;
+      // Sync into Supabase users table immediately so web sees it right away
+      try {
+        await supabase.from('users').upsert({
+          id: data.user.id,
+          phone: cleanP,
+          full_name: cleanN,
+          handle,
+          role: 'member',
+          location,
+          city_location: location,
+          member_id: memberId,
+          date_of_birth: dob || null,
+          gender: gender || 'male',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+      } catch (dbErr) {
+        console.warn('Upsert to users table notice:', dbErr);
+      }
+    }
+  }
+
   const newUser: MobileUser = {
-    id: `usr_${Date.now().toString().slice(-8)}`,
+    id: userId,
     name: cleanN,
     phone: cleanP,
     handle,
@@ -132,36 +194,12 @@ export async function signUp(
     website: 'gatewaychurchzim.org',
     member_id: memberId,
     followers_count: 0,
-    following_count: AUTO_FOLLOW_ACCOUNTS.length, // Auto-follows Developer, Apostle, Prophetess
+    following_count: AUTO_FOLLOW_ACCOUNTS.length,
     is_premium: false,
     badge_type: 'none',
     dob,
     gender,
   };
-
-  if (isSupabaseConfigured && password) {
-    const syntheticEmail = `${cleanPhone(cleanP)}@gatewayconnect.joedaniels.org`;
-    try {
-      await supabase.auth.signUp({
-        email: syntheticEmail,
-        password,
-        options: {
-          data: {
-            full_name: cleanN,
-            phone: cleanP,
-            handle,
-            role: 'member',
-            location,
-            member_id: memberId,
-            dob,
-            gender,
-          },
-        },
-      });
-    } catch {
-      // Offline fallback
-    }
-  }
 
   await autoFollowFounders(newUser.id);
   await saveProfile(newUser);

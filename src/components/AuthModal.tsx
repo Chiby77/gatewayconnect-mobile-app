@@ -95,7 +95,8 @@ export function AuthModal({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
         style={styles.overlay}
       >
         <View style={styles.sheet}>
@@ -144,7 +145,13 @@ export function AuthModal({
             </Pressable>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.form}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false} 
+            contentContainerStyle={styles.form}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={true}
+          >
             {error ? (
               <View style={styles.errorBanner}>
                 <Ionicons name="alert-circle" size={16} color={Colors.danger} />
@@ -326,7 +333,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    maxHeight: '90%',
+    maxHeight: '92%',
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -412,7 +419,8 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 12,
-    paddingBottom: 24,
+    flexGrow: 1,
+    paddingBottom: Platform.OS === 'ios' ? 44 : 80,
   },
   errorBanner: {
     flexDirection: 'row',
