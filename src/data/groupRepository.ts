@@ -51,12 +51,29 @@ export async function fetchGroupsFromDB(): Promise<Group[]> {
 
 export async function fetchGroupMessagesFromDB(groupId: string): Promise<GroupChatMessage[]> {
   try {
-    const { data, error } = await supabase.from('group_messages').select('*').eq('group_id', groupId).order('created_at', { ascending: true });
-    if (error) {
-      console.warn('Supabase fetch error for messages:', error);
+    const { data: msgs, error: msgError } = await supabase.from('messages').select('*').eq('group_id', groupId).order('created_at', { ascending: true });
+    if (msgError) {
+      console.warn('Supabase fetch error for messages:', msgError);
       return [];
     }
-    return data as GroupChatMessage[];
+    
+    // Fetch reactions for these messages
+    const msgIds = msgs.map(m => m.id);
+    const { data: reactionsData } = await supabase.from('message_reactions').select('message_id, emoji').in('message_id', msgIds);
+    
+    // Group reactions by message_id
+    const reactionsByMsg: Record<string, string[]> = {};
+    if (reactionsData) {
+      reactionsData.forEach(r => {
+        if (!reactionsByMsg[r.message_id]) reactionsByMsg[r.message_id] = [];
+        reactionsByMsg[r.message_id].push(r.emoji);
+      });
+    }
+
+    return msgs.map(m => ({
+      ...m,
+      reactions: reactionsByMsg[m.id] || []
+    })) as GroupChatMessage[];
   } catch (e) {
     console.error(e);
     return [];
@@ -88,7 +105,7 @@ export async function createGroupInDB(
 
 export async function sendGroupMessageToDB(msg: Partial<GroupChatMessage>): Promise<GroupChatMessage | null> {
   try {
-    const { data, error } = await supabase.from('group_messages').insert([msg]).select().single();
+    const { data, error } = await supabase.from('messages').insert([msg]).select().single();
     if (error) throw error;
     return data as GroupChatMessage;
   } catch (e) {
@@ -121,13 +138,24 @@ export async function dissolveGroupInDB(groupId: string) {
   await supabase.from('groups').delete().eq('id', groupId);
 }
 export async function deleteGroupMessageInDB(messageId: string) {
-  await supabase.from('group_messages').delete().eq('id', messageId);
+  await supabase.from('messages').delete().eq('id', messageId);
 }
-export async function toggleGroupMessageReactionInDB(messageId: string, emoji: string, currentReactions: string[] = []) {
-  const hasReaction = currentReactions.includes(emoji);
-  const updatedReactions = hasReaction ? currentReactions.filter(r => r !== emoji) : [...currentReactions, emoji];
-  await supabase.from('group_messages').update({ reactions: updatedReactions }).eq('id', messageId);
-  return updatedReactions;
+export async function toggleGroupMessageReactionInDB(messageId: string, emoji: string, userId: string, userName: string) {
+  const { data: existing } = await supabase.from('message_reactions').select('id').eq('message_id', messageId).eq('user_id', userId).eq('emoji', emoji).single();
+  
+  if (existing) {
+    await supabase.from('message_reactions').delete().eq('id', existing.id);
+  } else {
+    await supabase.from('message_reactions').insert({
+      message_id: messageId,
+      chat_type: 'group',
+      user_id: userId,
+      user_name: userName,
+      emoji: emoji
+    });
+  }
 }
+
+
 
 

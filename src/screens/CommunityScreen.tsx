@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+﻿import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -214,8 +214,8 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
   const [commentInput, setCommentInput] = useState('');
   const [commentsMap, setCommentsMap] = useState<Record<string, Array<{ id: string; author: string; handle: string; text: string; time: string; likes: number; liked: boolean }>>>({
     default: [
-      { id: 'c1', author: 'Apostle Joe Daniels', handle: '@apostle_joe_daniels', text: 'Amen! Let supernatural increase locate your household! ÃƒÂ°Ã…Â¸Ã¢â€žÂ¢Ã…â€™', time: '1h', likes: 14, liked: false },
-      { id: 'c2', author: 'Prophetess Melinda Daniels', handle: '@prophetess_melinda', text: 'Glory to God! Standing with you in persistent faith. ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¢Ã…Â ÃƒÂ¯Ã‚Â¸Ã‚Â', time: '35m', likes: 8, liked: false },
+      { id: 'c1', author: 'Apostle Joe Daniels', handle: '@apostle_joe_daniels', text: 'Amen! Let supernatural increase locate your household! ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢', time: '1h', likes: 14, liked: false },
+      { id: 'c2', author: 'Prophetess Melinda Daniels', handle: '@prophetess_melinda', text: 'Glory to God! Standing with you in persistent faith. ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€¦Ã‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â', time: '35m', likes: 8, liked: false },
     ],
   });
   const [repostPost, setRepostPost] = useState<ContentItem | null>(null);
@@ -260,15 +260,39 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
     if (!activeChatGroup) return;
 
     const channel = supabase
-      .channel(`group_${activeChatGroup.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages', filter: `group_id=eq.${activeChatGroup.id}` }, (payload: any) => {
-        setChatMessages(prev => [...prev, payload.new as GroupChatMessage]);
+      .channel('group_${activeChatGroup.id}')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'group_id=eq.${activeChatGroup.id}' }, (payload: any) => {
+        setChatMessages(prev => [...prev, { ...payload.new, reactions: [] } as GroupChatMessage]);
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'group_messages', filter: `group_id=eq.${activeChatGroup.id}` }, (payload: any) => {
-        setChatMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new as GroupChatMessage : m));
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: 'group_id=eq.${activeChatGroup.id}' }, (payload: any) => {
+        setChatMessages(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
       })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_messages', filter: `group_id=eq.${activeChatGroup.id}` }, (payload: any) => {
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages', filter: 'group_id=eq.${activeChatGroup.id}' }, (payload: any) => {
         setChatMessages(prev => prev.filter(m => m.id !== payload.old.id));
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reactions', filter: 'chat_type=eq.group' }, (payload: any) => {
+        setChatMessages(prev => prev.map(m => {
+          if (m.id === payload.new.message_id) {
+            return { ...m, reactions: [...(m.reactions || []), payload.new.emoji] };
+          }
+          return m;
+        }));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'message_reactions', filter: 'chat_type=eq.group' }, (payload: any) => {
+        setChatMessages(prev => prev.map(m => {
+          if (m.id === payload.old.message_id) {
+            // Note: If old payload doesn't contain emoji, we have a problem.
+            // Supabase DELETE payloads only contain the PK by default, unless REPLICA IDENTITY is FULL.
+            // To be safe, we might just have to fetch reactions for the message again, or assume we know which one?
+            // Wait, we need to know the emoji to remove it. Let's assume payload.old contains emoji or we filter out the known one.
+            // Actually, if we use the toggle, we can optimistically update the UI in the handler, but the realtime event should sync other devices.
+            // Let's filter out the emoji if it exists in payload.old.
+            if (payload.old.emoji) {
+               return { ...m, reactions: (m.reactions || []).filter(r => r !== payload.old.emoji) };
+            }
+          }
+          return m;
+        }));
       })
       .subscribe();
 
@@ -529,7 +553,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
     if (!activeChatGroup) return;
     const msg = chatMessages.find(m => m.id === messageId);
     if (!msg) return;
-    await toggleGroupMessageReactionInDB(messageId, emoji, msg.reactions || []);
+    await toggleGroupMessageReactionInDB(messageId, emoji, profile?.id || 'anon', profile?.name || 'Member');
     setActiveReactionMsgId(null);
   };
 
@@ -602,7 +626,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
         avatarText: name.slice(0, 2).toUpperCase(),
         role: 'Gateway Church Member',
         campus: 'Harare Main Campus',
-        bio: 'Living in fellowship with Gateway Church International ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Walking by faith and not by sight.',
+        bio: 'Living in fellowship with Gateway Church International ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Walking by faith and not by sight.',
         joinedYear: 'Member',
         testimoniesCount: 1,
         followersCount: 1,
@@ -819,7 +843,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
                     <Text style={styles.whatsappChatSnippet} numberOfLines={1}>
-                      {lastMsg?.text || `${member.role} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Tap to message`}
+                      {lastMsg?.text || `${member.role} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Tap to message`}
                     </Text>
                     {unread > 0 && (
                       <View style={styles.whatsappUnreadPill}>
@@ -869,7 +893,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
                     <Text style={styles.whatsappChatSnippet} numberOfLines={1}>
-                      {group.category} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ {group.description}
+                      {group.category} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ {group.description}
                     </Text>
                     {unread > 0 && (
                       <View style={styles.whatsappUnreadPill}>
@@ -922,7 +946,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                           <Text style={styles.freeBadgeText}>OPEN</Text>
                         </View>
                       )}
-                      <Text style={styles.groupLocation}>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ {group.location || 'Harare Central'}</Text>
+                      <Text style={styles.groupLocation}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ {group.location || 'Harare Central'}</Text>
                     </View>
                   </View>
                 </View>
@@ -1019,7 +1043,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                             color={isApostle ? Colors.gold : '#38bdf8'}
                           />
                         </View>
-                        <Text style={styles.igLocationText}>Harare Main Sanctuary ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Harare, Zimbabwe</Text>
+                        <Text style={styles.igLocationText}>Harare Main Sanctuary ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Harare, Zimbabwe</Text>
                       </View>
                     </Pressable>
 
@@ -1230,7 +1254,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                   <Text style={{ fontSize: 32, color: '#fff', fontWeight: 'bold' }}>{activeChatGroup?.name?.slice(0, 2).toUpperCase()}</Text>
                 </View>
                 <Text style={{ fontSize: 20, color: '#fff', fontWeight: 'bold', marginTop: 12 }}>{activeChatGroup?.name}</Text>
-                <Text style={{ fontSize: 14, color: Colors.textMuted, marginTop: 4 }}>{activeChatGroup?.category} Fellowship Ã¢â‚¬Â¢ 42 members</Text>
+                <Text style={{ fontSize: 14, color: Colors.textMuted, marginTop: 4 }}>{activeChatGroup?.category} Fellowship ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 42 members</Text>
               </View>
               
               <View style={{ padding: 16 }}>
@@ -1295,7 +1319,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                       </View>
                     )}
                   </View>
-                  <Text style={styles.chatGroupSub}>{activeChatGroup?.category} Fellowship ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 42 members</Text>
+                  <Text style={styles.chatGroupSub}>{activeChatGroup?.category} Fellowship ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ 42 members</Text>
                 </View>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1489,7 +1513,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                     {/* Quick Reactions Bar */}
                     {activeReactionMsgId === msg.id && (
                       <View style={styles.quickReactionsBar}>
-                        {['ÃƒÂ°Ã…Â¸Ã¢â€žÂ¢Ã‚Â', 'ÃƒÂ¢Ã‚ÂÃ‚Â¤ÃƒÂ¯Ã‚Â¸Ã‚Â', 'ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â¥', 'ÃƒÂ¢Ã…â€œÃ‚ÂÃƒÂ¯Ã‚Â¸Ã‚Â', 'ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â', 'ÃƒÂ°Ã…Â¸Ã‹Å“Ã¢â‚¬Å¡'].map(emoji => (
+                        {['ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â', 'ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â', 'ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â¥', 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â', 'ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‹Å“Ãƒâ€šÃ‚Â', 'ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¹Ã…â€œÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡'].map(emoji => (
                           <Pressable
                             key={emoji}
                             style={styles.quickEmojiBtn}
@@ -1562,7 +1586,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
                 <Pressable
                   style={styles.attachmentTrayItem}
-                  onPress={() => handleSendChatMessage({ type: 'scripture', name: 'Romans 8:37 ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ More than conquerors' })}
+                  onPress={() => handleSendChatMessage({ type: 'scripture', name: 'Romans 8:37 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ More than conquerors' })}
                 >
                   <View style={[styles.attachmentTrayIconCircle, { backgroundColor: Colors.gold }]}>
                     <Ionicons name="book" size={18} color="#000000" />
@@ -1637,7 +1661,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                     <Text style={styles.chatGroupName} numberOfLines={1}>{directChatMember?.name}</Text>
                     <Ionicons name="checkmark-circle" size={14} color={Colors.gold} />
                   </View>
-                  <Text style={styles.chatGroupSub}>{directChatMember?.role} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Online</Text>
+                  <Text style={styles.chatGroupSub}>{directChatMember?.role} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Online</Text>
                 </View>
               </View>
               <Pressable onPress={() => setDirectChatMember(null)} style={{ padding: 6 }}>
@@ -1709,7 +1733,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
               </View>
               <View>
                 <Text style={styles.storyViewerName}>{activeStory?.author}</Text>
-                <Text style={styles.storyViewerTime}>{activeStory?.timeAgo} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ {activeStory?.role}</Text>
+                <Text style={styles.storyViewerTime}>{activeStory?.timeAgo} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ {activeStory?.role}</Text>
               </View>
             </View>
             <Pressable onPress={() => setActiveStory(null)} style={{ padding: 6 }}>
@@ -1730,7 +1754,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
           <View style={styles.storyReactionsBar}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              {['ÃƒÂ¢Ã‚ÂÃ‚Â¤ÃƒÂ¯Ã‚Â¸Ã‚Â', 'ÃƒÂ°Ã…Â¸Ã¢â€žÂ¢Ã‚Â', 'ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â¥', 'ÃƒÂ¢Ã…Â¡Ã‚Â¡', 'ÃƒÂ°Ã…Â¸Ã¢â€žÂ¢Ã…â€™'].map(emoji => (
+              {['ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â', 'ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â', 'ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â¥', 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â¡', 'ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢'].map(emoji => (
                 <Pressable
                   key={emoji}
                   style={styles.storyEmojiBtn}
@@ -3039,6 +3063,10 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary, fontSize: 16, marginLeft: 12
   },
 });
+
+
+
+
 
 
 

@@ -172,8 +172,28 @@ export async function signUp(
 export async function updateProfile(updates: Partial<MobileUser>): Promise<MobileUser> {
   const current = await getCachedProfile();
   if (!current) throw new Error('No user currently logged in');
+  
   const updated: MobileUser = { ...current, ...updates };
   await saveProfile(updated);
+  
+  // Sync to Supabase Postgres real-time
+  if (isSupabaseConfigured) {
+    try {
+      const dbPayload = {
+        full_name: updated.name,
+        phone: updated.phone,
+        bio: updated.bio,
+        location: updated.location,
+        website: updated.website,
+        handle: updated.handle,
+        avatar_url: updated.avatar_url,
+      };
+      await supabase.from('users').update(dbPayload).eq('id', current.id);
+    } catch (err) {
+      console.warn('Failed to sync profile update to Supabase:', err);
+    }
+  }
+
   notifySubscribers(updated);
   return updated;
 }
