@@ -447,9 +447,9 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
             {groupedByTopic.map(group => (
               <View key={group.topic} style={styles.topicSection}>
                 <View style={styles.topicHeaderRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 }}>
                     <Ionicons name="sparkles" size={12} color={Colors.gold} />
-                    <Text style={styles.topicHeaderTitle}>{group.topic}</Text>
+                    <Text style={styles.topicHeaderTitle} numberOfLines={1} ellipsizeMode="tail">{group.topic}</Text>
                   </View>
                   <Text style={styles.topicCountText}>{group.items.length} Messages</Text>
                 </View>
@@ -538,8 +538,8 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
                 ) : null}
 
                 <View style={styles.sermonBody}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text style={styles.speakerText}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                    <Text style={styles.speakerText} numberOfLines={1} ellipsizeMode="tail">
                       {s.metadata?.speaker ? String(s.metadata.speaker).toUpperCase() : 'APOSTLE JOE DANIELS'}
                       {s.metadata?.series ? ` • ${String(s.metadata.series)}` : ''}
                     </Text>
@@ -549,8 +549,8 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
                       </View>
                     )}
                   </View>
-                  <Text style={styles.sermonTitle}>{s.title}</Text>
-                  {s.body ? <Text style={styles.sermonDesc} numberOfLines={2}>{s.body}</Text> : null}
+                  <Text style={styles.sermonTitle} numberOfLines={2} ellipsizeMode="tail">{s.title}</Text>
+                  {s.body ? <Text style={styles.sermonDesc} numberOfLines={2} ellipsizeMode="tail">{s.body}</Text> : null}
 
                   <View style={styles.cardActions}>
                     <Pressable
@@ -562,7 +562,7 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
                         size={15}
                         color={isPaid && !profile?.is_premium ? Colors.gold : Colors.textInverse}
                       />
-                      <Text style={[styles.btnWatchText, isPaid && !profile?.is_premium && styles.btnWatchPaidText]}>
+                      <Text style={[styles.btnWatchText, isPaid && !profile?.is_premium && styles.btnWatchPaidText]} numberOfLines={1}>
                         {isPaid && !profile?.is_premium ? 'Unlock Covenant Pass' : 'Watch in App'}
                       </Text>
                     </Pressable>
@@ -578,7 +578,7 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
                           size={15}
                           color={isDownloaded ? Colors.success : Colors.textPrimary}
                         />
-                        <Text style={[styles.btnDownloadText, isDownloaded && styles.btnDownloadedText]}>
+                        <Text style={[styles.btnDownloadText, isDownloaded && styles.btnDownloadedText]} numberOfLines={1}>
                           {isDownloading ? 'Saving...' : isDownloaded ? 'Downloaded' : 'Download'}
                         </Text>
                       </Pressable>
@@ -589,7 +589,7 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
                           onPress={() => handleOpenYouTube(youtubeId)}
                         >
                           <Ionicons name="logo-youtube" size={15} color="#ff0000" />
-                          <Text style={styles.btnYouTubeText}>YouTube</Text>
+                          <Text style={styles.btnYouTubeText} numberOfLines={1}>YouTube</Text>
                         </Pressable>
                       )}
                     </View>
@@ -983,6 +983,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
     marginBottom: 10,
     paddingHorizontal: 2,
   },
@@ -990,6 +992,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontRegular,
     color: Colors.textMuted,
     fontSize: 11,
+    flexShrink: 1,
   },
   viewModeBtnGroup: {
     flexDirection: 'row',
@@ -1186,6 +1189,8 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     fontSize: 11,
     letterSpacing: 1,
+    flex: 1,
+    flexShrink: 1,
   },
   sermonTitle: {
     fontFamily: Typography.fontBold,
@@ -1222,8 +1227,9 @@ const styles = StyleSheet.create({
   secondaryActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     width: '100%',
+    flexWrap: 'wrap',
   },
   btnDownload: {
     flex: 1,

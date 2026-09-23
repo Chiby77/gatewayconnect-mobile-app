@@ -186,6 +186,11 @@ export interface GroupChatMessage {
   text: string;
   created_at: string;
   receipt_status?: 'sent' | 'delivered' | 'read';
+  reply_to?: {
+    sender_name: string;
+    text: string;
+  };
+  reactions?: string[];
   attachment?: {
     type: 'image' | 'document' | 'link' | 'scripture';
     name: string;
@@ -297,7 +302,8 @@ export function sendGroupMessage(
   senderName: string,
   text: string,
   senderRole?: string,
-  attachment?: GroupChatMessage['attachment']
+  attachment?: GroupChatMessage['attachment'],
+  replyTo?: GroupChatMessage['reply_to']
 ): GroupChatMessage {
   const newMsg: GroupChatMessage = {
     id: `msg_${Date.now()}`,
@@ -309,6 +315,8 @@ export function sendGroupMessage(
     created_at: 'Just now',
     receipt_status: 'read',
     attachment,
+    reply_to: replyTo,
+    reactions: [],
   };
 
   if (!localGroupMessages[groupId]) {
@@ -327,4 +335,19 @@ export function sendGroupMessage(
   } catch {}
 
   return newMsg;
+}
+
+export function toggleGroupMessageReaction(groupId: string, messageId: string, emoji: string): GroupChatMessage[] {
+  if (localGroupMessages[groupId]) {
+    const msg = localGroupMessages[groupId].find(m => m.id === messageId);
+    if (msg) {
+      if (!msg.reactions) msg.reactions = [];
+      if (msg.reactions.includes(emoji)) {
+        msg.reactions = msg.reactions.filter(r => r !== emoji);
+      } else {
+        msg.reactions.push(emoji);
+      }
+    }
+  }
+  return getGroupMessages(groupId);
 }

@@ -20,7 +20,8 @@ export interface MobileUser {
   followers_count: number;
   following_count: number;
   is_premium: boolean;
-  badge_type: 'gold' | 'blue' | 'developer' | 'silver' | 'none';
+  badge_type: 'platinum' | 'gold' | 'silver' | 'developer' | 'blue' | 'none';
+  badge_expires_at?: string;
   dob?: string;
   gender?: 'male' | 'female';
   is_developer?: boolean;
@@ -347,3 +348,52 @@ function notifySubscribers(profile: MobileUser | null) {
     } catch {}
   });
 }
+
+// In-memory registry of manually verified members (fallback)
+const MANUALLY_VERIFIED_REGISTRY: Record<string, 'platinum' | 'gold' | 'silver' | 'none'> = {};
+
+export async function updateUserBadge(
+  userId: string,
+  badge: 'platinum' | 'gold' | 'silver' | 'developer' | 'blue' | 'none'
+): Promise<MobileUser | null> {
+  const current = await getCachedProfile();
+  if (current) {
+    const updated: MobileUser = {
+      ...current,
+      badge_type: badge,
+      is_premium: badge === 'gold' || badge === 'platinum' || current.is_premium,
+      badge_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+    await saveProfile(updated);
+    notifySubscribers(updated);
+    return updated;
+  }
+  return null;
+}
+
+export function adminManuallyVerifyMember(
+  memberId: string,
+  badge: 'platinum' | 'gold' | 'silver' | 'none'
+): void {
+  MANUALLY_VERIFIED_REGISTRY[memberId] = badge;
+  const demo = DEMO_USERS.find(u => u.id === memberId || u.member_id === memberId);
+  if (demo) {
+    demo.badge_type = badge;
+    demo.is_premium = badge === 'gold' || badge === 'platinum';
+  }
+}
+
+export function getMemberBadgeOverride(memberId: string): 'platinum' | 'gold' | 'silver' | 'none' | undefined {
+  return MANUALLY_VERIFIED_REGISTRY[memberId];
+}
+
+export function getAssignableChurchMembers(): Array<{ id: string; name: string; handle: string; role: string; currentBadge: string }> {
+  return [
+    { id: 'usr_tinodaishe', name: 'Tinodaishe Morgan Chibi', handle: '@tinodaishe_morgan_chibi', role: 'Covenant Believer', currentBadge: MANUALLY_VERIFIED_REGISTRY['usr_tinodaishe'] || 'gold' },
+    { id: 'usr_apostle_joe', name: 'Apostle Joe Daniels', handle: '@apostle_joe_daniels', role: 'General Overseer', currentBadge: 'gold' },
+    { id: 'usr_prophetess_melinda', name: 'Prophetess Melinda Daniels', handle: '@prophetess_melinda', role: 'Co-Founder', currentBadge: 'gold' },
+    { id: 'usr_pastor_easter', name: 'Pastor Easter', handle: '@pastor_easter', role: 'Executive Pastor', currentBadge: MANUALLY_VERIFIED_REGISTRY['usr_pastor_easter'] || 'gold' },
+    { id: 'usr_developer', name: 'mr_juice7', handle: '@mr_juice7', role: 'Core Systems Developer', currentBadge: 'developer' },
+  ];
+}
+

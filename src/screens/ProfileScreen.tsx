@@ -3,13 +3,14 @@ import { View, Text, TextInput, Pressable, StyleSheet, Switch, Modal, Alert, Scr
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { Colors, Typography, Radii } from '../theme/colors';
-import { MobileUser, signOut, updateProfile, changePassword } from '../auth/authService';
+import { MobileUser, signOut, updateProfile, changePassword, updateUserBadge, adminManuallyVerifyMember, getAssignableChurchMembers } from '../auth/authService';
 import { SettingsRepository } from '../settings/settingsRepository';
 import { trackEvent } from '../analytics/analyticsService';
 import { BibleRepository } from '../bible/bibleRepository';
 import { listDownloads, deleteDownload, MediaDownload } from '../media/downloadManager';
 import { listPrayerRequests, PrayerRequest } from '../data/contentRepository';
 import { LegalModal } from '../components/LegalModal';
+import { BADGE_TIERS, processBadgePaynowSubscription } from '../services/badgeService';
 
 interface ProfileScreenProps {
   profile: MobileUser | null;
@@ -45,7 +46,20 @@ export function getUserBadgeInfo(user: MobileUser | null) {
     };
   }
 
-  // Gold Badge / Overseer: Gold shield with checkmark
+  // Platinum Badge: Luxury cyan/diamond shield with checkmark ($20/mo)
+  if (user.badge_type === 'platinum') {
+    return {
+      type: 'platinum',
+      label: 'Platinum Pillar',
+      icon: 'diamond',
+      badgeBg: 'rgba(56, 189, 248, 0.22)',
+      borderColor: '#38bdf8',
+      iconColor: '#38bdf8',
+      textColor: '#7dd3fc',
+    };
+  }
+
+  // Gold Badge / Overseer: Gold shield with checkmark ($10/mo)
   if (user.badge_type === 'gold' || user.role === 'super_admin' || user.handle?.includes('daniels')) {
     return {
       type: 'gold',
@@ -55,6 +69,19 @@ export function getUserBadgeInfo(user: MobileUser | null) {
       borderColor: Colors.gold,
       iconColor: Colors.gold,
       textColor: Colors.gold,
+    };
+  }
+
+  // Silver Badge: Silver shield with checkmark ($5/mo)
+  if (user.badge_type === 'silver') {
+    return {
+      type: 'silver',
+      label: 'Silver Verified',
+      icon: 'shield-checkmark',
+      badgeBg: 'rgba(203, 213, 225, 0.18)',
+      borderColor: '#94a3b8',
+      iconColor: '#cbd5e1',
+      textColor: '#e2e8f0',
     };
   }
 
@@ -152,8 +179,34 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
   const [analytics, setAnalytics] = useState(SettingsRepository.getAnalyticsOptIn());
   const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | null>(null);
 
-  // Subtab navigation matching Screenshot 5: Posts | Reels | Downloads | Saved | Pages | Settings
-  const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'downloads' | 'saved' | 'pages' | 'settings'>('posts');
+  // Subtab navigation matching Screenshot 5: Posts | Reels | Downloads | Saved | Pages | Badges | Settings
+  const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'downloads' | 'saved' | 'pages' | 'badges' | 'settings'>('posts');
+
+  const isDeveloper = Boolean(
+    profile?.is_developer ||
+    profile?.role === 'developer' ||
+    profile?.badge_type === 'developer' ||
+    profile?.handle?.toLowerCase() === '@mr_juice7'
+  );
+
+  const isAdmin = Boolean(
+    isDeveloper ||
+    profile?.role === 'super_admin' ||
+    profile?.role === 'moderator'
+  );
+
+  // Badge Subscription & Paynow state
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [selectedBadgeTier, setSelectedBadgeTier] = useState<'silver' | 'gold' | 'platinum'>('gold');
+  const [paynowPhone, setPaynowPhone] = useState(profile?.phone || '0770000000');
+  const [paynowMethod, setPaynowMethod] = useState<'EcoCash' | 'OneMoney' | 'InnBucks' | 'Card'>('EcoCash');
+  const [processingPaynow, setProcessingPaynow] = useState(false);
+
+  // Admin Manual Member Verification Modal state
+  const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
+  const [assignableMembers, setAssignableMembers] = useState(getAssignableChurchMembers());
+  const [adminSelectedMemberId, setAdminSelectedMemberId] = useState('usr_tinodaishe');
+  const [adminSelectedBadge, setAdminSelectedBadge] = useState<'platinum' | 'gold' | 'silver' | 'none'>('gold');
 
   // Selected Fellowship Page Modal
   const [selectedPage, setSelectedPage] = useState<typeof FELLOWSHIP_PAGES[0] | null>(null);
@@ -205,6 +258,52 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
       setEditHandle(profile.handle || `@${profile.name.toLowerCase().replace(/\s+/g, '_')}`);
     }
   }, [profile]);
+
+  const handlePaynowBadgeSubscribe = async () => {
+    if (!profile) {
+      if (onRequestAuth) {
+        onRequestAuth('Sign in to subscribe to kingdom verification badges.');
+      } else {
+        Alert.alert('Sign In Required', 'Please sign in to subscribe.');
+      }
+      return;
+    }
+
+    if (!paynowPhone.trim()) {
+      Alert.alert('Phone Required', 'Please enter your mobile phone number for the Paynow push payment.');
+      return;
+    }
+
+    setProcessingPaynow(true);
+    try {
+      const result = await processBadgePaynowSubscription(
+        selectedBadgeTier,
+        paynowPhone.trim(),
+        paynowMethod
+      );
+
+      await updateUserBadge(profile.id, selectedBadgeTier);
+      setShowBadgeModal(false);
+      Alert.alert('Subscription Activated', `${result.message}\nYour verification badge is now live across GatewayConnect!`);
+    } catch (err: any) {
+      Alert.alert('Subscription Notice', err.message || 'Payment initiated. Verification badge will update shortly.');
+    } finally {
+      setProcessingPaynow(false);
+    }
+  };
+
+  const handleAdminVerifySubmit = () => {
+    adminManuallyVerifyMember(adminSelectedMemberId, adminSelectedBadge);
+    setAssignableMembers(getAssignableChurchMembers());
+    if (profile?.id === adminSelectedMemberId) {
+      void updateUserBadge(adminSelectedMemberId, adminSelectedBadge);
+    }
+    setShowAdminVerifyModal(false);
+    Alert.alert(
+      'Member Verification Updated',
+      `Member verification for ${adminSelectedMemberId} has been updated to ${adminSelectedBadge.toUpperCase()}.`
+    );
+  };
 
   const handleLowDataToggle = () => {
     const next = !lowData;
@@ -371,12 +470,16 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
           {/* Full Name & Authentic Role Badge */}
           <View style={styles.nameBadgeRow}>
             <Text style={styles.fullNameText}>{profile.name}</Text>
-            <View style={[styles.roleBadgePill, { backgroundColor: userBadge.badgeBg, borderColor: userBadge.borderColor, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+            <Pressable
+              style={[styles.roleBadgePill, { backgroundColor: userBadge.badgeBg, borderColor: userBadge.borderColor, flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+              onPress={() => setShowBadgeModal(true)}
+            >
               <Ionicons name={userBadge.icon as any} size={11} color={userBadge.iconColor} />
               <Text style={[styles.roleBadgePillText, { color: userBadge.textColor }]}>
                 {userBadge.label}
               </Text>
-            </View>
+              <Ionicons name="sparkles" size={9} color={userBadge.iconColor} />
+            </Pressable>
           </View>
 
           {/* Chips: Phone • Location • Member ID */}
@@ -428,9 +531,7 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
 
             <Pressable
               style={styles.profileCrownBtn}
-              onPress={() => {
-                Alert.alert('Covenant Membership', 'Active Covenant Partner • Full Ministry Access');
-              }}
+              onPress={() => setShowBadgeModal(true)}
             >
               <Ionicons name="ribbon" size={18} color="#000000" />
             </Pressable>
@@ -438,7 +539,7 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
         </View>
       )}
 
-      {/* 3. Horizontal Sub-Tabs Matching Screenshot 5: Posts | Reels | Downloads | Saved | Pages | Settings */}
+      {/* 3. Horizontal Sub-Tabs Matching Screenshot 5: Posts | Reels | Downloads | Saved | Pages | Badges | Settings */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subtabScroll}>
         <Pressable
           style={[styles.subtabBtn, activeTab === 'posts' && styles.subtabBtnActive]}
@@ -487,6 +588,16 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
           <Ionicons name="flag" size={14} color={activeTab === 'pages' ? '#000000' : Colors.textMuted} />
           <Text style={[styles.subtabBtnText, activeTab === 'pages' && styles.subtabBtnTextActive]}>
             Pages
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.subtabBtn, activeTab === 'badges' && styles.subtabBtnActive]}
+          onPress={() => setActiveTab('badges')}
+        >
+          <Ionicons name="shield-checkmark" size={14} color={activeTab === 'badges' ? '#000000' : Colors.textMuted} />
+          <Text style={[styles.subtabBtnText, activeTab === 'badges' && styles.subtabBtnTextActive]}>
+            Badges
           </Text>
         </Pressable>
 
@@ -630,6 +741,163 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
                 </View>
               </Pressable>
             ))}
+          </View>
+        )}
+
+        {/* Tab: Badges & Kingdom Verification Subscriptions */}
+        {activeTab === 'badges' && (
+          <View style={{ gap: 14 }}>
+            {/* Current Active Badge Status Card */}
+            <View style={[styles.badgeCurrentCard, { borderColor: userBadge.borderColor, backgroundColor: userBadge.badgeBg }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <View style={[styles.badgeCurrentIconWrap, { backgroundColor: userBadge.badgeBg, borderColor: userBadge.borderColor }]}>
+                    <Ionicons name={userBadge.icon as any} size={22} color={userBadge.iconColor} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.badgeCurrentTierTitle, { color: userBadge.textColor }]}>
+                      {userBadge.label}
+                    </Text>
+                    <Text style={styles.badgeCurrentStatusSub}>
+                      {profile?.is_developer ? 'Platform Architect • Permanent Access' : profile?.badge_expires_at ? `Active • Renews ${new Date(profile.badge_expires_at).toLocaleDateString()}` : 'Apostolic Community Verified'}
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  style={styles.badgeManageActionBtn}
+                  onPress={() => setShowBadgeModal(true)}
+                >
+                  <Text style={styles.badgeManageActionBtnText}>Upgrade</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Verification Tiers Overview */}
+            <Text style={styles.badgeSectionTitle}>KINGDOM VERIFICATION TIERS</Text>
+
+            {/* Silver Tier */}
+            <View style={styles.badgeTierOptionCard}>
+              <View style={styles.badgeTierHeaderRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                  <View style={[styles.badgeTierIconCircle, { backgroundColor: 'rgba(203, 213, 225, 0.18)', borderColor: '#94a3b8' }]}>
+                    <Ionicons name="shield-checkmark" size={18} color="#cbd5e1" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.badgeTierCardName}>{BADGE_TIERS.silver.name}</Text>
+                    <Text style={styles.badgeTierCardBilling}>$5 USD / month (EcoCash / InnBucks / Card)</Text>
+                  </View>
+                </View>
+                <Pressable
+                  style={styles.badgeTierSubscribeBtn}
+                  onPress={() => {
+                    setSelectedBadgeTier('silver');
+                    setShowBadgeModal(true);
+                  }}
+                >
+                  <Text style={styles.badgeTierSubscribeBtnText}>Select</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.badgeTierCardDesc}>{BADGE_TIERS.silver.description}</Text>
+              <View style={styles.badgeTierPerksList}>
+                {BADGE_TIERS.silver.perks.map((perk, i) => (
+                  <View key={i} style={styles.badgeTierPerkRow}>
+                    <Ionicons name="checkmark-circle" size={13} color="#94a3b8" />
+                    <Text style={styles.badgeTierPerkText}>{perk}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Gold Tier */}
+            <View style={[styles.badgeTierOptionCard, { borderColor: Colors.gold, backgroundColor: 'rgba(223, 167, 50, 0.05)' }]}>
+              <View style={styles.badgeTierHeaderRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                  <View style={[styles.badgeTierIconCircle, { backgroundColor: 'rgba(223, 167, 50, 0.2)', borderColor: Colors.gold }]}>
+                    <Ionicons name="shield-checkmark" size={18} color={Colors.gold} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[styles.badgeTierCardName, { color: Colors.gold }]}>{BADGE_TIERS.gold.name}</Text>
+                      <View style={styles.popularBadge}>
+                        <Text style={styles.popularBadgeText}>POPULAR</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.badgeTierCardBilling}>$10 USD / month • Covenant Altar</Text>
+                  </View>
+                </View>
+                <Pressable
+                  style={[styles.badgeTierSubscribeBtn, { backgroundColor: Colors.gold }]}
+                  onPress={() => {
+                    setSelectedBadgeTier('gold');
+                    setShowBadgeModal(true);
+                  }}
+                >
+                  <Text style={[styles.badgeTierSubscribeBtnText, { color: '#000000' }]}>Select</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.badgeTierCardDesc}>{BADGE_TIERS.gold.description}</Text>
+              <View style={styles.badgeTierPerksList}>
+                {BADGE_TIERS.gold.perks.map((perk, i) => (
+                  <View key={i} style={styles.badgeTierPerkRow}>
+                    <Ionicons name="checkmark-circle" size={13} color={Colors.gold} />
+                    <Text style={styles.badgeTierPerkText}>{perk}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Platinum Tier */}
+            <View style={[styles.badgeTierOptionCard, { borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.05)' }]}>
+              <View style={styles.badgeTierHeaderRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                  <View style={[styles.badgeTierIconCircle, { backgroundColor: 'rgba(56, 189, 248, 0.2)', borderColor: '#38bdf8' }]}>
+                    <Ionicons name="diamond" size={18} color="#38bdf8" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.badgeTierCardName, { color: '#38bdf8' }]}>{BADGE_TIERS.platinum.name}</Text>
+                    <Text style={styles.badgeTierCardBilling}>$20 USD / month • Diamond Leadership</Text>
+                  </View>
+                </View>
+                <Pressable
+                  style={[styles.badgeTierSubscribeBtn, { backgroundColor: '#38bdf8' }]}
+                  onPress={() => {
+                    setSelectedBadgeTier('platinum');
+                    setShowBadgeModal(true);
+                  }}
+                >
+                  <Text style={[styles.badgeTierSubscribeBtnText, { color: '#000000' }]}>Select</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.badgeTierCardDesc}>{BADGE_TIERS.platinum.description}</Text>
+              <View style={styles.badgeTierPerksList}>
+                {BADGE_TIERS.platinum.perks.map((perk, i) => (
+                  <View key={i} style={styles.badgeTierPerkRow}>
+                    <Ionicons name="checkmark-circle" size={13} color="#38bdf8" />
+                    <Text style={styles.badgeTierPerkText}>{perk}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Admin Manual Verification Fallback Tool */}
+            {isAdmin && (
+              <View style={styles.adminFallbackSection}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="shield-half" size={18} color="#818cf8" />
+                  <Text style={styles.adminFallbackTitle}>Admin Member Verification (Fallback)</Text>
+                </View>
+                <Text style={styles.adminFallbackSub}>
+                  Manually assign or revoke Silver, Gold, and Platinum badges for congregation members without payment requirement.
+                </Text>
+                <Pressable
+                  style={styles.adminFallbackBtn}
+                  onPress={() => setShowAdminVerifyModal(true)}
+                >
+                  <Ionicons name="people" size={15} color="#ffffff" />
+                  <Text style={styles.adminFallbackBtnText}>Manage Member Badges</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         )}
 
@@ -1003,6 +1271,190 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
                 <Text style={styles.btnSecondaryText}>Join Fellowship</Text>
               </Pressable>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Kingdom Verification Badges & Paynow Subscription Modal */}
+      <Modal visible={showBadgeModal} animationType="slide" transparent onRequestClose={() => setShowBadgeModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={[styles.badgeCurrentIconWrap, { backgroundColor: 'rgba(223, 167, 50, 0.2)', borderColor: Colors.gold }]}>
+                  <Ionicons name="shield-checkmark" size={20} color={Colors.gold} />
+                </View>
+                <View>
+                  <Text style={styles.modalTitle}>Verification Subscription</Text>
+                  <Text style={{ color: Colors.gold, fontFamily: Typography.fontSemiBold, fontSize: 11 }}>
+                    Powered by Paynow (EcoCash / Card / InnBucks)
+                  </Text>
+                </View>
+              </View>
+              <Pressable onPress={() => setShowBadgeModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              <Text style={styles.badgeModalSubtitle}>
+                Select your kingdom verification tier. Once paid via Paynow, your verified badge will be assigned automatically.
+              </Text>
+
+              {/* Tier Selection Buttons */}
+              <View style={{ gap: 10, marginVertical: 12 }}>
+                {(['silver', 'gold', 'platinum'] as const).map(tierKey => {
+                  const tier = BADGE_TIERS[tierKey];
+                  const isSelected = selectedBadgeTier === tierKey;
+                  return (
+                    <Pressable
+                      key={tierKey}
+                      style={[
+                        styles.badgeModalTierCard,
+                        isSelected && { borderColor: tier.color, backgroundColor: tier.badgeBg },
+                      ]}
+                      onPress={() => setSelectedBadgeTier(tierKey)}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Ionicons name={tier.icon as any} size={18} color={tier.color} />
+                          <Text style={[styles.badgeModalTierName, isSelected && { color: tier.color }]}>
+                            {tier.name}
+                          </Text>
+                        </View>
+                        <Text style={[styles.badgeModalTierPrice, isSelected && { color: tier.color }]}>
+                          ${tier.priceUsd} USD{tier.billingPeriod}
+                        </Text>
+                      </View>
+                      <Text style={styles.badgeModalTierDesc}>{tier.description}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Paynow Details */}
+              <View style={styles.paynowBox}>
+                <Text style={styles.inputLabel}>Paynow Payment Method</Text>
+                <View style={styles.paynowMethodsRow}>
+                  {(['EcoCash', 'OneMoney', 'InnBucks', 'Card'] as const).map(m => (
+                    <Pressable
+                      key={m}
+                      style={[styles.paynowMethodPill, paynowMethod === m && styles.paynowMethodPillActive]}
+                      onPress={() => setPaynowMethod(m)}
+                    >
+                      <Text style={[styles.paynowMethodPillText, paynowMethod === m && styles.paynowMethodPillTextActive]}>
+                        {m}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Text style={[styles.inputLabel, { marginTop: 12 }]}>
+                  {paynowMethod === 'Card' ? 'Cardholder Phone Number' : `${paynowMethod} Mobile Number`}
+                </Text>
+                <TextInput
+                  value={paynowPhone}
+                  onChangeText={setPaynowPhone}
+                  placeholder="e.g. 0771234567 or 263771234567"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="phone-pad"
+                  style={styles.input}
+                />
+              </View>
+
+              <Pressable
+                style={[styles.btnPaynowPrimary, processingPaynow && { opacity: 0.6 }]}
+                onPress={handlePaynowBadgeSubscribe}
+                disabled={processingPaynow}
+              >
+                <Ionicons name="card" size={17} color="#09090b" />
+                <Text style={styles.btnPaynowPrimaryText}>
+                  {processingPaynow
+                    ? 'Processing via Paynow...'
+                    : `Subscribe to ${BADGE_TIERS[selectedBadgeTier].name} ($${BADGE_TIERS[selectedBadgeTier].priceUsd} USD)`}
+                </Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Admin Manual Member Verification Modal */}
+      <Modal visible={showAdminVerifyModal} animationType="slide" transparent onRequestClose={() => setShowAdminVerifyModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={[styles.badgeCurrentIconWrap, { backgroundColor: 'rgba(99, 102, 241, 0.2)', borderColor: '#6366f1' }]}>
+                  <Ionicons name="shield-half" size={20} color="#818cf8" />
+                </View>
+                <View>
+                  <Text style={styles.modalTitle}>Admin Manual Verification</Text>
+                  <Text style={{ color: '#818cf8', fontFamily: Typography.fontSemiBold, fontSize: 11 }}>
+                    Official Church Administration Override
+                  </Text>
+                </View>
+              </View>
+              <Pressable onPress={() => setShowAdminVerifyModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              <Text style={styles.badgeModalSubtitle}>
+                Select a church member and assign or revoke their verified status. This serves as a manual fallback if Paynow is unavailable.
+              </Text>
+
+              <Text style={styles.inputLabel}>1. Select Church Member</Text>
+              <View style={{ gap: 8, marginVertical: 8 }}>
+                {assignableMembers.map(m => {
+                  const isChosen = adminSelectedMemberId === m.id;
+                  return (
+                    <Pressable
+                      key={m.id}
+                      style={[styles.adminMemberPickCard, isChosen && styles.adminMemberPickCardActive]}
+                      onPress={() => setAdminSelectedMemberId(m.id)}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View>
+                          <Text style={[styles.adminMemberPickName, isChosen && { color: Colors.gold }]}>{m.name}</Text>
+                          <Text style={styles.adminMemberPickHandle}>{m.handle} • {m.role}</Text>
+                        </View>
+                        <View style={styles.adminMemberCurrentBadgePill}>
+                          <Text style={styles.adminMemberCurrentBadgeText}>{m.currentBadge.toUpperCase()}</Text>
+                        </View>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={[styles.inputLabel, { marginTop: 14 }]}>2. Assign Target Badge</Text>
+              <View style={styles.adminBadgeSelectorRow}>
+                {(['platinum', 'gold', 'silver', 'none'] as const).map(b => {
+                  const isBadgeActive = adminSelectedBadge === b;
+                  return (
+                    <Pressable
+                      key={b}
+                      style={[styles.adminBadgeOptionPill, isBadgeActive && styles.adminBadgeOptionPillActive]}
+                      onPress={() => setAdminSelectedBadge(b)}
+                    >
+                      <Text style={[styles.adminBadgeOptionText, isBadgeActive && styles.adminBadgeOptionTextActive]}>
+                        {b.toUpperCase()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Pressable
+                style={styles.adminApplyVerifyBtn}
+                onPress={handleAdminVerifySubmit}
+              >
+                <Ionicons name="checkmark-done" size={17} color="#ffffff" />
+                <Text style={styles.adminApplyVerifyBtnText}>Apply Manual Verification</Text>
+              </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1806,5 +2258,317 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     lineHeight: 19,
+  },
+
+  // Badges Tab & Subscription Modal Styles
+  badgeCurrentCard: {
+    padding: 14,
+    borderRadius: Radii.md,
+    borderWidth: 1.5,
+    marginBottom: 6,
+  },
+  badgeCurrentIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeCurrentTierTitle: {
+    fontFamily: Typography.fontBold,
+    fontSize: 15,
+  },
+  badgeCurrentStatusSub: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  badgeManageActionBtn: {
+    backgroundColor: Colors.gold,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radii.sm,
+  },
+  badgeManageActionBtnText: {
+    fontFamily: Typography.fontBold,
+    color: '#09090b',
+    fontSize: 12,
+  },
+  badgeSectionTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textMuted,
+    fontSize: 11,
+    letterSpacing: 1,
+    marginTop: 6,
+  },
+  badgeTierOptionCard: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+    gap: 8,
+  },
+  badgeTierHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  badgeTierIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeTierCardName: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 14,
+  },
+  badgeTierCardBilling: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  popularBadge: {
+    backgroundColor: 'rgba(223, 167, 50, 0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: Radii.full,
+    borderWidth: 0.5,
+    borderColor: Colors.gold,
+  },
+  popularBadgeText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 8.5,
+  },
+  badgeTierSubscribeBtn: {
+    backgroundColor: '#27272a',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radii.sm,
+  },
+  badgeTierSubscribeBtnText: {
+    fontFamily: Typography.fontBold,
+    color: '#ffffff',
+    fontSize: 12,
+  },
+  badgeTierCardDesc: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  badgeTierPerksList: {
+    gap: 4,
+    marginTop: 2,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    paddingTop: 8,
+  },
+  badgeTierPerkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  badgeTierPerkText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 11.5,
+  },
+  adminFallbackSection: {
+    backgroundColor: '#121626',
+    borderWidth: 1,
+    borderColor: '#3730a3',
+    borderRadius: Radii.md,
+    padding: 14,
+    gap: 8,
+    marginTop: 4,
+  },
+  adminFallbackTitle: {
+    fontFamily: Typography.fontBold,
+    color: '#a5b4fc',
+    fontSize: 13,
+  },
+  adminFallbackSub: {
+    fontFamily: Typography.fontRegular,
+    color: '#c7d2fe',
+    fontSize: 11.5,
+    lineHeight: 16,
+  },
+  adminFallbackBtn: {
+    backgroundColor: '#4f46e5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: Radii.sm,
+    marginTop: 4,
+  },
+  adminFallbackBtnText: {
+    fontFamily: Typography.fontBold,
+    color: '#ffffff',
+    fontSize: 12,
+  },
+  badgeModalSubtitle: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 8,
+  },
+  badgeModalTierCard: {
+    backgroundColor: '#141824',
+    borderWidth: 1,
+    borderColor: '#242e42',
+    borderRadius: Radii.md,
+    padding: 12,
+    gap: 4,
+  },
+  badgeModalTierName: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+  },
+  badgeModalTierPrice: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 12,
+  },
+  badgeModalTierDesc: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  paynowBox: {
+    backgroundColor: '#10141e',
+    borderWidth: 1,
+    borderColor: '#1e2433',
+    borderRadius: Radii.md,
+    padding: 12,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  paynowMethodsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginTop: 6,
+  },
+  paynowMethodPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radii.sm,
+    backgroundColor: '#1c2233',
+    borderWidth: 1,
+    borderColor: '#28324a',
+  },
+  paynowMethodPillActive: {
+    backgroundColor: Colors.gold,
+    borderColor: Colors.gold,
+  },
+  paynowMethodPillText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textMuted,
+    fontSize: 11,
+  },
+  paynowMethodPillTextActive: {
+    color: '#000000',
+  },
+  btnPaynowPrimary: {
+    backgroundColor: Colors.gold,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: Radii.md,
+  },
+  btnPaynowPrimaryText: {
+    fontFamily: Typography.fontBold,
+    color: '#09090b',
+    fontSize: 13,
+  },
+  adminMemberPickCard: {
+    backgroundColor: '#131722',
+    borderWidth: 1,
+    borderColor: '#232b3d',
+    borderRadius: Radii.sm,
+    padding: 10,
+  },
+  adminMemberPickCardActive: {
+    borderColor: Colors.gold,
+    backgroundColor: 'rgba(223, 167, 50, 0.08)',
+  },
+  adminMemberPickName: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+  },
+  adminMemberPickHandle: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  adminMemberCurrentBadgePill: {
+    backgroundColor: '#1e2638',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+  },
+  adminMemberCurrentBadgeText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 9.5,
+  },
+  adminBadgeSelectorRow: {
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginVertical: 8,
+  },
+  adminBadgeOptionPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: Radii.sm,
+    backgroundColor: '#171c2a',
+    borderWidth: 1,
+    borderColor: '#28324a',
+  },
+  adminBadgeOptionPillActive: {
+    backgroundColor: '#4f46e5',
+    borderColor: '#818cf8',
+  },
+  adminBadgeOptionText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textMuted,
+    fontSize: 11,
+  },
+  adminBadgeOptionTextActive: {
+    color: '#ffffff',
+  },
+  adminApplyVerifyBtn: {
+    backgroundColor: '#4f46e5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: Radii.md,
+    marginTop: 10,
+  },
+  adminApplyVerifyBtnText: {
+    fontFamily: Typography.fontBold,
+    color: '#ffffff',
+    fontSize: 13,
   },
 });
