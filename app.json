@@ -2,7 +2,7 @@
   "expo": {
     "name": "GatewayConnect",
     "slug": "gatewayconnect",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -10,7 +10,7 @@
     "androidStatusBar": {
       "barStyle": "light-content",
       "backgroundColor": "#09090b",
-      "translucent": false
+      "translucent": true
     },
     "scheme": "gatewayconnect",
     "plugins": [
@@ -32,7 +32,16 @@
       ],
       "expo-secure-store",
       "expo-sqlite",
-      "expo-asset"
+      "expo-asset",
+      "react-native-compressor",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInRelease": true
+          }
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,
@@ -40,6 +49,8 @@
     },
     "android": {
       "package": "org.gatewaychurch.gatewayconnect",
+      "versionCode": 2,
+      "targetSdkVersion": 36,
       "permissions": [
         "android.permission.INTERNET"
       ]

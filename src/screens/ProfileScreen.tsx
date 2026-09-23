@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet, Switch, Modal, Alert, Scr
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { Colors, Typography, Radii } from '../theme/colors';
-import { MobileUser, signOut, updateProfile, changePassword, updateUserBadge, adminManuallyVerifyMember, getAssignableChurchMembers } from '../auth/authService';
+import { MobileUser, signOut, deleteAccount, updateProfile, changePassword, updateUserBadge, adminManuallyVerifyMember, getAssignableChurchMembers } from '../auth/authService';
 import { SettingsRepository } from '../settings/settingsRepository';
 import { trackEvent } from '../analytics/analyticsService';
 import { BibleRepository } from '../bible/bibleRepository';
@@ -976,16 +976,47 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
             </View>
 
             {profile && (
-              <Pressable
-                style={styles.btnDanger}
-                onPress={() => {
-                  void signOut();
-                  trackEvent('sign_out');
-                }}
-              >
-                <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
-                <Text style={styles.btnDangerText}>Sign Out of GatewayConnect</Text>
-              </Pressable>
+              <>
+                <Pressable
+                  style={styles.btnDanger}
+                  onPress={() => {
+                    void signOut();
+                    trackEvent('sign_out');
+                  }}
+                >
+                  <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
+                  <Text style={styles.btnDangerText}>Sign Out of GatewayConnect</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.btnDanger, { marginTop: 12, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
+                  onPress={() => {
+                    Alert.alert(
+                      'Delete Account',
+                      'Are you absolutely sure you want to delete your account? This action cannot be undone and all your data will be permanently wiped.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Delete Permanently', 
+                          style: 'destructive',
+                          onPress: async () => {
+                            try {
+                              await deleteAccount();
+                              trackEvent('delete_account');
+                              Alert.alert('Account Deleted', 'Your account has been permanently removed.');
+                            } catch (err: any) {
+                              Alert.alert('Error', err.message || 'Failed to delete account.');
+                            }
+                          }
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                  <Text style={[styles.btnDangerText, { color: '#ef4444' }]}>Delete Account</Text>
+                </Pressable>
+              </>
             )}
           </View>
         )}

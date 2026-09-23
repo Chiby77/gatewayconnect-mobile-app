@@ -22,7 +22,11 @@ export function SermonCard({ sermon }: { sermon: ContentItem }) {
   const audioPlayer = useAudioPlayer(downloadUri || null);
 
   const handleDownload = async () => {
-    const remoteUrl = audioUrl || 'https://example.com/dummy_sermon.mp3';
+    if (!audioUrl) {
+      Alert.alert('Error', 'No audio file available for download.');
+      return;
+    }
+    const remoteUrl = audioUrl;
     try {
       const uri = await downloadMedia(sermon.id, 'audio', remoteUrl);
       setDownloadUri(uri);

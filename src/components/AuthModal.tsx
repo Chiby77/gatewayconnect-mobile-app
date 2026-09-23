@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
-import { MobileUser, signIn, signUp, DEMO_USERS } from '../auth/authService';
+import { MobileUser, signIn, signUp } from '../auth/authService';
 
 interface AuthModalProps {
   visible: boolean;
@@ -287,32 +287,7 @@ export function AuthModal({
               )}
             </Pressable>
 
-            {/* Quick Demo Test Accounts */}
-            <View style={styles.demoSection}>
-              <Text style={styles.demoLabel}>Or tap to test with web demo accounts:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.demoScroll}>
-                {DEMO_USERS.map(u => (
-                  <Pressable
-                    key={u.id}
-                    style={styles.demoChip}
-                    onPress={async () => {
-                      try {
-                        setLoading(true);
-                        const user = await signIn(u.phone || u.handle || u.name);
-                        setLoading(false);
-                        onSuccess(user);
-                        onClose();
-                      } catch {
-                        setLoading(false);
-                      }
-                    }}
-                  >
-                    <Ionicons name="person-circle" size={14} color={Colors.gold} />
-                    <Text style={styles.demoChipText}>{u.name.split(' ')[0]}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </View>
+
 
             {onContinueAsGuest ? (
               <Pressable style={styles.guestBtn} onPress={onContinueAsGuest}>
@@ -647,3 +622,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 });
+
+

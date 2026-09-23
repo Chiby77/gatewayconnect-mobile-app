@@ -13,6 +13,7 @@ import { getCachedProfile, MobileUser, subscribeToAuth } from './src/auth/authSe
 import { startRealtimePersistence } from './src/remote/realtimeService';
 import { registerBackgroundSync } from './src/sync/backgroundSync';
 import { enforceExpiration } from './src/media/downloadManager';
+import { registerForPushNotificationsAsync } from './src/remote/pushService';
 
 import { Colors, Typography, Radii } from './src/theme/colors';
 import { AppHeader } from './src/components/AppHeader';
@@ -72,15 +73,23 @@ export default function App() {
     setNetworkStatus(getNetworkStatus());
     setPendingMutations(countPendingMutations());
     setSyncState(getSyncState());
+
     void getCachedProfile().then(p => {
       setProfile(p);
-      // If user was previously signed in, skip the auth wall
-      if (p) setShowAuthWall(false);
+      if (p) {
+        setShowAuthWall(false);
+        registerForPushNotificationsAsync(p.id);
+      }
     });
     const unsubAuth = subscribeToAuth(p => {
       setProfile(p);
-      if (p) setShowAuthWall(false);
+      if (p) {
+        setShowAuthWall(false);
+        registerForPushNotificationsAsync(p.id);
+      }
     });
+
+
     const unsubNetwork = subscribeToNetworkStatus(s => {
       setNetworkStatus(s);
       setPendingMutations(countPendingMutations());
@@ -244,7 +253,7 @@ export default function App() {
         <Pressable
           style={styles.floatingWhatsappFab}
           onPress={communityFabAction}
-          accessibilityLabel="Open WhatsApp Chat Menu"
+          accessibilityLabel="Open Chat Menu"
         >
           <Ionicons name="chatbubbles" size={24} color="#ffffff" />
           <View style={styles.floatingFabBadge}>
@@ -409,7 +418,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#25D366',
+    backgroundColor: '#dfa732',
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 10,
@@ -439,3 +448,4 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
 });
+

@@ -43,84 +43,7 @@ function arePhoneNumbersEqual(p1: string, p2: string): boolean {
 }
 
 // Built-in Demo Accounts matching web app and Screenshot 5
-export const DEMO_USERS: MobileUser[] = [
-  {
-    id: 'usr_tinodaishe',
-    name: 'Tinodaishe Morgan Chibi',
-    phone: '+263781081816',
-    handle: '@tinodaishe_morgan_chibi',
-    role: 'member',
-    location: 'Harare',
-    bio: 'Walking in supernatural dominion & apostolic grace • Gateway Church Harare',
-    website: 'gatewaychurchzim.org',
-    member_id: 'GCZ-MEM-5323',
-    followers_count: 0,
-    following_count: 2,
-    is_premium: true,
-    badge_type: 'gold',
-  },
-  {
-    id: 'usr_apostle_joe',
-    name: 'Apostle Joe Daniels',
-    phone: '0772123456',
-    handle: '@apostle_joe_daniels',
-    role: 'super_admin',
-    location: 'Harare, Zimbabwe',
-    bio: 'General Overseer & Founder, Gateway Church International. Walking in supernatural dominion and apostolic grace.',
-    website: 'gatewaychurchzim.org',
-    member_id: 'GCZ-001-APOSTLE',
-    followers_count: 14200,
-    following_count: 12,
-    is_premium: true,
-    badge_type: 'gold',
-  },
-  {
-    id: 'usr_prophetess_melinda',
-    name: 'Prophetess Melinda Daniels',
-    phone: '0775112233',
-    handle: '@prophetess_melinda',
-    role: 'super_admin',
-    location: 'Harare, Zimbabwe',
-    bio: 'Co-Founder & General Overseer, Passion Ladies Director. Apostolic and Prophetic Grace.',
-    website: 'gatewaychurchzim.org',
-    member_id: 'GCZ-002-FOUNDER',
-    followers_count: 9800,
-    following_count: 15,
-    is_premium: true,
-    badge_type: 'gold',
-  },
-  {
-    id: 'usr_pastor_easter',
-    name: 'Pastor Easter',
-    phone: '0771889900',
-    handle: '@pastor_easter',
-    role: 'super_admin',
-    location: 'Harare, Zimbabwe',
-    bio: 'National Executive Overseer & Apostolic Administrator. Global kingdom governance.',
-    website: 'gatewaychurchzim.org',
-    member_id: 'GCZ-003-ADMIN',
-    followers_count: 5200,
-    following_count: 10,
-    is_premium: true,
-    badge_type: 'gold',
-  },
-  {
-    id: 'usr_developer',
-    name: 'mr_juice7',
-    phone: '0780699988',
-    handle: '@mr_juice7',
-    role: 'developer',
-    location: 'Harare, Zimbabwe',
-    bio: 'Core Systems Developer & Platform Architect. Engineering scalable cloud solutions for Gateway Connect.',
-    website: 'gatewaychurchzim.org',
-    member_id: 'GCZ-DEV-001',
-    followers_count: 50,
-    following_count: 5,
-    is_premium: true,
-    badge_type: 'developer',
-    is_developer: true,
-  },
-];
+
 
 export async function getCurrentSession(): Promise<Session | null> {
   if (!isSupabaseConfigured) return null;
@@ -150,19 +73,7 @@ export async function signIn(phoneOrIdentifier: string, password?: string): Prom
     }
   }
 
-  // 2. Demo accounts
-  const matched = DEMO_USERS.find(u =>
-    arePhoneNumbersEqual(u.phone || '', query) ||
-    u.handle?.toLowerCase() === query.toLowerCase() ||
-    u.name.toLowerCase() === query.toLowerCase() ||
-    u.email?.toLowerCase() === query.toLowerCase()
-  );
 
-  if (matched) {
-    await saveProfile(matched);
-    notifySubscribers(matched);
-    return matched;
-  }
 
   // 3. Auto-create local user
   const localUser: MobileUser = {
@@ -299,6 +210,27 @@ export async function signOut(): Promise<void> {
   notifySubscribers(null);
 }
 
+export async function deleteAccount(): Promise<void> {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  const session = await getCurrentSession();
+  if (!session?.user) {
+    throw new Error('You must be logged in to delete your account.');
+  }
+
+  // Call the remote RPC to safely delete the user from the backend.
+  // NOTE: This requires a PostgreSQL function named "delete_user_account"
+  // to be created in Supabase that uses SECURITY DEFINER to delete the auth.users record.
+  const { error } = await supabase.rpc('delete_user_account');
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await signOut();
+}
+
 export async function getCachedProfile(): Promise<MobileUser | null> {
   try {
     const raw = await SecureStore.getItemAsync(PROFILE_KEY);
@@ -376,11 +308,7 @@ export function adminManuallyVerifyMember(
   badge: 'platinum' | 'gold' | 'silver' | 'none'
 ): void {
   MANUALLY_VERIFIED_REGISTRY[memberId] = badge;
-  const demo = DEMO_USERS.find(u => u.id === memberId || u.member_id === memberId);
-  if (demo) {
-    demo.badge_type = badge;
-    demo.is_premium = badge === 'gold' || badge === 'platinum';
-  }
+
 }
 
 export function getMemberBadgeOverride(memberId: string): 'platinum' | 'gold' | 'silver' | 'none' | undefined {
@@ -396,4 +324,5 @@ export function getAssignableChurchMembers(): Array<{ id: string; name: string; 
     { id: 'usr_developer', name: 'mr_juice7', handle: '@mr_juice7', role: 'Core Systems Developer', currentBadge: 'developer' },
   ];
 }
+
 

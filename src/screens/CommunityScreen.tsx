@@ -13,6 +13,8 @@ import {
   Animated,
   Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 import { MobileUser } from '../auth/authService';
@@ -72,153 +74,39 @@ interface MemberProfilePreview {
 }
 
 // Official Church Leadership Stories matching Screenshot 1 (WhatsApp Redesign)
-const CHURCH_STORIES: ChurchStory[] = [
-  {
-    id: 'story_joe',
-    author: 'Apostle Joe Daniels',
-    shortName: 'Apostle Joe',
-    role: 'General Overseer',
-    avatarText: 'JD',
-    caption: 'Great grace upon Gateway Church this Sunday! Expect unusual breakthroughs, financial releases, and open heavens as we enter into supernatural dominion.',
-    scripture: 'Zechariah 4:6 • Not by might, nor by power, but by my Spirit, saith the LORD of hosts.',
-    timeAgo: '2h ago',
-    verifiedBadge: 'gold',
-  },
-  {
-    id: 'story_melinda',
-    author: 'Prophetess Melinda Daniels',
-    shortName: 'Prophetess',
-    role: 'Co-Founder & Passion Ladies',
-    avatarText: 'MD',
-    caption: 'Women of Grace prayer breakfast was mighty this morning. Daughters of Zion, stand firm in faith; honor and divine strength are your clothing!',
-    scripture: 'Proverbs 31:25 • Strength and honour are her clothing; and she shall rejoice in time to come.',
-    timeAgo: '4h ago',
-    verifiedBadge: 'gold',
-  },
-  {
-    id: 'story_easter',
-    author: 'Pastor Easter',
-    shortName: 'Pastor Easter',
-    role: 'Executive Pastor',
-    avatarText: 'PE',
-    caption: 'Kingdom governance and discipleship registration for Foundation School is now active. Let us build our lives on apostolic truth.',
-    scripture: '1 Corinthians 3:11 • For other foundation can no man lay than that is laid, which is Jesus Christ.',
-    timeAgo: '5h ago',
-    verifiedBadge: 'gold',
-  },
-  {
-    id: 'story_worship',
-    author: 'Ignite Worship Team',
-    shortName: 'Worship',
-    role: 'Music Ministry',
-    avatarText: 'IW',
-    caption: 'Vocal rehearsals underway for Sunday Dominion broadcast! The atmosphere of revival is already resounding in the sanctuary. 🎵🕊️',
-    scripture: 'Psalm 150:6 • Let every thing that hath breath praise the LORD.',
-    timeAgo: '6h ago',
-    verifiedBadge: 'silver',
-  },
-  {
-    id: 'story_youth',
-    author: 'Gateway Youth',
-    shortName: 'Youth',
-    role: 'Youth Ministry',
-    avatarText: 'GY',
-    caption: 'Fire Friday Prayer Rally was electric! Over 200 young adults gathered, passionate for Christ. Supernatural encounters await next Friday!',
-    scripture: '1 Timothy 4:12 • Let no man despise thy youth; but be thou an example of the believers.',
-    timeAgo: '8h ago',
-    verifiedBadge: 'silver',
-  },
-  {
-    id: 'story_developer',
-    author: 'mr_juice7',
-    shortName: 'Developer',
-    role: 'Systems Architect',
-    avatarText: 'MJ',
-    caption: 'GatewayConnect v2.4 upgrade live! WhatsApp-style fellowship and Instagram praise feed are now fully connected with instant Paynow badges.',
-    scripture: 'Colossians 3:23 • And whatsoever ye do, do it heartily, as to the Lord.',
-    timeAgo: '12h ago',
-    verifiedBadge: 'developer',
-  },
-];
+
 
 // Official Leadership Profiles (Purged of dummy accounts)
-const COMMUNITY_MEMBERS: Record<string, MemberProfilePreview> = {
-  'Apostle Joe Daniels': {
-    id: 'usr_apostle_joe',
-    name: 'Apostle Joe Daniels',
-    handle: '@apostle_joe_daniels',
-    avatarText: 'JD',
-    role: 'General Overseer & Founder',
-    campus: 'Harare Main Sanctuary',
-    bio: 'Father, Teacher & Apostolic Overseer of Gateway Church International. Advancing kingdom dominion across the nations.',
-    joinedYear: 'Founding Overseer',
-    testimoniesCount: 42,
-    followersCount: 14200,
-    followingCount: 12,
-    badgeType: 'gold',
-  },
-  'Prophetess Melinda Daniels': {
-    id: 'usr_prophetess_melinda',
-    name: 'Prophetess Melinda Daniels',
-    handle: '@prophetess_melinda',
-    avatarText: 'MD',
-    role: 'Co-Founder & Passion Ladies Director',
-    campus: 'Harare Main Sanctuary',
-    bio: 'Apostolic and Prophetic teacher raising women of honor, prayer, faith, and noble character.',
-    joinedYear: 'Co-Founder',
-    testimoniesCount: 28,
-    followersCount: 9800,
-    followingCount: 15,
-    badgeType: 'gold',
-  },
-  'Pastor Easter': {
-    id: 'usr_pastor_easter',
-    name: 'Pastor Easter',
-    handle: '@pastor_easter',
-    avatarText: 'PE',
-    role: 'Executive Overseer & Administrator',
-    campus: 'Harare Main Sanctuary',
-    bio: 'National Executive Overseer & Apostolic Administrator. Championing discipleship and kingdom governance.',
-    joinedYear: 'Executive Pastor',
-    testimoniesCount: 19,
-    followersCount: 5200,
-    followingCount: 10,
-    badgeType: 'gold',
-  },
-  'mr_juice7': {
-    id: 'usr_developer',
-    name: 'mr_juice7',
-    handle: '@mr_juice7',
-    avatarText: 'MJ',
-    role: 'Core Systems Developer & Platform Architect',
-    campus: 'BlueWave Tech & Gateway Cloud',
-    bio: 'Platform Architect for GatewayConnect. Engineering scalable apostolic tech infrastructure.',
-    joinedYear: 'Developer Lead',
-    testimoniesCount: 6,
-    followersCount: 150,
-    followingCount: 5,
-    badgeType: 'developer',
-  },
-  'Tinodaishe Morgan Chibi': {
-    id: 'usr_tino',
-    name: 'Tinodaishe Morgan Chibi',
-    handle: '@tinodaishe_morgan_chibi',
-    avatarText: 'TC',
-    role: 'Covenant Believer & Media Lead',
-    campus: 'Harare Main Campus',
-    bio: 'Walking in supernatural dominion & apostolic grace • Gateway Church Harare',
-    joinedYear: 'Member since 2021',
-    testimoniesCount: 8,
-    followersCount: 24,
-    followingCount: 2,
-    badgeType: 'gold',
-  },
-};
+
 
 export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }: CommunityScreenProps) {
   // Curved Segmented Switcher matching Nainesh's redesign: 'chats' | 'communities' | 'feed'
   const [activeSubTab, setActiveSubTab] = useState<'chats' | 'communities' | 'feed'>('chats');
   const [testimonies, setTestimonies] = useState<ContentItem[]>([]);
+
+  const [churchStories, setChurchStories] = useState<ChurchStory[]>([]);
+  const [communityMembers, setCommunityMembers] = useState<Record<string, MemberProfilePreview>>({});
+
+  useEffect(() => {
+    // Fetch stories from DB
+    const fetchStories = async () => {
+      const { data } = await supabase.from('stories').select('*').order('created_at', { ascending: false });
+      if (data) setChurchStories(data as ChurchStory[]);
+    };
+    // Fetch members from DB
+    const fetchMembers = async () => {
+      const { data } = await supabase.from('profiles').select('*');
+      if (data) {
+        const membersMap: Record<string, MemberProfilePreview> = {};
+        data.forEach((m: any) => membersMap[m.name] = m);
+        setCommunityMembers(membersMap);
+      }
+    };
+    
+    fetchStories();
+    fetchMembers();
+  }, []);
+
   const [groups, setGroups] = useState<Group[]>([]);
   const [joinedGroups, setJoinedGroups] = useState<Record<string, boolean>>({});
   const [events, setEvents] = useState<Event[]>([]);
@@ -226,6 +114,37 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
   // Search filter for chats
   const [chatSearchQuery, setChatSearchQuery] = useState('');
 
+  // Media Picker states
+  const [selectedMedia, setSelectedMedia] = useState<ImagePicker.ImagePickerAsset | null>(null);
+
+
+  const handleAddStory = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+      quality: 0.8,
+      videoMaxDuration: 180,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      const type = asset.type === 'video' ? 'video' : 'image';
+      
+      // Upload to Supabase Storage
+      const publicUrl = await compressAndUploadMedia(asset.uri, type, 'media');
+      if (publicUrl) {
+        // Here we insert the public URL to Supabase DB as a Story
+        await supabase.from('stories').insert([{
+          author_id: profile?.id,
+          media_url: publicUrl,
+          caption: 'My Story',
+        }]);
+        Alert.alert('Success', 'Story uploaded successfully!');
+      } else {
+        Alert.alert('Error', 'Failed to upload story.');
+      }
+    }
+  };
   // Post Testimony Modal state
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [postTitle, setPostTitle] = useState<string>('');
@@ -236,6 +155,14 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
   const [activeStory, setActiveStory] = useState<ChurchStory | null>(null);
   const storyProgress = useRef(new Animated.Value(0)).current;
 
+  // Track viewed stories
+  const [viewedStories, setViewedStories] = useState<Record<string, boolean>>({});
+
+  const handleOpenStory = (story: ChurchStory) => {
+    setActiveStory(story);
+    setViewedStories(prev => ({ ...prev, [story.id]: true }));
+  };
+
   // Group Chat Modal state
   const [activeChatGroup, setActiveChatGroup] = useState<Group | null>(null);
   const [chatMessages, setChatMessages] = useState<GroupChatMessage[]>([]);
@@ -244,6 +171,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
   // WhatsApp Reply Quoting state
   const [replyingToMessage, setReplyingToMessage] = useState<GroupChatMessage | null>(null);
   const [activeReactionMsgId, setActiveReactionMsgId] = useState<string | null>(null);
+  const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
 
   // Profile Preview Modal state
   const [previewMember, setPreviewMember] = useState<MemberProfilePreview | null>(null);
@@ -288,6 +216,8 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
     ],
   });
   const [repostPost, setRepostPost] = useState<ContentItem | null>(null);
+  const lastTapRef = useRef<Record<string, number>>({});
+
 
   // WhatsApp Features State
   const [showFabSheet, setShowFabSheet] = useState(false);
@@ -297,6 +227,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
   const [newGroupCategory, setNewGroupCategory] = useState('Atmospheric Worship');
   const [newGroupIsPaid, setNewGroupIsPaid] = useState(false);
   const [showAttachmentTray, setShowAttachmentTray] = useState(false);
+  const [showGroupInfoModal, setShowGroupInfoModal] = useState(false);
   const [showGroupOptionsMenu, setShowGroupOptionsMenu] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({
     group_ignite_worship: 2,
@@ -320,8 +251,25 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
     profile?.badge_type === 'platinum'
   );
 
+
+  // Realtime Subscription
   useEffect(() => {
-    setGroups(getGroups());
+    if (!activeChatGroup) return;
+
+    const channel = supabase
+      .channel(group_)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages', filter: group_id=eq. }, payload => {
+        setChatMessages(prev => [...prev, payload.new as GroupChatMessage]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeChatGroup]);
+
+  useEffect(() => {
+    fetchGroupsFromDB().then(setGroups);
     const initialPosts = listContent('post');
     setTestimonies(initialPosts);
     setEvents(getEvents());
@@ -354,9 +302,9 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
         useNativeDriver: false,
       }).start(({ finished }) => {
         if (finished) {
-          const currentIndex = CHURCH_STORIES.findIndex(s => s.id === activeStory.id);
-          if (currentIndex !== -1 && currentIndex < CHURCH_STORIES.length - 1) {
-            setActiveStory(CHURCH_STORIES[currentIndex + 1]);
+          const currentIndex = churchStories.findIndex(s => s.id === activeStory.id);
+          if (currentIndex !== -1 && currentIndex < churchStories.length - 1) {
+            setActiveStory(churchStories[currentIndex + 1]);
           } else {
             setActiveStory(null);
           }
@@ -364,6 +312,22 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
       });
     }
   }, [activeStory?.id]);
+
+
+  const handleDoubleTap = (postId: string) => {
+    const now = Date.now();
+    const lastTap = lastTapRef.current[postId] || 0;
+    const DOUBLE_PRESS_DELAY = 300;
+    
+    if (now - lastTap < DOUBLE_PRESS_DELAY) {
+      if (!postLikesMap[postId]?.liked) {
+        handleTogglePostLike(postId);
+      }
+      lastTapRef.current[postId] = 0;
+    } else {
+      lastTapRef.current[postId] = now;
+    }
+  };
 
   const handleOpenShare = () => {
     if (!profile) {
@@ -377,23 +341,55 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
     setShowShareModal(true);
   };
 
-  const handleSavePost = () => {
+
+  const [postMediaUri, setPostMediaUri] = useState<string | null>(null);
+
+  const handlePickPostMedia = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      setPostMediaUri(result.assets[0].uri);
+    }
+  };
+
+  const handleSavePost = async () => {
     if (!postTitle.trim() || !postBody.trim()) {
       Alert.alert('Incomplete', 'Please enter both a title and testimony body.');
       return;
     }
-    saveTestimony(profile?.id ?? 'anon', postTitle.trim(), postBody.trim());
+    
+    let publicUrl = null;
+    if (postMediaUri) {
+      const type = postMediaUri.endsWith('.mp4') ? 'video' : 'image';
+      publicUrl = await compressAndUploadMedia(postMediaUri, type, 'media');
+      if (!publicUrl) {
+        Alert.alert('Upload Failed', 'Could not upload media for your post.');
+        return;
+      }
+    }
+
+    // Replace saveTestimony with Supabase insert
+    await supabase.from('posts').insert([{
+      author_id: profile?.id,
+      title: postTitle.trim(),
+      body: postBody.trim(),
+      media_url: publicUrl,
+    }]);
+
     setPostTitle('');
     setPostBody('');
+    setPostMediaUri(null);
     setPostSaved(true);
-    const updated = listContent('post');
-    setTestimonies(updated);
-    trackEvent('testimony_saved');
+    
     setTimeout(() => {
       setPostSaved(false);
       setShowShareModal(false);
     }, 1200);
   };
+
 
   const handleTogglePostLike = (postId: string) => {
     setPostLikesMap(prev => {
@@ -493,7 +489,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
     setUnreadCounts(prev => ({ ...prev, [group.id]: 0 }));
     setActiveChatGroup(group);
-    setChatMessages(getGroupMessages(group.id));
+    fetchGroupMessagesFromDB(group.id).then(setChatMessages);
     setChatInput('');
     setReplyingToMessage(null);
     setShowAttachmentTray(false);
@@ -530,18 +526,16 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
   const handleDeleteMessage = (messageId: string) => {
     if (!activeChatGroup) return;
-    Alert.alert('Delete for Everyone', 'Delete this message for everyone in this fellowship?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete for Everyone',
-        style: 'destructive',
-        onPress: () => {
-          deleteGroupMessage(activeChatGroup.id, messageId);
-          setChatMessages(prev => prev.filter(m => m.id !== messageId));
-        },
-      },
-    ]);
+    setDeleteMessageId(messageId);
   };
+
+  const confirmDeleteMessage = () => {
+    if (!activeChatGroup || !deleteMessageId) return;
+    deleteGroupMessage(activeChatGroup.id, deleteMessageId);
+    setChatMessages(prev => prev.filter(m => m.id !== deleteMessageId));
+    setDeleteMessageId(null);
+  };
+
 
   const handleDissolveGroup = () => {
     if (!activeChatGroup) return;
@@ -556,7 +550,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
           onPress: () => {
             dissolveGroup(activeChatGroup.id);
             setActiveChatGroup(null);
-            setGroups(getGroups());
+            fetchGroupsFromDB().then(setGroups);
             Alert.alert('Group Dissolved', 'Fellowship group has been dissolved.');
           },
         },
@@ -576,7 +570,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
       newGroupIsPaid,
       profile?.id || 'usr_admin'
     );
-    setGroups(getGroups());
+    fetchGroupsFromDB().then(setGroups);
     setShowCreateGroupModal(false);
     setNewGroupName('');
     setNewGroupDesc('');
@@ -590,7 +584,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
   };
 
   const openMemberProfile = (name: string) => {
-    const existing = COMMUNITY_MEMBERS[name];
+    const existing = communityMembers[name];
     if (existing) {
       setPreviewMember(existing);
     } else {
@@ -660,7 +654,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
   };
 
   // Filtered chats for the WhatsApp Chats tab
-  const leadershipDirectChats = Object.values(COMMUNITY_MEMBERS).filter(m =>
+  const leadershipDirectChats = Object.values(communityMembers).filter(m =>
     !chatSearchQuery.trim() ||
     m.name.toLowerCase().includes(chatSearchQuery.toLowerCase()) ||
     m.role.toLowerCase().includes(chatSearchQuery.toLowerCase())
@@ -678,10 +672,10 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={styles.appLogoCircle}>
-            <Ionicons name="chatbubbles" size={18} color="#25D366" />
+            <Ionicons name="chatbubbles" size={18} color="#dfa732" />
           </View>
           <View>
-            <Text style={styles.appName}>WhatsApp Connect</Text>
+            <Text style={styles.appName}>Community</Text>
             <Text style={styles.appSub}>Gateway International Church</Text>
           </View>
         </View>
@@ -701,19 +695,19 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
       <View style={styles.storiesSection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
           {/* First Item: "+ Add" with dashed ring border matching Screenshot 1 */}
-          <Pressable style={styles.storyItem} onPress={handleOpenShare}>
+          <Pressable style={styles.storyItem} onPress={handleAddStory}>
             <View style={styles.addStoryRingDashed}>
-              <Ionicons name="add" size={22} color="#25D366" />
+              <Ionicons name="add" size={22} color="#dfa732" />
             </View>
             <Text style={styles.storyLabel}>Add</Text>
           </Pressable>
 
           {/* Real Church Accounts with Glowing Status Rings */}
-          {CHURCH_STORIES.map(story => (
+          {churchStories.map(story => (
             <Pressable
               key={story.id}
               style={styles.storyItem}
-              onPress={() => setActiveStory(story)}
+              onPress={() => handleOpenStory(story)}
             >
               <View style={[styles.storyRingGlowing, story.verifiedBadge === 'gold' && { borderColor: Colors.gold }]}>
                 <View style={styles.storyAvatarCircle}>
@@ -728,7 +722,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
         </ScrollView>
       </View>
 
-      {/* 3. Curved Segmented Switcher Capsule: [Chats]  [Communities]  [Feed (IG)] */}
+      {/* 3. Curved Segmented Switcher Capsule: [Chats]  [Communities]  [Feed] */}
       <View style={styles.whatsappCapsuleSwitcher}>
         <Pressable
           style={[styles.whatsappCapsuleBtn, activeSubTab === 'chats' && styles.whatsappCapsuleBtnActive]}
@@ -758,7 +752,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
           onPress={() => setActiveSubTab('feed')}
         >
           <Text style={[styles.whatsappCapsuleBtnText, activeSubTab === 'feed' && styles.whatsappCapsuleBtnTextActive]}>
-            Feed (IG)
+            Feed
           </Text>
         </Pressable>
       </View>
@@ -1043,7 +1037,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                   {/* IG Media Container: Beautiful Praise Card */}
                   <Pressable
                     style={styles.igMediaContainer}
-                    onPress={() => handleTogglePostLike(t.id)}
+                    onPress={() => handleDoubleTap(t.id)}
                   >
                     <View style={styles.igMediaInner}>
                       <Ionicons name="flame" size={32} color={Colors.gold} style={{ marginBottom: 10 }} />
@@ -1119,7 +1113,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
       {/* Instagram Comments Sheet Modal */}
       <Modal visible={!!activeCommentsPost} animationType="slide" transparent onRequestClose={() => setActiveCommentsPost(null)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.commentsSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Comments</Text>
@@ -1202,7 +1196,7 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                 setRepostPost(null);
               }}
             >
-              <Ionicons name="chatbubbles-outline" size={20} color="#25D366" />
+              <Ionicons name="chatbubbles-outline" size={20} color="#dfa732" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.repostOptionTitle}>Send to Fellowship Group</Text>
                 <Text style={styles.repostOptionSub}>Share into your connected church groups</Text>
@@ -1212,10 +1206,69 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
         </View>
       </Modal>
 
+
+      {/* Group Info Modal */}
+      <Modal visible={showGroupInfoModal} animationType='slide' transparent onRequestClose={() => setShowGroupInfoModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { height: '80%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Group Info</Text>
+              <Pressable onPress={() => setShowGroupInfoModal(false)} style={{ padding: 4 }}>
+                <Ionicons name='close' size={24} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+              <View style={{ alignItems: 'center', marginVertical: 20 }}>
+                <View style={[styles.groupAvatarLarge, { backgroundColor: '#3f3f46', width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center' }]}>
+                  <Text style={{ fontSize: 32, color: '#fff', fontWeight: 'bold' }}>{activeChatGroup?.name?.slice(0, 2).toUpperCase()}</Text>
+                </View>
+                <Text style={{ fontSize: 20, color: '#fff', fontWeight: 'bold', marginTop: 12 }}>{activeChatGroup?.name}</Text>
+                <Text style={{ fontSize: 14, color: Colors.textMuted, marginTop: 4 }}>{activeChatGroup?.category} Fellowship � 42 members</Text>
+              </View>
+              
+              <View style={{ padding: 16 }}>
+                <Text style={{ fontSize: 16, color: '#fff', fontWeight: 'bold', marginBottom: 12 }}>Members</Text>
+                {['Apostle Joe Daniels', 'Prophetess Melinda', 'Pastor Easter', 'Tino (Media)'].map((member, idx) => (
+                  <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#27272a' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3f3f46', justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>{member.slice(0, 2).toUpperCase()}</Text>
+                      </View>
+                      <Text style={{ color: '#fff', fontSize: 16 }}>{member}</Text>
+                    </View>
+                    {(isAdmin || isDeveloper) && (
+                      <Pressable onPress={() => Alert.alert('Admin Options', 'Choose action for ' + member, [{ text: 'Make Admin', onPress: () => {} }, { text: 'Remove', style: 'destructive', onPress: () => {} }, { text: 'Cancel', style: 'cancel' }])}>
+                        <Ionicons name='ellipsis-horizontal' size={20} color={Colors.textMuted} />
+                      </Pressable>
+                    )}
+                  </View>
+                ))}
+              </View>
+
+              {(isAdmin || isDeveloper) && (
+                <View style={{ padding: 16, marginTop: 20 }}>
+                  <Text style={{ fontSize: 16, color: Colors.danger, fontWeight: 'bold', marginBottom: 12 }}>Admin Controls</Text>
+                  <Pressable 
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#27272a' }}
+                    onPress={() => {
+                      setShowGroupInfoModal(false);
+                      handleDissolveGroup();
+                    }}
+                  >
+                    <Ionicons name='trash-outline' size={24} color={Colors.danger} />
+                    <Text style={{ color: Colors.danger, fontSize: 16 }}>Dissolve Group</Text>
+                  </Pressable>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* WhatsApp Full In-Chat Group & Direct Modal */}
       <Modal visible={!!activeChatGroup} animationType="slide" transparent onRequestClose={() => setActiveChatGroup(null)}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.chatOverlay}
         >
           <View style={styles.chatSheet}>
@@ -1287,12 +1340,34 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
                 const hasReactions = msg.reactions && msg.reactions.length > 0;
 
                 return (
+
                   <View
                     key={msg.id}
-                    style={[styles.chatBubble, isMe ? styles.chatBubbleMe : styles.chatBubbleOther]}
+                    style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end', alignSelf: isMe ? 'flex-end' : 'flex-start', marginBottom: 12 }}
                   >
                     {!isMe && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                      <Pressable 
+                        style={styles.chatAvatarCircle}
+                        onPress={() => {
+                          Alert.alert(
+                            msg.sender_name,
+                            'Choose action:',
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'View Profile', onPress: () => openMemberProfile(msg.sender_name) },
+                              { text: 'Block User', style: 'destructive', onPress: () => Alert.alert('Blocked', 'User blocked.') },
+                              { text: 'Report Message', style: 'destructive', onPress: () => Alert.alert('Reported', 'Message reported to admins.') }
+                            ]
+                          );
+                        }}
+                      >
+                        <Text style={styles.chatAvatarText}>{msg.sender_name.slice(0, 2).toUpperCase()}</Text>
+                      </Pressable>
+                    )}
+                    <View style={[styles.chatBubble, isMe ? styles.chatBubbleMe : styles.chatBubbleOther]}>
+                      {!isMe && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+
                         <Text style={styles.chatSenderName}>{msg.sender_name}</Text>
                         {msg.sender_role ? (
                           <View style={styles.chatRolePill}>
@@ -1440,25 +1515,28 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
             {/* WhatsApp Paperclip Attachment Tray */}
             {showAttachmentTray && (
               <View style={styles.attachmentTray}>
-                <Pressable
-                  style={styles.attachmentTrayItem}
-                  onPress={() => handleSendChatMessage({ type: 'image', url: 'https://gatewaychurch.org/photos/fellowship.jpg', name: 'Fellowship_Photo.jpg' })}
-                >
-                  <View style={[styles.attachmentTrayIconCircle, { backgroundColor: '#8b5cf6' }]}>
-                    <Ionicons name="image" size={18} color="#ffffff" />
-                  </View>
-                  <Text style={styles.attachmentTrayLabel}>Photo</Text>
-                </Pressable>
+
 
                 <Pressable
                   style={styles.attachmentTrayItem}
-                  onPress={() => handleSendChatMessage({ type: 'document', url: 'https://gatewaychurch.org/docs/dominion_guide.pdf', name: 'Dominion_Study_Guide.pdf' })}
+                  onPress={async () => {
+                    const result = await DocumentPicker.getDocumentAsync({});
+                    if (!result.canceled) {
+                      const publicUrl = await compressAndUploadMedia(result.assets[0].uri, 'document', 'media');
+                      if (publicUrl) {
+                        handleSendChatMessage({ type: 'document', url: publicUrl, name: result.assets[0].name });
+                      } else {
+                        Alert.alert('Upload Failed', 'Could not upload document.');
+                      }
+                    }
+                  }}
                 >
                   <View style={[styles.attachmentTrayIconCircle, { backgroundColor: '#3b82f6' }]}>
-                    <Ionicons name="document-text" size={18} color="#ffffff" />
+                    <Ionicons name='document-text' size={18} color='#ffffff' />
                   </View>
                   <Text style={styles.attachmentTrayLabel}>Document</Text>
                 </Pressable>
+
 
                 <Pressable
                   style={styles.attachmentTrayItem}
@@ -1517,9 +1595,27 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Delete Message Action Sheet */}
+      <Modal visible={!!deleteMessageId} animationType="fade" transparent onRequestClose={() => setDeleteMessageId(null)}>
+        <Pressable style={styles.actionSheetOverlay} onPress={() => setDeleteMessageId(null)}>
+          <View style={styles.actionSheet}>
+            <View style={styles.actionSheetHeader}>
+              <Text style={styles.actionSheetTitle}>Delete message?</Text>
+            </View>
+            <Pressable style={styles.actionSheetBtn} onPress={confirmDeleteMessage}>
+              <Ionicons name="trash-outline" size={20} color={Colors.danger} />
+              <Text style={[styles.actionSheetBtnText, { color: Colors.danger }]}>Delete for everyone</Text>
+            </Pressable>
+            <Pressable style={styles.actionSheetBtn} onPress={() => setDeleteMessageId(null)}>
+              <Text style={styles.actionSheetBtnText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
       {/* WhatsApp 1-on-1 Direct Chat Modal */}
       <Modal visible={!!directChatMember} animationType="slide" transparent onRequestClose={() => setDirectChatMember(null)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.chatOverlay}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.chatOverlay}>
           <View style={styles.chatSheet}>
             <View style={styles.chatHeader}>
               <View style={styles.chatHeaderLeft}>
@@ -1769,17 +1865,24 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#25D366',
+    borderColor: '#dfa732',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(37, 211, 102, 0.06)',
+  },
+
+  storyRingViewed: {
+    padding: 3,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: Colors.textMuted,
   },
   storyRingGlowing: {
     width: 54,
     height: 54,
     borderRadius: 27,
     borderWidth: 2,
-    borderColor: '#25D366',
+    borderColor: '#dfa732',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 2,
@@ -1826,7 +1929,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   whatsappCapsuleBtnActive: {
-    backgroundColor: '#25D366',
+    backgroundColor: '#dfa732',
   },
   whatsappCapsuleBtnText: {
     fontFamily: Typography.fontSemiBold,
@@ -1845,7 +1948,7 @@ const styles = StyleSheet.create({
   },
   capsuleBadgeText: {
     fontFamily: Typography.fontBold,
-    color: '#25D366',
+    color: '#dfa732',
     fontSize: 9,
   },
 
@@ -1893,7 +1996,7 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 23,
     borderWidth: 1.5,
-    borderColor: '#25D366',
+    borderColor: '#dfa732',
     padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1932,7 +2035,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   whatsappUnreadPill: {
-    backgroundColor: '#25D366',
+    backgroundColor: '#dfa732',
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -2323,21 +2426,37 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 10,
   },
+
+
+  chatAvatarCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#3f3f46',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatAvatarText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
   chatBubble: {
-    maxWidth: '82%',
-    borderRadius: Radii.md,
-    padding: 10,
+    maxWidth: '80%',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     gap: 4,
   },
   chatBubbleMe: {
     alignSelf: 'flex-end',
-    backgroundColor: '#005c4b', // WhatsApp Dark Green Bubble
-    borderBottomRightRadius: 2,
+    backgroundColor: Colors.gold,
+    borderBottomRightRadius: 4,
   },
   chatBubbleOther: {
     alignSelf: 'flex-start',
-    backgroundColor: '#202c33', // WhatsApp Dark Grey Bubble
-    borderBottomLeftRadius: 2,
+    backgroundColor: '#27272a',
+    borderBottomLeftRadius: 4,
   },
   chatSenderName: {
     fontFamily: Typography.fontBold,
@@ -2525,7 +2644,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#25D366',
+    backgroundColor: '#dfa732',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2730,6 +2849,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
   },
+
+  storyViewsContainer: {
+    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '50%',
+  },
+  storyViewsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  storyViewsCount: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  storyViewsList: {
+    marginBottom: 20,
+  },
+  storyViewerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  storyViewerAvatarSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#3f3f46',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storyViewerAvatarTextSmall: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  storyViewerItemName: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  storyViewerItemHandle: {
+    color: Colors.textMuted,
+    fontSize: 12,
+  },
+
   storyEmojiBtn: {
     width: 44,
     height: 44,
@@ -2826,7 +2996,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   groupUnreadBadge: {
-    backgroundColor: '#25D366',
+    backgroundColor: '#dfa732',
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -2840,3 +3010,29 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
