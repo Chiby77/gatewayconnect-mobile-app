@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Modal, ScrollView, TextInput, Animated, Alert } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 import { NetworkStatus } from '../network/networkStatus';
 import { SyncState } from '../sync/syncStatus';
@@ -20,6 +20,7 @@ interface HomeScreenProps {
   onNavigateSermons?: () => void;
   onNavigateLive?: () => void;
   onRequestAuth?: (prompt?: string) => void;
+  onNavigateProfile?: () => void;
 }
 
 interface LiveDecreeMessage {
@@ -101,6 +102,7 @@ export function HomeScreen({
   onNavigateSermons,
   onNavigateLive,
   onRequestAuth,
+  onNavigateProfile,
 }: HomeScreenProps) {
   const [devotionals, setDevotionals] = useState<ContentItem[]>([]);
   const [sermons, setSermons] = useState<ContentItem[]>([]);
@@ -109,11 +111,20 @@ export function HomeScreen({
   // Daily Bread & Trending states
   const [dailyBreadLiked, setDailyBreadLiked] = useState(false);
   const [dailyBreadLikes, setDailyBreadLikes] = useState(142);
-  const [decreeLikesState, setDecreeLikesState] = useState<Record<string, { count: number; liked: boolean }>>({
-    td1: { count: 48, liked: false },
-    td2: { count: 65, liked: false },
-    td3: { count: 39, liked: false },
+  const [decreeLikesState, setDecreeLikesState] = useState<Record<string, { count: number; liked: boolean; amened: boolean }>>({
+    td1: { count: 48, liked: false, amened: false },
+    td2: { count: 65, liked: false, amened: false },
+    td3: { count: 39, liked: false, amened: false },
   });
+  // Per-service notification bell state
+  const [serviceReminders, setServiceReminders] = useState<Record<string, boolean>>({});
+  const toggleServiceReminder = (id: string) => {
+    setServiceReminders(prev => {
+      const next = !prev[id];
+      triggerToast(next ? '🔔 Reminder set!' : '🔕 Reminder removed.');
+      return { ...prev, [id]: next };
+    });
+  };
 
   // Live broadcast interactive states matching Screenshots 1 & 2
   const [isLiveAudioMuted, setIsLiveAudioMuted] = useState(false);
@@ -541,50 +552,70 @@ export function HomeScreen({
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.trendingScroll}>
         {TRENDING_DECREES.map(item => {
-          const state = decreeLikesState[item.id] || { count: item.initialLikes, liked: false };
+          const state = decreeLikesState[item.id] || { count: item.initialLikes, liked: false, amened: false };
           return (
             <View key={item.id} style={styles.trendingCard}>
-              <View style={styles.trendingCardTop}>
+              {/* Clickable avatar + name → navigate to profile */}
+              <Pressable
+                style={styles.trendingCardTop}
+                onPress={() => onNavigateProfile?.()}
+              >
                 <View style={styles.trendingAvatar}>
                   <Text style={styles.trendingAvatarText}>{item.avatarText}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.trendingAuthor} numberOfLines={1}>{item.author}</Text>
+                  <Text style={[styles.trendingAuthor, { textDecorationLine: 'underline' }]} numberOfLines={1}>{item.author}</Text>
                   <Text style={styles.trendingBadge}>{item.badgeLabel} • {item.time}</Text>
                 </View>
-              </View>
+              </Pressable>
 
               <Text style={styles.trendingText} numberOfLines={3}>{item.text}</Text>
 
               <View style={styles.trendingBottom}>
+                {/* Heart / Amen Toggle */}
                 <Pressable
-                  style={styles.trendingLikeBtn}
+                  style={[styles.trendingLikeBtn, state.liked && { backgroundColor: 'rgba(223,167,50,0.18)', borderColor: 'rgba(223,167,50,0.35)' }]}
                   onPress={() => {
                     const nextLiked = !state.liked;
                     setDecreeLikesState(prev => ({
                       ...prev,
                       [item.id]: {
+                        ...prev[item.id],
                         count: nextLiked ? state.count + 1 : state.count - 1,
                         liked: nextLiked,
                       },
                     }));
-                    triggerToast('❤️ Decreed with believer!');
+                    triggerToast(nextLiked ? `🙏 Amen! Agreed with ${item.author} in faith!` : 'Amen removed.');
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name={state.liked ? 'heart' : 'heart-outline'}
+                    size={16}
+                    color={state.liked ? Colors.gold : Colors.textMuted}
+                  />
+                  <Text style={[styles.trendingLikeText, state.liked && { color: Colors.gold, fontFamily: Typography.fontBold }]}>
+                    {state.count} Amen
+                  </Text>
+                </Pressable>
+
+                {/* Amen toggle button */}
+                <Pressable
+                  style={[styles.trendingAmenBtn, state.amened && { backgroundColor: 'rgba(223,167,50,0.18)', borderRadius: 8 }]}
+                  onPress={() => {
+                    const nextAmened = !state.amened;
+                    setDecreeLikesState(prev => ({
+                      ...prev,
+                      [item.id]: { ...prev[item.id], amened: nextAmened },
+                    }));
+                    triggerToast(nextAmened ? `🙏 Amen sent to ${item.author}!` : 'Amen removed.');
                   }}
                 >
                   <Ionicons
-                    name={state.liked ? 'heart' : 'heart-outline'}
-                    size={13}
-                    color={state.liked ? '#ef4444' : Colors.gold}
+                    name={state.amened ? 'hand-right' : 'chatbubble-ellipses-outline'}
+                    size={12}
+                    color={state.amened ? Colors.gold : Colors.textMuted}
                   />
-                  <Text style={styles.trendingLikeText}>{state.count}</Text>
-                </Pressable>
-
-                <Pressable
-                  style={styles.trendingAmenBtn}
-                  onPress={() => triggerToast(`Amen sent to ${item.author}!`)}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={12} color={Colors.textMuted} />
-                  <Text style={styles.trendingAmenText}>Amen</Text>
+                  <Text style={[styles.trendingAmenText, state.amened && { color: Colors.gold }]}>Amen</Text>
                 </Pressable>
               </View>
             </View>
@@ -602,29 +633,37 @@ export function HomeScreen({
       </View>
 
       <View style={styles.eventsGrid}>
-        {UPCOMING_SERVICES.map(ev => (
-          <View key={ev.id} style={styles.upcomingEventCard}>
-            <View style={styles.eventIconWrap}>
-              <Ionicons name={ev.icon as any} size={18} color={Colors.gold} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={styles.upcomingEventTitle}>{ev.title}</Text>
-                <View style={styles.eventTagPill}>
-                  <Text style={styles.eventTagPillText}>{ev.tag}</Text>
-                </View>
+        {UPCOMING_SERVICES.map(ev => {
+          const reminded = !!serviceReminders[ev.id];
+          return (
+            <View key={ev.id} style={styles.upcomingEventCard}>
+              <View style={styles.eventIconWrap}>
+                <Ionicons name={ev.icon as any} size={18} color={Colors.gold} />
               </View>
-              <Text style={styles.upcomingEventTime}>{ev.time}</Text>
-              <Text style={styles.upcomingEventVenue}>{ev.venue}</Text>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={styles.upcomingEventTitle}>{ev.title}</Text>
+                  <View style={styles.eventTagPill}>
+                    <Text style={styles.eventTagPillText}>{ev.tag}</Text>
+                  </View>
+                </View>
+                <Text style={styles.upcomingEventTime}>{ev.time}</Text>
+                <Text style={styles.upcomingEventVenue}>{ev.venue}</Text>
+              </View>
+              {/* Bell toggles between outline (off) and filled (on) */}
+              <Pressable
+                style={[styles.proEventRemindBtn, reminded && { backgroundColor: 'rgba(223,167,50,0.2)' }]}
+                onPress={() => toggleServiceReminder(ev.id)}
+              >
+                <Ionicons
+                  name={reminded ? 'notifications' : 'notifications-outline'}
+                  size={14}
+                  color={Colors.gold}
+                />
+              </Pressable>
             </View>
-            <Pressable
-              style={styles.proEventRemindBtn}
-              onPress={() => triggerToast(`Reminder active for ${ev.title}`)}
-            >
-              <Ionicons name="notifications-outline" size={14} color={Colors.gold} />
-            </Pressable>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       {/* Full Devotional Modal */}

@@ -205,7 +205,7 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
   // Admin Manual Member Verification Modal state
   const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
   const [assignableMembers, setAssignableMembers] = useState(getAssignableChurchMembers());
-  const [adminSelectedMemberId, setAdminSelectedMemberId] = useState('usr_tinodaishe');
+  const [adminSelectedMemberId, setAdminSelectedMemberId] = useState(assignableMembers[0]?.id || 'usr_apostle_joe');
   const [adminSelectedBadge, setAdminSelectedBadge] = useState<'platinum' | 'gold' | 'silver' | 'none'>('gold');
 
   // Selected Fellowship Page Modal
@@ -224,7 +224,7 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
   const [editBio, setEditBio] = useState(profile?.bio || 'Walking in supernatural dominion & apostolic grace • Gateway Church Harare');
   const [editLocation, setEditLocation] = useState(profile?.location || 'Harare');
   const [editWebsite, setEditWebsite] = useState(profile?.website || 'gatewaychurchzim.org');
-  const [editHandle, setEditHandle] = useState(profile?.handle || '@tinodaishe_morgan_chibi');
+  const [editHandle, setEditHandle] = useState(profile?.handle || (profile?.name ? `@${profile.name.toLowerCase().replace(/\s+/g, '_')}` : ''));
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Profile Reels In-App Player state
@@ -349,7 +349,7 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
   };
 
   const handleShareProfile = () => {
-    const handle = profile?.handle || '@tinodaishe_morgan_chibi';
+    const handle = profile?.handle || (profile?.name ? `@${profile.name.toLowerCase().replace(/\s+/g, '_')}` : '@believer');
     Alert.alert(
       'Share Member Profile',
       `Share Gateway Profile: https://gatewayconnect.joedaniels.org/member/${handle.replace('@', '')}`
@@ -443,7 +443,7 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
             <View style={styles.avatarCircleWrap}>
               <View style={styles.avatarCircle}>
                 <Text style={styles.avatarInitial}>
-                  {profile.name ? profile.name.charAt(0).toUpperCase() : 'T'}
+                  {profile.name ? profile.name.charAt(0).toUpperCase() : 'M'}
                 </Text>
               </View>
               <Pressable style={styles.cameraIconBadge} onPress={() => setShowEditModal(true)}>
@@ -456,14 +456,20 @@ export function ProfileScreen({ profile, onNavigateBible, onNavigateCommunity, o
                 <Text style={styles.statColNum}>0</Text>
                 <Text style={styles.statColLabel}>Posts</Text>
               </Pressable>
-              <View style={styles.statCol}>
+              <Pressable
+                style={styles.statCol}
+                onPress={() => Alert.alert('Followers', `You have ${profile.followers_count ?? 0} followers in Gateway Church community.`)}
+              >
                 <Text style={styles.statColNum}>{profile.followers_count ?? 0}</Text>
                 <Text style={styles.statColLabel}>Followers</Text>
-              </View>
-              <View style={styles.statCol}>
+              </Pressable>
+              <Pressable
+                style={styles.statCol}
+                onPress={() => Alert.alert('Following', `You are following ${profile.following_count ?? 2} believers.`)}
+              >
                 <Text style={styles.statColNum}>{profile.following_count ?? 2}</Text>
                 <Text style={styles.statColLabel}>Following</Text>
-              </View>
+              </Pressable>
             </View>
           </View>
 

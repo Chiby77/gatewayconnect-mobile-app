@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -224,6 +224,8 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
 
   // WhatsApp Features State
   const [showFabSheet, setShowFabSheet] = useState(false);
+  // Feed sub-tab: 'following' | 'for_you'
+  const [feedSubTab, setFeedSubTab] = useState<'following' | 'for_you'>('for_you');
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
@@ -911,6 +913,38 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
       {/* 5. Tab: COMMUNITIES (Fellowship Groups & Curricula) */}
       {activeSubTab === 'communities' && (
         <View style={styles.groupsList}>
+
+          {/* Verified Pages Section */}
+          <View style={styles.verifiedPagesSection}>
+            <View style={styles.verifiedPagesHeader}>
+              <Ionicons name="shield-checkmark" size={15} color={Colors.gold} />
+              <Text style={styles.verifiedPagesTitle}>Verified Ministry Pages</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {[
+                { id: 'pg_apostle', name: 'Apostle Joe Daniels', handle: '@apostle_joe_daniels', avatarText: 'JD', badge: 'gold' },
+                { id: 'pg_melinda', name: 'Prophetess Melinda', handle: '@prophetess_melinda', avatarText: 'MD', badge: 'gold' },
+                { id: 'pg_gateway', name: 'Gateway Church', handle: '@gatewaychurch_intl', avatarText: 'GC', badge: 'platinum' },
+                { id: 'pg_igm', name: 'ISM Academy', handle: '@ism_gateway', avatarText: 'IS', badge: 'gold' },
+              ].map(page => (
+                <View key={page.id} style={styles.verifiedPageCard}>
+                  <View style={styles.verifiedPageAvatarWrap}>
+                    <View style={styles.verifiedPageAvatar}>
+                      <Text style={styles.verifiedPageAvatarText}>{page.avatarText}</Text>
+                    </View>
+                    <View style={styles.verifiedPageBadgeDot}>
+                      <Ionicons name="checkmark" size={8} color="#000" />
+                    </View>
+                  </View>
+                  <Text style={styles.verifiedPageName} numberOfLines={1}>{page.name}</Text>
+                  <Text style={styles.verifiedPageHandle} numberOfLines={1}>{page.handle}</Text>
+                  <Pressable style={styles.verifiedPageFollowBtn}>
+                    <Text style={styles.verifiedPageFollowBtnText}>Follow</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
           {groups.map(group => {
             const isMember = !!joinedGroups[group.id];
             const unread = unreadCounts[group.id] || 0;
@@ -1010,6 +1044,21 @@ export function CommunityScreen({ profile, onRequestAuth, onRegisterFabTrigger }
       {/* 6. Tab: FEED (Instagram Redesign Style) */}
       {activeSubTab === 'feed' && (
         <View style={styles.feedList}>
+          {/* Following / For You Switcher */}
+          <View style={styles.feedSubTabRow}>
+            <Pressable
+              style={[styles.feedSubTabBtn, feedSubTab === 'following' && styles.feedSubTabBtnActive]}
+              onPress={() => setFeedSubTab('following')}
+            >
+              <Text style={[styles.feedSubTabText, feedSubTab === 'following' && styles.feedSubTabTextActive]}>Following</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.feedSubTabBtn, feedSubTab === 'for_you' && styles.feedSubTabBtnActive]}
+              onPress={() => setFeedSubTab('for_you')}
+            >
+              <Text style={[styles.feedSubTabText, feedSubTab === 'for_you' && styles.feedSubTabTextActive]}>✨ For You</Text>
+            </Pressable>
+          </View>
           {testimonies.length === 0 ? (
             <View style={styles.emptyCard}>
               <Ionicons name="chatbubbles-outline" size={40} color={Colors.textMuted} />
@@ -3061,6 +3110,117 @@ const styles = StyleSheet.create({
   },
   actionSheetBtnText: {
     color: Colors.textPrimary, fontSize: 16, marginLeft: 12
+  },
+  // Verified Pages styles (Task 4)
+  verifiedPagesSection: {
+    backgroundColor: '#0d0f18',
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(223,167,50,0.2)',
+    padding: 12,
+    marginBottom: 14,
+    gap: 10,
+  },
+  verifiedPagesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  verifiedPagesTitle: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 13,
+  },
+  verifiedPageCard: {
+    alignItems: 'center',
+    width: 90,
+    marginRight: 12,
+  },
+  verifiedPageAvatarWrap: {
+    position: 'relative',
+    marginBottom: 6,
+  },
+  verifiedPageAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#1a2235',
+    borderWidth: 2,
+    borderColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifiedPageAvatarText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 16,
+  },
+  verifiedPageBadgeDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#0d0f18',
+  },
+  verifiedPageName: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textPrimary,
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  verifiedPageHandle: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 9,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  verifiedPageFollowBtn: {
+    backgroundColor: 'rgba(223,167,50,0.18)',
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  verifiedPageFollowBtnText: {
+    fontFamily: Typography.fontBold,
+    color: Colors.gold,
+    fontSize: 10,
+  },
+  // Feed sub-tab switcher styles (Task 3)
+  feedSubTabRow: {
+    flexDirection: 'row',
+    backgroundColor: '#161820',
+    borderRadius: Radii.md,
+    padding: 3,
+    marginBottom: 14,
+  },
+  feedSubTabBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: 'center',
+    borderRadius: Radii.md - 2,
+  },
+  feedSubTabBtnActive: {
+    backgroundColor: '#262a3f',
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.gold,
+  },
+  feedSubTabText: {
+    fontFamily: Typography.fontSemiBold,
+    color: Colors.textMuted,
+    fontSize: 13,
+  },
+  feedSubTabTextActive: {
+    color: Colors.textPrimary,
   },
 });
 

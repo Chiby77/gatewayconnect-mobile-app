@@ -6,12 +6,7 @@
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#09090b",
-    "androidStatusBar": {
-      "barStyle": "light-content",
-      "backgroundColor": "#09090b",
-      "translucent": true
-    },
+    "backgroundColor": "#0a0a0a",
     "scheme": "gatewayconnect",
     "plugins": [
       "expo-background-task",
@@ -27,7 +22,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash.png",
-          "backgroundColor": "#070a0f"
+          "backgroundColor": "#0a0a0a"
         }
       ],
       "expo-secure-store",
@@ -41,7 +36,9 @@
             "enableProguardInRelease": true
           }
         }
-      ]
+      ],
+      "expo-status-bar",
+      "expo-system-ui"
     ],
     "ios": {
       "supportsTablet": true,

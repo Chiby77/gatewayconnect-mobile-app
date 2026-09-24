@@ -26,10 +26,12 @@ import { PrayerScreen } from './src/screens/PrayerScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { StoreScreen } from './src/screens/StoreScreen';
 import { LiveScreen } from './src/screens/LiveScreen';
+import { ChatScreen } from './src/screens/ChatScreen';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AuthModal } from './src/components/AuthModal';
 import { LegalModal } from './src/components/LegalModal';
+import { DonateModal } from './src/components/DonateModal';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -56,6 +58,7 @@ export default function App() {
   const [authModalPrompt, setAuthModalPrompt] = useState<string | undefined>(undefined);
   const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | null>(null);
   const [communityFabAction, setCommunityFabAction] = useState<(() => void) | null>(null);
+  const [showDonateModal, setShowDonateModal] = useState(false);
 
   const handleRequestAuth = (prompt?: string) => {
     setAuthModalPrompt(prompt);
@@ -115,11 +118,13 @@ export default function App() {
     return (
       <View style={styles.loadingScreen}>
         <StatusBar barStyle="light-content" backgroundColor={Colors.bg} translucent={false} />
-        <View style={styles.loadingMark}>
-          <Text style={styles.loadingMarkText}>G</Text>
-        </View>
+        <Image
+          source={require('./assets/gateway_logo.png')}
+          style={{ width: 120, height: 120 }}
+          resizeMode="contain"
+        />
         <ActivityIndicator size="large" color={Colors.gold} style={{ marginTop: 24 }} />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={styles.loadingText}>Gateway Connect</Text>
       </View>
     );
   }
@@ -147,6 +152,10 @@ export default function App() {
             CONNECTING PEOPLE{'\n'}TO A BRIGHTER FUTURE
           </Text>
 
+          {/* Spacer */}
+          <View style={{ flex: 1 }} />
+
+          {/* Sign In primary CTA */}
           <Pressable
             style={styles.welcomeContinueBtn}
             onPress={() => {
@@ -155,8 +164,33 @@ export default function App() {
               setAuthModalVisible(true);
             }}
           >
-            <Text style={styles.welcomeContinueText}>CONTINUE   →</Text>
+            <Text style={styles.welcomeContinueText}>SIGN IN  →</Text>
           </Pressable>
+
+          {/* Sign Up secondary CTA */}
+          <Pressable
+            style={styles.welcomeSignUpBtn}
+            onPress={() => {
+              setAuthModalPrompt(undefined);
+              setAuthModalMode('signup');
+              setAuthModalVisible(true);
+            }}
+          >
+            <Text style={styles.welcomeSignUpText}>CREATE ACCOUNT</Text>
+          </Pressable>
+
+          {/* Guest link */}
+          <Pressable
+            style={styles.welcomeGuestBtn}
+            onPress={() => {
+              setShowAuthWall(false);
+              setScreen('home');
+            }}
+          >
+            <Text style={styles.welcomeGuestText}>Browse as Guest</Text>
+          </Pressable>
+
+          <View style={{ height: 20 }} />
         </View>
 
         {/* AuthModal on Welcome screen */}
@@ -197,10 +231,29 @@ export default function App() {
     );
   }
 
+  // Standalone GetStream.io & WhatsApp-style Chat Screen
+  if (screen === 'chat') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.bg} translucent={false} />
+        <ChatScreen
+          profile={profile}
+          onRequestAuth={handleRequestAuth}
+          onBack={() => setScreen('home')}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg} translucent={false} />
-      <AppHeader networkStatus={networkStatus} syncState={syncState} pendingCount={pendingMutations} />
+      <AppHeader
+        networkStatus={networkStatus}
+        syncState={syncState}
+        pendingCount={pendingMutations}
+        onOpenChat={() => setScreen('chat')}
+      />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -218,6 +271,7 @@ export default function App() {
             onNavigateStore={() => setScreen('store')}
             onNavigateSermons={() => setScreen('sermons')}
             onNavigateLive={() => setScreen('live')}
+            onNavigateProfile={() => setScreen('profile')}
           />
         )}
         {screen === 'sermons' && (
@@ -266,6 +320,7 @@ export default function App() {
         screen={screen}
         onPress={(key) => setScreen(key)}
         isLoggedIn={!!profile}
+        onDonateTap={() => setShowDonateModal(true)}
       />
 
       {/* Global AuthModal */}
@@ -286,6 +341,14 @@ export default function App() {
         visible={!!legalModalTab}
         onClose={() => setLegalModalTab(null)}
         initialTab={legalModalTab || 'privacy'}
+      />
+
+      {/* Global Donate/Give Modal */}
+      <DonateModal
+        visible={showDonateModal}
+        onClose={() => setShowDonateModal(false)}
+        profile={profile}
+        onRequestAuth={handleRequestAuth}
       />
     </SafeAreaView>
   );
@@ -327,7 +390,8 @@ const styles = StyleSheet.create({
   authInner: {
     flex: 1,
     paddingHorizontal: 28,
-    justifyContent: 'center',
+    paddingTop: 60,
+    justifyContent: 'flex-start',
     alignItems: 'center',
   },
   authEmblemContainer: {
@@ -374,7 +438,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 48,
+    marginBottom: 8,
   },
   welcomeContinueBtn: {
     width: '82%',
@@ -397,6 +461,35 @@ const styles = StyleSheet.create({
     color: '#070a0f',
     fontSize: 15,
     letterSpacing: 2,
+  },
+  welcomeSignUpBtn: {
+    width: '82%',
+    maxWidth: 320,
+    paddingVertical: 14,
+    borderRadius: Radii.full,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#dfa732',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  welcomeSignUpText: {
+    fontFamily: Typography.fontBold,
+    color: '#dfa732',
+    fontSize: 14,
+    letterSpacing: 2,
+  },
+  welcomeGuestBtn: {
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  welcomeGuestText: {
+    fontFamily: Typography.fontRegular,
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
   safeArea: {
     flex: 1,

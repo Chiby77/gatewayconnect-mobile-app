@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 import { NetworkStatus } from '../network/networkStatus';
@@ -9,9 +9,10 @@ interface AppHeaderProps {
   networkStatus: NetworkStatus;
   syncState?: SyncState;
   pendingCount?: number;
+  onOpenChat?: () => void;
 }
 
-export function AppHeader({ networkStatus }: AppHeaderProps) {
+export function AppHeader({ networkStatus, onOpenChat }: AppHeaderProps) {
   const isOnline = networkStatus === 'online';
 
   return (
@@ -33,17 +34,30 @@ export function AppHeader({ networkStatus }: AppHeaderProps) {
         </View>
       </View>
 
-      {!isOnline ? (
-        <View style={styles.offlinePill}>
-          <Ionicons name="cloud-offline" size={12} color={Colors.warning} />
-          <Text style={styles.offlineText}>Offline</Text>
-        </View>
-      ) : (
-        <View style={styles.liveIndicator}>
-          <View style={styles.onlineDot} />
-          <Text style={styles.onlineText}>Connected</Text>
-        </View>
-      )}
+      <View style={styles.headerRight}>
+        {onOpenChat && (
+          <Pressable
+            style={styles.headerChatBtn}
+            onPress={onOpenChat}
+            accessibilityLabel="Open Gateway Chat"
+            accessibilityRole="button"
+          >
+            <Ionicons name="chatbubbles" size={17} color={Colors.gold} />
+            <View style={styles.chatBadgeDot} />
+          </Pressable>
+        )}
+        {!isOnline ? (
+          <View style={styles.offlinePill}>
+            <Ionicons name="cloud-offline" size={12} color={Colors.warning} />
+            <Text style={styles.offlineText}>Offline</Text>
+          </View>
+        ) : (
+          <View style={styles.liveIndicator}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.onlineText}>Connected</Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -146,5 +160,30 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontRegular,
     color: '#a1a1aa',
     fontSize: 10,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerChatBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(223, 167, 50, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(223, 167, 50, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  chatBadgeDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.gold,
   },
 });

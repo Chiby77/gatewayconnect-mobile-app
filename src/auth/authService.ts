@@ -375,11 +375,11 @@ export function getMemberBadgeOverride(memberId: string): 'platinum' | 'gold' | 
 
 export function getAssignableChurchMembers(): Array<{ id: string; name: string; handle: string; role: string; currentBadge: string }> {
   return [
-    { id: 'usr_tinodaishe', name: 'Tinodaishe Morgan Chibi', handle: '@tinodaishe_morgan_chibi', role: 'Covenant Believer', currentBadge: MANUALLY_VERIFIED_REGISTRY['usr_tinodaishe'] || 'gold' },
     { id: 'usr_apostle_joe', name: 'Apostle Joe Daniels', handle: '@apostle_joe_daniels', role: 'General Overseer', currentBadge: 'gold' },
     { id: 'usr_prophetess_melinda', name: 'Prophetess Melinda Daniels', handle: '@prophetess_melinda', role: 'Co-Founder', currentBadge: 'gold' },
     { id: 'usr_pastor_easter', name: 'Pastor Easter', handle: '@pastor_easter', role: 'Executive Pastor', currentBadge: MANUALLY_VERIFIED_REGISTRY['usr_pastor_easter'] || 'gold' },
     { id: 'usr_developer', name: 'mr_juice7', handle: '@mr_juice7', role: 'Core Systems Developer', currentBadge: 'developer' },
+    { id: 'usr_member_rep', name: 'Harare Fellowship Leader', handle: '@harare_fellowship', role: 'Cell Leader', currentBadge: MANUALLY_VERIFIED_REGISTRY['usr_member_rep'] || 'silver' },
   ];
 }
 
