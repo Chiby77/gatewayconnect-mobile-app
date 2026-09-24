@@ -1,11 +1,15 @@
 {
-  "extends": "./node_modules/expo/tsconfig.base.json",
   "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["DOM", "ESNext"],
+    "allowJs": true,
     "strict": true,
     "noEmit": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "jsx": "react-native",
+    "moduleResolution": "bundler",
+    "customConditions": ["react-native"],
     "skipLibCheck": true
   },
   "include": [
@@ -13,5 +17,10 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "android",
+    "ios"
   ]
 }
