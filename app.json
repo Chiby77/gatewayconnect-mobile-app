@@ -38,7 +38,8 @@
         }
       ],
       "expo-status-bar",
-      "expo-system-ui"
+      "expo-system-ui",
+      "expo-sharing"
     ],
     "ios": {
       "supportsTablet": true,
