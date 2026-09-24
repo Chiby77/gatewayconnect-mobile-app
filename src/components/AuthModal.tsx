@@ -247,7 +247,9 @@ export function AuthModal({
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Date of Birth</Text>
                   <View style={styles.dobInputRow}>
-                    <Ionicons name="calendar-outline" size={17} color={Colors.gold} style={{ marginLeft: 12 }} />
+                    <View style={{ marginLeft: 12 }}>
+                      <Ionicons name="calendar-outline" size={17} color={Colors.gold} />
+                    </View>
                     <TextInput
                       value={dob}
                       onChangeText={setDob}

@@ -3,6 +3,15 @@
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
-    "resolveJsonModule": true
-  }
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "jsx": "react-native",
+    "skipLibCheck": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
 }
