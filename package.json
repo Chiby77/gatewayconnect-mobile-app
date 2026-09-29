@@ -18,10 +18,10 @@
     "@stream-io/feeds-react-native-sdk": "^1.0.22",
     "@supabase/supabase-js": "^2.113.0",
     "base64-arraybuffer": "^1.0.2",
-    "expo": "~57.0.24",
+    "expo": "~57.0.25",
     "expo-asset": "~57.0.18",
     "expo-audio": "~57.0.5",
-    "expo-background-task": "~57.0.19",
+    "expo-background-task": "~57.0.20",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "^57.0.19",
     "expo-crypto": "~57.0.3",
@@ -31,18 +31,19 @@
     "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",
-    "expo-image-manipulator": "~57.0.19",
-    "expo-image-picker": "~57.0.19",
+    "expo-image-manipulator": "~57.0.20",
+    "expo-image-picker": "~57.0.20",
     "expo-media-library": "~57.0.5",
-    "expo-notifications": "^57.0.20",
+    "expo-notifications": "~57.0.21",
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
-    "expo-task-manager": "~57.0.19",
-    "expo-video": "~57.0.4",
+    "expo-task-manager": "~57.0.20",
+    "expo-video": "~57.0.5",
     "react": "19.2.3",
+    "react-dom": "^19.2.3",
     "react-native": "0.86.3",
     "react-native-compressor": "^2.0.3",
     "react-native-gesture-handler": "~2.32.0",
@@ -59,8 +60,16 @@
     "@types/react": "~19.2.4",
     "babel-plugin-transform-remove-console": "^6.9.4",
     "babel-preset-expo": "^57.0.12",
-    "expo-build-properties": "^57.0.21",
+    "expo-build-properties": "~57.0.22",
     "typescript": "~6.0.3"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "react-native-reanimated",
+        "react-native-worklets"
+      ]
+    }
   },
   "overrides": {
     "react": "19.2.3"
