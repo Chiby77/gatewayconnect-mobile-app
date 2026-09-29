@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 
@@ -25,6 +26,11 @@ const RIGHT_TABS: { key: Screen; label: string; icon: string; iconActive: string
 ];
 
 export function TabBar({ screen, onPress, isLoggedIn, onDonateTap }: TabBarProps) {
+  // Android edge-to-edge draws behind the gesture/nav bar; the fixed 8px padding below was getting
+  // covered by it on gesture-nav devices. insets.bottom is 0 on devices with a real nav bar (button
+  // nav), so the platform floor is kept as a minimum rather than replaced.
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(Platform.OS === 'ios' ? 22 : 8, insets.bottom + (Platform.OS === 'ios' ? 0 : 4));
   const renderTab = (tab: typeof LEFT_TABS[0]) => {
     const isActive = screen === tab.key;
     const label = tab.key === 'profile' ? (isLoggedIn ? 'Me' : 'Sign In') : tab.label;
@@ -50,7 +56,7 @@ export function TabBar({ screen, onPress, isLoggedIn, onDonateTap }: TabBarProps
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: bottomPad }]}>
       {/* Left tabs */}
       <View style={styles.tabGroup}>
         {LEFT_TABS.map(renderTab)}
@@ -88,7 +94,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     paddingTop: Platform.OS === 'ios' ? 8 : 6,
-    paddingBottom: Platform.OS === 'ios' ? 22 : 8,
     borderTopWidth: 1,
     borderTopColor: '#1a1a20',
   },

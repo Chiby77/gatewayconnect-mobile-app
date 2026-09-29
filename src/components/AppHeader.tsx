@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
+import { useStream } from '../stream/StreamRoot';
 import { NetworkStatus } from '../network/networkStatus';
 import { SyncState } from '../sync/syncStatus';
 
@@ -14,6 +15,7 @@ interface AppHeaderProps {
 
 export function AppHeader({ networkStatus, onOpenChat }: AppHeaderProps) {
   const isOnline = networkStatus === 'online';
+  const { totalUnread } = useStream(); // live badge - updates from Stream's own unread events, no polling
 
   return (
     <View style={styles.row}>
@@ -43,7 +45,7 @@ export function AppHeader({ networkStatus, onOpenChat }: AppHeaderProps) {
             accessibilityRole="button"
           >
             <Ionicons name="chatbubbles" size={17} color={Colors.gold} />
-            <View style={styles.chatBadgeDot} />
+            {totalUnread > 0 && <View style={styles.chatBadgeDot} />}
           </Pressable>
         )}
         {!isOnline ? (

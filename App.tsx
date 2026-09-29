@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View, Image } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 import * as Notifications from 'expo-notifications';
 
@@ -14,6 +15,8 @@ import { startRealtimePersistence } from './src/remote/realtimeService';
 import { registerBackgroundSync } from './src/sync/backgroundSync';
 import { enforceExpiration } from './src/media/downloadManager';
 import { registerForPushNotificationsAsync } from './src/remote/pushService';
+import { StreamRoot } from './src/stream/StreamRoot';
+import { OwnFeedsProvider } from './src/screens/feed/OwnFeeds';
 
 import { Colors, Typography, Radii } from './src/theme/colors';
 import { AppHeader } from './src/components/AppHeader';
@@ -21,12 +24,12 @@ import { TabBar, Screen } from './src/components/TabBar';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { SermonScreen } from './src/screens/SermonScreen';
 import { BibleScreen } from './src/screens/BibleScreen';
-import { CommunityScreen } from './src/screens/CommunityScreen';
 import { PrayerScreen } from './src/screens/PrayerScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { StoreScreen } from './src/screens/StoreScreen';
 import { LiveScreen } from './src/screens/LiveScreen';
-import { ChatScreen } from './src/screens/ChatScreen';
+import { ChatFeatureScreen } from './src/screens/ChatFeatureScreen';
+import { CommunityFeedScreen } from './src/screens/feed/CommunityFeedScreen';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AuthModal } from './src/components/AuthModal';
@@ -57,7 +60,6 @@ export default function App() {
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
   const [authModalPrompt, setAuthModalPrompt] = useState<string | undefined>(undefined);
   const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | null>(null);
-  const [communityFabAction, setCommunityFabAction] = useState<(() => void) | null>(null);
   const [showDonateModal, setShowDonateModal] = useState(false);
 
   const handleRequestAuth = (prompt?: string) => {
@@ -221,136 +223,116 @@ export default function App() {
     );
   }
 
-  // Full Screen Live Stream Screen
-  if (screen === 'live') {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor="#000000" translucent={false} />
-        <LiveScreen onBack={() => setScreen('home')} />
-      </SafeAreaView>
-    );
-  }
-
-  // Standalone GetStream.io & WhatsApp-style Chat Screen
-  if (screen === 'chat') {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.bg} translucent={false} />
-        <ChatScreen
-          profile={profile}
-          onRequestAuth={handleRequestAuth}
-          onBack={() => setScreen('home')}
-        />
-      </SafeAreaView>
-    );
-  }
-
+  // Everything past the auth wall shares one Stream connection (mounted here, once) so switching
+  // between Home / Community / Chat / Live never reconnects Chat & Feeds mid-session.
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.bg} translucent={false} />
-      <AppHeader
-        networkStatus={networkStatus}
-        syncState={syncState}
-        pendingCount={pendingMutations}
-        onOpenChat={() => setScreen('chat')}
-      />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {screen === 'home' && (
-          <HomeScreen
-            networkStatus={networkStatus}
-            pendingMutations={pendingMutations}
-            syncState={syncState}
-            profile={profile}
-            onRequestAuth={handleRequestAuth}
-            onNavigateBible={() => setScreen('bible')}
-            onNavigateStore={() => setScreen('store')}
-            onNavigateSermons={() => setScreen('sermons')}
-            onNavigateLive={() => setScreen('live')}
-            onNavigateProfile={() => setScreen('profile')}
-          />
+    <StreamRoot profile={profile}>
+      <OwnFeedsProvider>
+        {screen === 'live' ? (
+          <SafeAreaView style={styles.safeArea}>
+            <StatusBar barStyle="light-content" backgroundColor="#000000" translucent={false} />
+            <LiveScreen onBack={() => setScreen('home')} />
+          </SafeAreaView>
+        ) : screen === 'chat' ? (
+          <SafeAreaView style={styles.safeArea}>
+            <StatusBar barStyle="light-content" backgroundColor={Colors.bg} translucent={false} />
+            <ChatFeatureScreen onBack={() => setScreen('home')} />
+          </SafeAreaView>
+        ) : (
+          <SafeAreaView style={styles.safeArea}>
+            <StatusBar barStyle="light-content" backgroundColor={Colors.bg} translucent={false} />
+            {screen === 'community' ? (
+              // Community is now a full-screen social feed (its own header/tabs), not a ScrollView section.
+              <CommunityFeedScreen />
+            ) : (
+              <>
+                <AppHeader
+                  networkStatus={networkStatus}
+                  syncState={syncState}
+                  pendingCount={pendingMutations}
+                  onOpenChat={() => setScreen('chat')}
+                />
+                <ScrollView
+                  style={styles.scrollView}
+                  contentContainerStyle={styles.scrollContent}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {screen === 'home' && (
+                    <HomeScreen
+                      networkStatus={networkStatus}
+                      pendingMutations={pendingMutations}
+                      syncState={syncState}
+                      profile={profile}
+                      onRequestAuth={handleRequestAuth}
+                      onNavigateBible={() => setScreen('bible')}
+                      onNavigateStore={() => setScreen('store')}
+                      onNavigateSermons={() => setScreen('sermons')}
+                      onNavigateLive={() => setScreen('live')}
+                      onNavigateProfile={() => setScreen('profile')}
+                    />
+                  )}
+                  {screen === 'sermons' && (
+                    <SermonScreen
+                      profile={profile}
+                      onRequestAuth={handleRequestAuth}
+                      onNavigateHome={() => setScreen('home')}
+                    />
+                  )}
+                  {screen === 'bible' && <BibleScreen profile={profile} />}
+                  {screen === 'prayer' && <PrayerScreen profile={profile} onRequestAuth={handleRequestAuth} />}
+                  {screen === 'store' && <StoreScreen profile={profile} />}
+                  {screen === 'profile' && (
+                    <ProfileScreen
+                      profile={profile}
+                      onGuest={() => { setScreen('home'); }}
+                      onNavigateBible={() => setScreen('bible')}
+                      onNavigateCommunity={() => setScreen('community')}
+                      onRequestAuth={handleRequestAuth}
+                    />
+                  )}
+                </ScrollView>
+              </>
+            )}
+
+            <TabBar
+              screen={screen}
+              onPress={(key) => setScreen(key)}
+              isLoggedIn={!!profile}
+              onDonateTap={() => setShowDonateModal(true)}
+            />
+
+            {/* Global AuthModal */}
+            <AuthModal
+              visible={authModalVisible}
+              onClose={() => setAuthModalVisible(false)}
+              onSuccess={(u) => {
+                setProfile(u);
+                setAuthModalVisible(false);
+              }}
+              initialMode={authModalMode}
+              promptMessage={authModalPrompt}
+              onOpenLegal={(tab) => setLegalModalTab(tab)}
+            />
+
+            {/* Global LegalModal */}
+            <LegalModal
+              visible={!!legalModalTab}
+              onClose={() => setLegalModalTab(null)}
+              initialTab={legalModalTab || 'privacy'}
+            />
+
+            {/* Global Donate/Give Modal */}
+            <DonateModal
+              visible={showDonateModal}
+              onClose={() => setShowDonateModal(false)}
+              profile={profile}
+              onRequestAuth={handleRequestAuth}
+            />
+          </SafeAreaView>
         )}
-        {screen === 'sermons' && (
-          <SermonScreen
-            profile={profile}
-            onRequestAuth={handleRequestAuth}
-            onNavigateHome={() => setScreen('home')}
-          />
-        )}
-        {screen === 'bible' && <BibleScreen profile={profile} />}
-        {screen === 'community' && (
-          <CommunityScreen
-            profile={profile}
-            onRequestAuth={handleRequestAuth}
-            onRegisterFabTrigger={setCommunityFabAction}
-          />
-        )}
-        {screen === 'prayer' && <PrayerScreen profile={profile} onRequestAuth={handleRequestAuth} />}
-        {screen === 'store' && <StoreScreen profile={profile} />}
-        {screen === 'profile' && (
-          <ProfileScreen
-            profile={profile}
-            onGuest={() => { setScreen('home'); }}
-            onNavigateBible={() => setScreen('bible')}
-            onNavigateCommunity={() => setScreen('community')}
-            onRequestAuth={handleRequestAuth}
-          />
-        )}
-      </ScrollView>
-
-      {/* WhatsApp Fixed Floating Action Button (FAB) on Community Screen */}
-      {screen === 'community' && communityFabAction && (
-        <Pressable
-          style={styles.floatingWhatsappFab}
-          onPress={communityFabAction}
-          accessibilityLabel="Open Chat Menu"
-        >
-          <Ionicons name="chatbubbles" size={24} color="#ffffff" />
-          <View style={styles.floatingFabBadge}>
-            <Text style={styles.floatingFabBadgeText}>3</Text>
-          </View>
-        </Pressable>
-      )}
-
-      <TabBar
-        screen={screen}
-        onPress={(key) => setScreen(key)}
-        isLoggedIn={!!profile}
-        onDonateTap={() => setShowDonateModal(true)}
-      />
-
-      {/* Global AuthModal */}
-      <AuthModal
-        visible={authModalVisible}
-        onClose={() => setAuthModalVisible(false)}
-        onSuccess={(u) => {
-          setProfile(u);
-          setAuthModalVisible(false);
-        }}
-        initialMode={authModalMode}
-        promptMessage={authModalPrompt}
-        onOpenLegal={(tab) => setLegalModalTab(tab)}
-      />
-
-      {/* Global LegalModal */}
-      <LegalModal
-        visible={!!legalModalTab}
-        onClose={() => setLegalModalTab(null)}
-        initialTab={legalModalTab || 'privacy'}
-      />
-
-      {/* Global Donate/Give Modal */}
-      <DonateModal
-        visible={showDonateModal}
-        onClose={() => setShowDonateModal(false)}
-        profile={profile}
-        onRequestAuth={handleRequestAuth}
-      />
-    </SafeAreaView>
+      </OwnFeedsProvider>
+    </StreamRoot>
   );
 }
 

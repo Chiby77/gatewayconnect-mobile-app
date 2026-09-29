@@ -39,11 +39,19 @@
       ],
       "expo-status-bar",
       "expo-system-ui",
-      "expo-sharing"
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GatewayConnect uses your photos so you can attach pictures to community posts."
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "org.gatewaychurch.gatewayconnect"
+      "bundleIdentifier": "org.gatewaychurch.gatewayconnect",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "GatewayConnect uses your photos so you can attach pictures to community posts."
+      }
     },
     "android": {
       "package": "org.gatewaychurch.gatewayconnect",
