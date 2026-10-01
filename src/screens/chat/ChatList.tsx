@@ -138,7 +138,7 @@ export function ChatList({ onOpenChannel }: Props) {
       </View>
 
       <Pressable style={styles.fab} onPress={() => setSheet(true)} accessibilityLabel="New chat" accessibilityRole="button">
-        <Ionicons name="create-outline" size={24} color="#09090b" />
+        <Ionicons name="create-outline" size={24} color="#ffffff" />
       </Pressable>
 
       <NewChatSheet visible={sheet} onClose={() => setSheet(false)} onOpenChannel={onOpenChannel} />
@@ -169,9 +169,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  chipActive: { backgroundColor: Colors.goldMuted, borderColor: Colors.gold },
+  chipActive: { backgroundColor: Colors.primaryMuted, borderColor: Colors.primary },
   chipText: { fontFamily: Typography.fontSemiBold, fontSize: 13, color: Colors.textSecondary },
-  chipTextActive: { color: Colors.gold },
+  chipTextActive: { color: Colors.primary },
   support: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontFamily: Typography.fontSemiBold, fontSize: 17, color: Colors.textPrimary, textAlign: 'center' },
   emptySub: { fontFamily: Typography.fontRegular, fontSize: 14, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
   retry: { marginTop: 8, backgroundColor: Colors.gold, paddingHorizontal: 20, paddingVertical: 10, borderRadius: Radii.full },
-  retryText: { fontFamily: Typography.fontBold, color: '#09090b' },
+  retryText: { fontFamily: Typography.fontBold, color: Colors.textInverse },
   fab: {
     position: 'absolute',
     right: 18,

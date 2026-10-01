@@ -22,6 +22,9 @@ const HIGHLIGHT_COLORS: Record<BibleColor, string> = {
 export function BibleScreen({ profile }: BibleScreenProps) {
   const [selectedBook, setSelectedBook] = useState<string>('Psalms');
   const [selectedChapter, setSelectedChapter] = useState<number>(23);
+  const [activeVersion, setActiveVersion] = useState<string>('KJV');
+  const [showVersionPicker, setShowVersionPicker] = useState<boolean>(false);
+  const [availableVersions, setAvailableVersions] = useState<{ id: string; name: string }[]>([]);
   const [showBookPicker, setShowBookPicker] = useState<boolean>(false);
   const [showChapterPicker, setShowChapterPicker] = useState<boolean>(false);
   const [testamentFilter, setTestamentFilter] = useState<'ALL' | 'OT' | 'NT'>('ALL');
@@ -37,8 +40,23 @@ export function BibleScreen({ profile }: BibleScreenProps) {
   const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
 
-  const activeVersion = 'KJV';
-  const currentVerses: VerseItem[] = getChapterVerses(selectedBook, selectedChapter);
+  const [currentVerses, setCurrentVerses] = useState<VerseItem[]>([]);
+
+  useEffect(() => {
+    setAvailableVersions(BibleRepository.getInstalledVersions());
+  }, []);
+
+  useEffect(() => {
+    const bookIndex = BIBLE_BOOKS.findIndex(b => b.name === selectedBook);
+    const bookId = bookIndex >= 0 ? bookIndex + 1 : 19; // Psalms is 19
+    const verses = BibleRepository.getChapter(activeVersion, bookId, selectedChapter);
+    if (verses.length > 0) {
+      setCurrentVerses(verses.map(v => ({ verse: v.verse, text: v.text })));
+    } else {
+      // Fallback for when DB verses haven't fully synced or it's the bundled KJV
+      setCurrentVerses(getChapterVerses(selectedBook, selectedChapter));
+    }
+  }, [selectedBook, selectedChapter, activeVersion]);
 
   useEffect(() => {
     setBookmarks(BibleRepository.listBookmarks(profile?.id || null));
@@ -119,10 +137,11 @@ export function BibleScreen({ profile }: BibleScreenProps) {
           <Text style={styles.sectionTitle}>Holy Bible</Text>
           <Text style={styles.sectionSubtitle}>Complete 66 Books • Sample Chapter Library</Text>
         </View>
-        <View style={styles.versionPill}>
+        <Pressable style={styles.versionPill} onPress={() => setShowVersionPicker(true)}>
           <Ionicons name="shield-checkmark" size={12} color={Colors.success} />
-          <Text style={styles.versionText}>KJV • OFFLINE</Text>
-        </View>
+          <Text style={styles.versionText}>{activeVersion} • OFFLINE</Text>
+          <Ionicons name="chevron-down" size={10} color={Colors.textInverse} style={{ marginLeft: 2 }} />
+        </Pressable>
       </View>
 
       {/* Book & Chapter Navigation Bar */}
@@ -227,7 +246,7 @@ export function BibleScreen({ profile }: BibleScreenProps) {
       <View style={styles.chapterCard}>
         <View style={styles.chapterHeader}>
           <Text style={styles.chapterTitle}>{selectedBook.toUpperCase()} {selectedChapter}</Text>
-          <Text style={styles.chapterSub}>King James Version (KJV)</Text>
+          <Text style={styles.chapterSub}>{availableVersions.find(v => v.id === activeVersion)?.name || activeVersion}</Text>
         </View>
 
         {currentVerses
@@ -357,6 +376,43 @@ export function BibleScreen({ profile }: BibleScreenProps) {
                     <Text style={[styles.chapterGridItemText, selectedChapter === ch && styles.chapterGridItemTextActive]}>
                       {ch}
                     </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Version Picker Modal */}
+      <Modal visible={showVersionPicker} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Translation</Text>
+              <Pressable onPress={() => setShowVersionPicker(false)} style={styles.closeBtn}>
+                <Ionicons name="close" size={20} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }}>
+              <View style={{ gap: 8 }}>
+                {availableVersions.map(v => (
+                  <Pressable
+                    key={v.id}
+                    style={[styles.versionOptionBtn, activeVersion === v.id && styles.versionOptionBtnActive]}
+                    onPress={() => {
+                      setActiveVersion(v.id);
+                      setShowVersionPicker(false);
+                    }}
+                  >
+                    <View>
+                      <Text style={[styles.versionOptionId, activeVersion === v.id && styles.versionOptionIdActive]}>
+                        {v.id}
+                      </Text>
+                      <Text style={styles.versionOptionName}>{v.name}</Text>
+                    </View>
+                    {activeVersion === v.id && <Ionicons name="checkmark-circle" size={20} color={Colors.gold} />}
                   </Pressable>
                 ))}
               </View>
@@ -749,5 +805,33 @@ const styles = StyleSheet.create({
   },
   chapterGridItemTextActive: {
     color: Colors.textInverse,
+  },
+  versionOptionBtn: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#18181f',
+    padding: 12,
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  versionOptionBtnActive: {
+    borderColor: Colors.gold,
+    backgroundColor: 'rgba(217, 119, 6, 0.12)',
+  },
+  versionOptionId: {
+    fontFamily: Typography.fontBold,
+    color: Colors.textPrimary,
+    fontSize: 14,
+  },
+  versionOptionIdActive: {
+    color: Colors.gold,
+  },
+  versionOptionName: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
   },
 });

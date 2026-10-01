@@ -51,6 +51,30 @@ export async function getCurrentSession(): Promise<Session | null> {
   return result.data.session;
 }
 
+/**
+ * Keeps the cached profile (and every screen reading it via `subscribeToAuth`) in sync with what
+ * Supabase actually thinks the session is - not just with the one-time read `App.tsx` does on launch.
+ * Call once at startup. Without this, a session that dies in the background (refresh token expired,
+ * revoked from another device, or genuinely signed out) leaves a stale `MobileUser` cached: the app
+ * keeps showing the person as logged in while chat, posting, and every Supabase-backed screen quietly
+ * fails auth underneath them - which is what "logged in but nothing works" looks like from outside.
+ */
+export function initAuthListener(): () => void {
+  if (!isSupabaseConfigured) return () => undefined;
+  const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+      SecureStore.deleteItemAsync(PROFILE_KEY).catch(() => undefined);
+      notifySubscribers(null);
+    } else if (event === 'SIGNED_IN' || (event === 'TOKEN_REFRESHED' && session)) {
+      const cached = await getCachedProfile();
+      if (cached) {
+        notifySubscribers(cached);
+      }
+    }
+  });
+  return () => data.subscription.unsubscribe();
+}
+
 export async function signIn(phoneOrIdentifier: string, password?: string): Promise<MobileUser> {
   const query = phoneOrIdentifier.trim();
 

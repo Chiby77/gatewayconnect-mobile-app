@@ -242,6 +242,14 @@ const migrations: string[] = [
   `
 ];
 
+export function addColumnIfNotExists(db: SQLite.SQLiteDatabase, tableName: string, columnName: string, columnDef: string): void {
+  const columns = db.getAllSync<{ name: string }>(`PRAGMA table_info(${tableName})`);
+  const exists = columns.some(c => c.name === columnName);
+  if (!exists) {
+    db.execSync(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`);
+  }
+}
+
 export function runMigrations(db: SQLite.SQLiteDatabase): void {
   let currentVersion = Number(db.getFirstSync<{ user_version: number }>('PRAGMA user_version')?.user_version || 0);
 

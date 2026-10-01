@@ -15,6 +15,10 @@ export class BibleRepository {
     if (!installed) installBiblePack(bundledPack);
   }
 
+  static getInstalledVersions(): { id: string; name: string }[] {
+    return getDatabase().getAllSync<{ id: string; name: string }>(`SELECT id, name FROM bible_versions ORDER BY id ASC`);
+  }
+
   static getChapter(versionId: string, bookId: number, chapter: number): BibleVerse[] {
     return getDatabase().getAllSync<BibleVerse>(
       `SELECT v.version_id AS versionId, v.book_id AS bookId, b.name AS bookName, v.chapter, v.verse, v.text

@@ -10,19 +10,19 @@ import { Colors, Typography } from '../theme/colors';
  * Semantic tokens are resolved from the OS colour scheme *before* this object merges in, and derived
  * tokens are not re-resolved, so every token that matters is set explicitly (dark brand, always).
  */
-const INK_ON_GOLD = '#09090b';
-const OUTGOING = Colors.forestGreen; // '#2B4C47'
-const OUTGOING_ATTACH = Colors.forestGreenLight; // '#3a6159'
-const INCOMING = Colors.bgSecondary; // '#1e1e24'
-const SURFACE_STRONG = '#26262e';
+const INK_ON_GOLD = Colors.textInverse;
+const OUTGOING = Colors.forestGreen; // '#005c4b' — WhatsApp dark "sent"
+const OUTGOING_ATTACH = Colors.forestGreenLight; // '#1f6f5c'
+const INCOMING = Colors.whatsappIncoming; // '#202c33' — WhatsApp dark "received"
+const SURFACE_STRONG = '#1e2c47'; // site's --accent
 
 export const streamTheme: DeepPartial<Theme> = {
   semantics: {
     // accents
-    accentPrimary: Colors.gold,
+    accentPrimary: Colors.primary,
     accentSuccess: Colors.success,
     accentError: Colors.danger,
-    accentWarning: Colors.gold,
+    accentWarning: Colors.gold, // church-brand warning stays gold, not IG-blue
     accentNeutral: Colors.textMuted,
     // surfaces
     backgroundCoreApp: Colors.bg,
@@ -40,20 +40,20 @@ export const streamTheme: DeepPartial<Theme> = {
     borderCoreStrong: Colors.borderStrong,
     borderCoreOpacitySubtle: Colors.border,
     borderCoreOpacityStrong: Colors.borderStrong,
-    borderUtilityFocused: Colors.gold,
-    borderUtilitySelected: Colors.gold,
+    borderUtilityFocused: Colors.primary,
+    borderUtilitySelected: Colors.primary,
     // text
     textPrimary: Colors.textPrimary,
     textSecondary: Colors.textSecondary,
     textTertiary: Colors.textMuted,
     textDisabled: Colors.textMuted,
-    textLink: Colors.gold,
+    textLink: Colors.primary,
     textOnAccent: INK_ON_GOLD,
     // chat bubbles (WhatsApp-style: own = brand green, others = dark grey)
     chatBgOutgoing: OUTGOING,
     chatBgIncoming: INCOMING,
-    chatTextOutgoing: Colors.textPrimary,
-    chatTextIncoming: Colors.textPrimary,
+    chatTextOutgoing: Colors.whatsappText,
+    chatTextIncoming: Colors.whatsappText,
     chatBgAttachmentOutgoing: OUTGOING_ATTACH,
     chatBgAttachmentIncoming: SURFACE_STRONG,
     chatBorderOutgoing: 'transparent',
@@ -61,16 +61,16 @@ export const streamTheme: DeepPartial<Theme> = {
     chatBorderOnChatOutgoing: 'transparent',
     chatBorderOnChatIncoming: 'transparent',
     chatTextTimestamp: 'rgba(255,255,255,0.55)',
-    chatTextRead: Colors.gold, // read ticks
-    chatTextLink: Colors.gold,
-    chatTextMention: Colors.gold,
-    chatTextUsername: Colors.gold,
+    chatTextRead: Colors.primary, // read ticks — IG-blue, matches WhatsApp's own blue double-tick
+    chatTextLink: Colors.primary,
+    chatTextMention: Colors.primary,
+    chatTextUsername: Colors.gold, // sender name in group chats keeps the church-gold accent
     chatTextSystem: Colors.textMuted,
     chatTextReaction: Colors.textPrimary,
-    chatReplyIndicatorIncoming: Colors.gold,
-    chatReplyIndicatorOutgoing: '#dfa732',
+    chatReplyIndicatorIncoming: Colors.primary,
+    chatReplyIndicatorOutgoing: Colors.gold,
     chatWaveformBar: 'rgba(255,255,255,0.4)',
-    chatWaveformBarPlaying: Colors.gold,
+    chatWaveformBarPlaying: Colors.primary,
     // composer
     inputTextDefault: Colors.textPrimary,
     inputTextPlaceholder: Colors.textMuted,
@@ -79,32 +79,32 @@ export const streamTheme: DeepPartial<Theme> = {
     inputSendIcon: INK_ON_GOLD,
     inputSendIconDisabled: Colors.textMuted,
     // buttons
-    buttonPrimaryBg: Colors.gold,
-    buttonPrimaryText: INK_ON_GOLD,
-    buttonPrimaryTextOnAccent: INK_ON_GOLD,
-    buttonPrimaryBorder: Colors.gold,
+    buttonPrimaryBg: Colors.primary,
+    buttonPrimaryText: '#ffffff',
+    buttonPrimaryTextOnAccent: '#ffffff',
+    buttonPrimaryBorder: Colors.primary,
     buttonSecondaryBg: Colors.bgSecondary,
     buttonSecondaryText: Colors.textPrimary,
     buttonSecondaryBorder: Colors.border,
     buttonDestructiveText: Colors.danger,
     // small parts
-    badgeBgPrimary: Colors.gold,
-    badgeBgDefault: Colors.gold,
-    badgeTextOnAccent: INK_ON_GOLD,
+    badgeBgPrimary: Colors.primary,
+    badgeBgDefault: Colors.gold, // unread-count badges keep the church-gold accent
+    badgeTextOnAccent: '#ffffff',
     badgeText: INK_ON_GOLD,
     avatarBgDefault: Colors.forestGreenLight,
     avatarTextDefault: Colors.textPrimary,
-    avatarBgPlaceholder: Colors.forestGreen,
-    avatarTextPlaceholder: Colors.gold,
+    avatarBgPlaceholder: Colors.bgSecondary,
+    avatarTextPlaceholder: Colors.primary,
     presenceBgOnline: Colors.success,
     presenceBorder: Colors.bg,
     reactionBg: Colors.bgSecondary,
     reactionBorder: Colors.border,
     reactionText: Colors.textPrimary,
-    controlProgressBarFill: Colors.gold,
-    controlPlayButtonBg: Colors.gold,
+    controlProgressBarFill: Colors.primary,
+    controlPlayButtonBg: Colors.primary,
     controlPlayButtonIcon: INK_ON_GOLD,
-    controlToggleSwitchBgSelected: Colors.gold,
+    controlToggleSwitchBgSelected: Colors.primary,
   },
 
   // Wallpaper behind the messages

@@ -100,8 +100,8 @@ function buildPlayerHtml(source: ReturnType<typeof getSermonMediaSources>, poste
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: #0d121c; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: -apple-system, Roboto, sans-serif; }
-    .art { width: 110px; height: 110px; border-radius: 12px; object-fit: cover; margin-bottom: 12px; border: 2px solid #dfa732; }
+    html, body { width: 100%; height: 100%; background: #0b0f19; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: -apple-system, Roboto, sans-serif; }
+    .art { width: 110px; height: 110px; border-radius: 12px; object-fit: cover; margin-bottom: 12px; border: 2px solid #f59e0b; }
     audio { width: 88%; max-width: 340px; outline: none; }
   </style>
 </head>
@@ -482,7 +482,7 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
                               <Ionicons
                                 name={profile?.is_premium ? 'shield-checkmark' : 'lock-closed'}
                                 size={9}
-                                color="#000000"
+                                color={Colors.textInverse}
                               />
                             </View>
                           ) : (
@@ -525,7 +525,7 @@ export function SermonScreen({ profile, onRequestAuth }: SermonScreenProps) {
                     </Pressable>
                     {isPaid ? (
                       <View style={styles.covenantBadgeOverlay}>
-                        <Ionicons name="ribbon" size={11} color="#000000" />
+                        <Ionicons name="ribbon" size={11} color={Colors.textInverse} />
                         <Text style={styles.covenantBadgeOverlayText}>COVENANT PASS</Text>
                       </View>
                     ) : null}
@@ -996,10 +996,10 @@ const styles = StyleSheet.create({
   },
   viewModeBtnGroup: {
     flexDirection: 'row',
-    backgroundColor: '#10141e',
+    backgroundColor: Colors.bgSecondary,
     borderRadius: Radii.sm,
     borderWidth: 1,
-    borderColor: '#1e2433',
+    borderColor: Colors.border,
     padding: 2,
     gap: 2,
   },
@@ -1020,7 +1020,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   viewModeBtnTextActive: {
-    color: '#000000',
+    color: Colors.textInverse,
   },
 
   // 3-Column Topics & Grid Layout
@@ -1059,18 +1059,18 @@ const styles = StyleSheet.create({
   },
   gridCard: {
     width: '31.8%',
-    backgroundColor: '#0e121a',
+    backgroundColor: Colors.bgCard,
     borderRadius: Radii.sm,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#1e2638',
+    borderColor: Colors.border,
     paddingBottom: 5,
     marginBottom: 4,
   },
   gridThumbBox: {
     width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: '#161a24',
+    backgroundColor: Colors.bgSecondary,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1083,7 +1083,7 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#161a24',
+    backgroundColor: Colors.bgSecondary,
   },
   gridDurationBadge: {
     position: 'absolute',
@@ -1211,7 +1211,7 @@ const styles = StyleSheet.create({
   },
   btnWatch: {
     width: '100%',
-    backgroundColor: '#dfa732',
+    backgroundColor: Colors.gold,
     borderRadius: Radii.md,
     paddingVertical: 11,
     flexDirection: 'row',
@@ -1221,7 +1221,7 @@ const styles = StyleSheet.create({
   },
   btnWatchText: {
     fontFamily: Typography.fontBold,
-    color: '#09090b',
+    color: Colors.textInverse,
     fontSize: 14,
   },
   secondaryActionsRow: {
@@ -1237,9 +1237,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#18181b',
+    backgroundColor: Colors.bgSecondary,
     borderWidth: 1,
-    borderColor: 'rgba(223, 167, 50, 0.4)',
+    borderColor: 'rgba(245,158,11,0.4)',
     borderRadius: Radii.md,
     paddingVertical: 9,
     paddingHorizontal: 10,
@@ -1250,7 +1250,7 @@ const styles = StyleSheet.create({
   },
   btnDownloadText: {
     fontFamily: Typography.fontSemiBold,
-    color: '#dfa732',
+    color: Colors.gold,
     fontSize: 12,
   },
   btnDownloadedText: {
@@ -1552,7 +1552,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   downloadProgressBanner: {
-    backgroundColor: '#18181f',
+    backgroundColor: Colors.bgSecondary,
     borderWidth: 1,
     borderColor: Colors.gold,
     borderRadius: Radii.md,
@@ -1579,7 +1579,7 @@ const styles = StyleSheet.create({
   },
   dlProgressBarBg: {
     height: 6,
-    backgroundColor: '#27272a',
+    backgroundColor: Colors.bgMuted,
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -1602,7 +1602,7 @@ const styles = StyleSheet.create({
   },
   covenantBadgeOverlayText: {
     fontFamily: Typography.fontBold,
-    color: '#000000',
+    color: Colors.textInverse,
     fontSize: 10,
     letterSpacing: 0.5,
   },
@@ -1620,7 +1620,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
   btnWatchPaid: {
-    backgroundColor: '#1c1917',
+    backgroundColor: Colors.bgSecondary,
     borderWidth: 1,
     borderColor: Colors.gold,
   },
@@ -1631,7 +1631,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: Radii.md,
-    backgroundColor: '#1c1917',
+    backgroundColor: Colors.bgSecondary,
     borderWidth: 1,
     borderColor: Colors.gold,
     alignItems: 'center',
@@ -1652,7 +1652,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#141418',
+    backgroundColor: Colors.bgSecondary,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radii.md,
@@ -1685,7 +1685,7 @@ const styles = StyleSheet.create({
   },
   voucherInput: {
     flex: 1,
-    backgroundColor: '#18181f',
+    backgroundColor: Colors.bgSecondary,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radii.sm,

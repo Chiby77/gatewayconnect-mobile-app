@@ -198,7 +198,7 @@ export function NewChatSheet({ visible, onClose, onOpenChannel }: Props) {
           {mode === 'group' && (
             <Pressable style={[styles.cta, !canCreate && styles.ctaDisabled]} disabled={!canCreate} onPress={createGroup}>
               {busy ? (
-                <ActivityIndicator color="#09090b" />
+                <ActivityIndicator color="#ffffff" />
               ) : (
                 <Text style={styles.ctaText}>Create group{Object.keys(selected).length ? ` (${Object.keys(selected).length})` : ''}</Text>
               )}
@@ -225,9 +225,9 @@ const styles = StyleSheet.create({
   title: { fontFamily: Typography.fontBold, fontSize: 20, color: Colors.textPrimary },
   segment: { flexDirection: 'row', backgroundColor: Colors.bg, borderRadius: Radii.full, padding: 4 },
   segBtn: { flex: 1, paddingVertical: 8, borderRadius: Radii.full, alignItems: 'center' },
-  segBtnActive: { backgroundColor: Colors.gold },
+  segBtnActive: { backgroundColor: Colors.primary },
   segText: { fontFamily: Typography.fontSemiBold, color: Colors.textSecondary, fontSize: 14 },
-  segTextActive: { color: '#09090b' },
+  segTextActive: { color: '#ffffff' },
   input: {
     backgroundColor: Colors.bgSecondary,
     borderRadius: Radii.md,
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   name: { flex: 1, fontFamily: Typography.fontSemiBold, color: Colors.textPrimary, fontSize: 16 },
   empty: { color: Colors.textMuted, fontFamily: Typography.fontRegular, textAlign: 'center', paddingVertical: 24 },
   error: { color: Colors.danger, fontFamily: Typography.fontRegular, fontSize: 13 },
-  cta: { backgroundColor: Colors.gold, borderRadius: Radii.full, paddingVertical: 14, alignItems: 'center' },
+  cta: { backgroundColor: Colors.primary, borderRadius: Radii.full, paddingVertical: 14, alignItems: 'center' },
   ctaDisabled: { opacity: 0.4 },
-  ctaText: { fontFamily: Typography.fontBold, color: '#09090b', fontSize: 15 },
+  ctaText: { fontFamily: Typography.fontBold, color: '#ffffff', fontSize: 15 },
 });

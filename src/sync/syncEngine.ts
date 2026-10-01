@@ -2,6 +2,7 @@ import { getDatabase } from '../db/database';
 import { isSupabaseConfigured, supabase } from '../remote/supabase';
 import { getNetworkStatus, initializeNetworkStatus, subscribeToNetworkStatus } from '../network/networkStatus';
 import { getCursor, listPendingMutations, markFailed, markProcessing, markSynced, saveCursor } from './outbox';
+import { hasTombstone } from './conflictResolver';
 import { OfflineMutation } from '../types/domain';
 import { setSyncState } from './syncStatus';
 import { AppState } from 'react-native';
@@ -62,31 +63,33 @@ export async function syncPendingMutations(): Promise<{ synced: number; failed: 
   return { synced, failed };
 }
 
-async function pullResource(resource: string, table: string): Promise<void> {
+async function pullResource(resource: string, table: string, cursorColumn: 'created_at' | 'updated_at' = 'created_at'): Promise<void> {
   if (!isSupabaseConfigured || getNetworkStatus() === 'offline') return;
   const cursor = getCursor(resource);
-  let query = (supabase.from(table as never) as any).select('*').order('updated_at', { ascending: true }).limit(100);
-  if (cursor) query = query.gt('updated_at', cursor);
+  // cursorColumn MUST match a real column on `table` (see supabase/migrations) — ordering/filtering by a
+  // column that doesn't exist makes Postgres return an error, which the swallow below turns into a silent
+  // no-op forever. Only `users` and `group_members` actually have `updated_at`; everything else here only
+  // has `created_at`. Getting this wrong is exactly why sermons/devotionals/events/products/prayer
+  // requests never synced.
+  let query = (supabase.from(table as never) as any).select('*').order(cursorColumn, { ascending: true }).limit(100);
+  if (cursor) query = query.gt(cursorColumn, cursor);
   const result = await query;
-  if (result.error || !Array.isArray(result.data)) return;
+  if (result.error || !Array.isArray(result.data)) {
+    if (result.error && __DEV__) console.warn(`[sync] pull '${resource}' failed:`, result.error.message);
+    return;
+  }
   const database = getDatabase();
   for (const row of result.data) {
-    if (resource === 'notifications') {
-      database.runSync(
-        `INSERT OR REPLACE INTO notifications (id, title, body, read_at, created_at) VALUES (?, ?, ?, ?, ?)`,
-        row.id, row.title || '', row.body || '', row.read_at || null, row.created_at || new Date().toISOString()
-      );
-    } else if (resource === 'groups') {
-      database.runSync(
-        `INSERT OR REPLACE INTO groups (id, name, description, location, updated_at) VALUES (?, ?, ?, ?, ?)`,
-        row.id, row.name || '', row.description || '', row.location || null, row.updated_at || new Date().toISOString()
-      );
-    } else if (resource === 'events') {
+    if (hasTombstone(resource, row.id)) continue;
+
+    if (resource === 'events') {
       database.runSync(
         `INSERT OR REPLACE INTO events (id, title, event_date, event_time, location, description, banner_url, category, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         row.id, row.title || '', row.event_date || '', row.event_time || '', row.location || '', row.description || null, row.banner_url || null, row.category || null, row.created_at || new Date().toISOString()
       );
     } else if (resource === 'content_items') {
+      // Dead: no `content_items` table exists in the Supabase schema (see supabase/migrations) — this
+      // branch is kept only so a future real table with this name bridges in without code changes.
       const meta = typeof row.metadata === 'string' ? row.metadata : JSON.stringify(row.metadata || {});
       database.runSync(
         `INSERT OR REPLACE INTO content_items (id, type, title, body, metadata, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -144,20 +147,32 @@ async function pullResource(resource: string, table: string): Promise<void> {
         row.currency || 'USD', row.image_url || null, row.category || null,
         row.in_stock !== false ? 1 : 0, row.updated_at || new Date().toISOString()
       );
+    } else if (resource === 'prayer_requests') {
+      database.runSync(
+        `INSERT OR REPLACE INTO prayer_requests (id, user_id, title, body, is_anonymous, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        row.id, row.user_id || null, row.title || '', row.body || '', row.is_anonymous ? 1 : 0,
+        row.status || 'pending', row.created_at || new Date().toISOString(), row.updated_at || new Date().toISOString()
+      );
+    } else if (resource === 'group_members') {
+      // row.id doesn't exist on group_members, it has group_id and user_id. We need a fallback for the tombstone check.
+      // But actually group_members isn't an entity with a single ID.
+      database.runSync(
+        `INSERT OR REPLACE INTO group_members (group_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)`,
+        row.group_id, row.user_id, row.role || 'member', row.joined_at || new Date().toISOString()
+      );
     }
   }
-  const last = result.data.at(-1)?.updated_at || result.data.at(-1)?.created_at;
+  const last = result.data.at(-1)?.[cursorColumn];
   if (last) saveCursor(resource, last);
 }
 
 export async function syncNow(): Promise<void> {
   await syncPendingMutations();
-  await pullResource('notifications', 'notifications');
-  await pullResource('groups', 'groups');
-  await pullResource('group_members', 'group_members');
+  // `notifications`, `groups`, `community_comments`, `content_items` have no matching Supabase table
+  // (see supabase/migrations) — pulling them was a silent no-op on every cycle. Community now runs on
+  // Stream Feeds (see src/screens/feed/) so it no longer needs a Supabase bridge at all.
+  await pullResource('group_members', 'group_members', 'updated_at'); // only table besides `users` with updated_at
   await pullResource('prayer_requests', 'prayer_requests');
-  await pullResource('content_items', 'content_items');
-  await pullResource('community_comments', 'community_comments');
   await pullResource('events', 'events');
   await pullResource('sermons', 'sermons');       // web sermons table → local content_items
   await pullResource('devotionals', 'devotionals'); // web devotionals table → local content_items

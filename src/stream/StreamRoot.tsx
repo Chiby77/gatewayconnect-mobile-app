@@ -6,6 +6,7 @@ import { useCreateFeedsClient } from '@stream-io/feeds-react-native-sdk';
 import type { FeedsClient } from '@stream-io/feeds-react-native-sdk';
 import { MobileUser } from '../auth/authService';
 import { Colors, Typography } from '../theme/colors';
+import { subscribeToNetworkStatus } from '../network/networkStatus';
 import { STREAM_API_KEY, isStreamConfigured } from './config';
 import { fetchStreamIdentity, streamTokenProvider, StreamIdentity } from './auth';
 import { streamTheme } from './theme';
@@ -49,16 +50,42 @@ export function StreamRoot({ profile, children }: Props) {
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt(a => a + 1), []);
 
+  // A single blip (slow tower, dropped packet - common on the connections most members are on) used to
+  // strand the user on a manual "Chat unavailable / Try again" screen. This retries quietly a couple of
+  // times with backoff before showing an error, and retries again the moment the device is back online -
+  // matching how `syncEngine` already treats connectivity elsewhere in the app.
   useEffect(() => {
     setIdentity(null);
     setError(undefined);
     if (!profile || !isStreamConfigured) return;
     let cancelled = false;
-    fetchStreamIdentity()
-      .then(id => !cancelled && setIdentity(id))
-      .catch(e => !cancelled && setError(e?.message ?? 'Chat is temporarily unavailable.'));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const attemptFetch = (retriesLeft: number, delayMs: number) => {
+      fetchStreamIdentity()
+        .then(id => !cancelled && setIdentity(id))
+        .catch(e => {
+          if (cancelled) return;
+          if (retriesLeft > 0) {
+            timer = setTimeout(() => attemptFetch(retriesLeft - 1, delayMs * 2), delayMs);
+          } else {
+            setError(e?.message ?? 'Chat is temporarily unavailable.');
+          }
+        });
+    };
+    attemptFetch(2, 1500); // 3 tries total: immediate, +1.5s, +3s
+
+    const unsubscribeNetwork = subscribeToNetworkStatus(status => {
+      if (status === 'online' && !cancelled) {
+        setError(undefined);
+        attemptFetch(2, 1500);
+      }
+    });
+
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
+      unsubscribeNetwork();
     };
   }, [profile?.id, attempt]);
 
@@ -125,7 +152,7 @@ function Connected({ identity, retry, children }: { identity: StreamIdentity; re
   return (
     <StreamStateContext.Provider value={value}>
       <OverlayProvider value={{ style: streamTheme }}>
-        <Chat client={chatClient} style={streamTheme}>
+        <Chat client={chatClient} style={streamTheme} enableOfflineSupport>
           <WithComponents overrides={streamOverrides}>{children}</WithComponents>
         </Chat>
       </OverlayProvider>

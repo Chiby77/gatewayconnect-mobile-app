@@ -9,7 +9,7 @@ import { PostCard } from './PostCard';
 
 const keyExtractor = (item: ActivityResponse) => item.id;
 
-function InnerList({ feed, onOpenComments, emptyTitle, emptyBody }: { feed: Feed; onOpenComments: (id: string) => void; emptyTitle: string; emptyBody: string }) {
+function InnerList({ feed, onOpenComments, onOpenProfile, emptyTitle, emptyBody }: { feed: Feed; onOpenComments: (id: string) => void; onOpenProfile?: (userId: string) => void; emptyTitle: string; emptyBody: string }) {
   const insets = useSafeAreaInsets();
   const { activities, is_loading, has_next_page, loadNextPage } = useFeedActivities(feed) ?? {};
   const [refreshing, setRefreshing] = useState(false);
@@ -23,7 +23,7 @@ function InnerList({ feed, onOpenComments, emptyTitle, emptyBody }: { feed: Feed
     }
   }, [feed]);
 
-  const renderItem = useCallback(({ item }: { item: ActivityResponse }) => <PostCard activity={item} onOpenComments={onOpenComments} />, [onOpenComments]);
+  const renderItem = useCallback(({ item }: { item: ActivityResponse }) => <PostCard activity={item} onOpenComments={onOpenComments} onOpenProfile={onOpenProfile} />, [onOpenComments, onOpenProfile]);
 
   if (is_loading && (!activities || activities.length === 0)) {
     return (
@@ -53,7 +53,7 @@ function InnerList({ feed, onOpenComments, emptyTitle, emptyBody }: { feed: Feed
   );
 }
 
-export function ActivityList(props: { feed?: Feed; onOpenComments: (id: string) => void; emptyTitle: string; emptyBody: string }) {
+export function ActivityList(props: { feed?: Feed; onOpenComments: (id: string) => void; onOpenProfile?: (userId: string) => void; emptyTitle: string; emptyBody: string }) {
   if (!props.feed) {
     return (
       <View style={styles.empty}>
@@ -63,7 +63,7 @@ export function ActivityList(props: { feed?: Feed; onOpenComments: (id: string) 
   }
   return (
     <StreamFeed feed={props.feed}>
-      <InnerList feed={props.feed} onOpenComments={props.onOpenComments} emptyTitle={props.emptyTitle} emptyBody={props.emptyBody} />
+      <InnerList feed={props.feed} onOpenComments={props.onOpenComments} onOpenProfile={props.onOpenProfile} emptyTitle={props.emptyTitle} emptyBody={props.emptyBody} />
     </StreamFeed>
   );
 }

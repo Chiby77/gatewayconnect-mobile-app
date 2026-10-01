@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, Image } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 import * as Notifications from 'expo-notifications';
@@ -10,7 +10,7 @@ import { countPendingMutations } from './src/sync/outbox';
 import { startSyncEngine } from './src/sync/syncEngine';
 import { getSyncState, subscribeToSyncState, SyncState } from './src/sync/syncStatus';
 import { BibleRepository } from './src/bible/bibleRepository';
-import { getCachedProfile, MobileUser, subscribeToAuth } from './src/auth/authService';
+import { getCachedProfile, initAuthListener, MobileUser, subscribeToAuth } from './src/auth/authService';
 import { startRealtimePersistence } from './src/remote/realtimeService';
 import { registerBackgroundSync } from './src/sync/backgroundSync';
 import { enforceExpiration } from './src/media/downloadManager';
@@ -23,9 +23,11 @@ import { AppHeader } from './src/components/AppHeader';
 import { TabBar, Screen } from './src/components/TabBar';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { SermonScreen } from './src/screens/SermonScreen';
+import { EventScreen } from './src/screens/EventScreen';
 import { BibleScreen } from './src/screens/BibleScreen';
 import { PrayerScreen } from './src/screens/PrayerScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ProfileFeedScreen } from './src/screens/feed/ProfileFeedScreen';
 import { StoreScreen } from './src/screens/StoreScreen';
 import { LiveScreen } from './src/screens/LiveScreen';
 import { ChatFeatureScreen } from './src/screens/ChatFeatureScreen';
@@ -61,11 +63,31 @@ export default function App() {
   const [authModalPrompt, setAuthModalPrompt] = useState<string | undefined>(undefined);
   const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | null>(null);
   const [showDonateModal, setShowDonateModal] = useState(false);
+  const [viewedProfileUserId, setViewedProfileUserId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pendingChatCid, setPendingChatCid] = useState<string | null>(null);
 
   const handleRequestAuth = (prompt?: string) => {
     setAuthModalPrompt(prompt);
     setAuthModalMode('signin');
     setAuthModalVisible(true);
+  };
+
+  // Tapping any avatar/name (a post author, a suggested account, a comment) routes through here:
+  // your own id just switches to the Me tab, anyone else opens their profile as a full-screen overlay.
+  const handleOpenProfile = (userId: string) => {
+    if (profile && userId === profile.id) {
+      setViewedProfileUserId(null);
+      setScreen('profile');
+    } else {
+      setViewedProfileUserId(userId);
+    }
+  };
+
+  const handleOpenChatFromProfile = (cid: string) => {
+    setViewedProfileUserId(null);
+    setPendingChatCid(cid);
+    setScreen('chat');
   };
 
   useEffect(() => {
@@ -93,6 +115,9 @@ export default function App() {
         registerForPushNotificationsAsync(p.id);
       }
     });
+    // Keeps `profile` (and everything gated on it, incl. Stream chat/community) in sync with what
+    // Supabase actually thinks the session is - see initAuthListener's own comment for why this matters.
+    const unsubAuthListener = initAuthListener();
 
 
     const unsubNetwork = subscribeToNetworkStatus(s => {
@@ -106,6 +131,7 @@ export default function App() {
     void enforceExpiration();
     return () => {
       unsubAuth();
+      unsubAuthListener();
       unsubNetwork();
       unsubscribeNetwork();
       stopSync();
@@ -236,14 +262,33 @@ export default function App() {
         ) : screen === 'chat' ? (
           <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="light-content" backgroundColor={Colors.bg} translucent={false} />
-            <ChatFeatureScreen onBack={() => setScreen('home')} />
+            <ChatFeatureScreen onBack={() => setScreen('home')} initialCid={pendingChatCid} onConsumedInitialCid={() => setPendingChatCid(null)} />
           </SafeAreaView>
         ) : (
           <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="light-content" backgroundColor={Colors.bg} translucent={false} />
-            {screen === 'community' ? (
+            {viewedProfileUserId ? (
+              <ProfileFeedScreen
+                userId={viewedProfileUserId}
+                profile={profile}
+                onBack={() => setViewedProfileUserId(null)}
+                onOpenChat={handleOpenChatFromProfile}
+                onOpenProfile={handleOpenProfile}
+              />
+            ) : screen === 'community' ? (
               // Community is now a full-screen social feed (its own header/tabs), not a ScrollView section.
-              <CommunityFeedScreen />
+              <CommunityFeedScreen onOpenProfile={handleOpenProfile} />
+            ) : screen === 'profile' && profile ? (
+              // Own profile is now the IG-style screen (avatar/bio/stats/grid); account settings, sign
+              // out, badges, and downloads - all real, unrelated to the social profile - stay one tap
+              // away behind the gear icon rather than being replaced.
+              <ProfileFeedScreen
+                profile={profile}
+                onOpenChat={handleOpenChatFromProfile}
+                onOpenProfile={handleOpenProfile}
+                onProfileUpdated={setProfile}
+                onOpenSettings={() => setSettingsOpen(true)}
+              />
             ) : (
               <>
                 <AppHeader
@@ -269,6 +314,7 @@ export default function App() {
                       onNavigateStore={() => setScreen('store')}
                       onNavigateSermons={() => setScreen('sermons')}
                       onNavigateLive={() => setScreen('live')}
+                      onNavigateEvents={() => setScreen('events')}
                       onNavigateProfile={() => setScreen('profile')}
                     />
                   )}
@@ -276,6 +322,12 @@ export default function App() {
                     <SermonScreen
                       profile={profile}
                       onRequestAuth={handleRequestAuth}
+                      onNavigateHome={() => setScreen('home')}
+                    />
+                  )}
+                  {screen === 'events' && (
+                    <EventScreen
+                      profile={profile}
                       onNavigateHome={() => setScreen('home')}
                     />
                   )}
@@ -329,6 +381,39 @@ export default function App() {
               profile={profile}
               onRequestAuth={handleRequestAuth}
             />
+
+            {/* Account settings - sign out, badges, downloads, password, legal - reached from the gear
+                icon on the new IG-style profile screen. ProfileScreen itself is unchanged. */}
+            <Modal visible={settingsOpen} animationType="slide" onRequestClose={() => setSettingsOpen(false)}>
+              <SafeAreaView style={styles.safeArea}>
+                <StatusBar barStyle="light-content" backgroundColor={Colors.bg} translucent={false} />
+                <View style={styles.settingsModalHeader}>
+                  <Pressable onPress={() => setSettingsOpen(false)} hitSlop={10} accessibilityLabel="Close settings">
+                    <Ionicons name="close" size={24} color={Colors.textPrimary} />
+                  </Pressable>
+                  <Text style={styles.settingsModalTitle}>Settings</Text>
+                  <View style={{ width: 24 }} />
+                </View>
+                <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                  <ProfileScreen
+                    profile={profile}
+                    onGuest={() => {
+                      setSettingsOpen(false);
+                      setScreen('home');
+                    }}
+                    onNavigateBible={() => {
+                      setSettingsOpen(false);
+                      setScreen('bible');
+                    }}
+                    onNavigateCommunity={() => {
+                      setSettingsOpen(false);
+                      setScreen('community');
+                    }}
+                    onRequestAuth={handleRequestAuth}
+                  />
+                </ScrollView>
+              </SafeAreaView>
+            </Modal>
           </SafeAreaView>
         )}
       </OwnFeedsProvider>
@@ -337,6 +422,16 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  settingsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  settingsModalTitle: { fontFamily: Typography.fontBold, fontSize: 16, color: Colors.textPrimary },
   loadingScreen: {
     flex: 1,
     backgroundColor: Colors.bg,

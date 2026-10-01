@@ -37,9 +37,9 @@ export function FollowButton({ userId }: { userId: string }) {
 
 const styles = StyleSheet.create({
   btn: { minWidth: 92, alignItems: 'center', paddingVertical: 7, paddingHorizontal: 14, borderRadius: Radii.full },
-  follow: { backgroundColor: Colors.gold },
+  follow: { backgroundColor: Colors.primary },
   following: { borderWidth: 1, borderColor: Colors.borderStrong },
   label: { fontFamily: Typography.fontSemiBold, fontSize: 13 },
-  followLabel: { color: '#09090b' },
+  followLabel: { color: '#ffffff' },
   followingLabel: { color: Colors.textSecondary },
 });

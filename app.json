@@ -44,7 +44,8 @@
         {
           "photosPermission": "GatewayConnect uses your photos so you can attach pictures to community posts."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "ios": {
       "supportsTablet": true,

@@ -19,6 +19,7 @@ interface HomeScreenProps {
   onNavigateStore: () => void;
   onNavigateSermons?: () => void;
   onNavigateLive?: () => void;
+  onNavigateEvents?: () => void;
   onRequestAuth?: (prompt?: string) => void;
   onNavigateProfile?: () => void;
 }
@@ -101,6 +102,7 @@ export function HomeScreen({
   onNavigateStore,
   onNavigateSermons,
   onNavigateLive,
+  onNavigateEvents,
   onRequestAuth,
   onNavigateProfile,
 }: HomeScreenProps) {
@@ -629,7 +631,9 @@ export function HomeScreen({
           <Ionicons name="calendar" size={16} color={Colors.gold} />
           <Text style={styles.sectionTitle}>Upcoming Services</Text>
         </View>
-        <Text style={styles.viewAllText}>Believers Calendar</Text>
+        <Pressable onPress={onNavigateEvents}>
+          <Text style={styles.viewAllText}>Believers Calendar</Text>
+        </Pressable>
       </View>
 
       <View style={styles.eventsGrid}>

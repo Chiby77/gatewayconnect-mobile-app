@@ -128,7 +128,7 @@ function CommentInput({ activity }: { activity: ActivityWithStateUpdates }) {
         maxLength={1000}
       />
       <Pressable onPress={submit} disabled={!can} style={[styles.send, !can && { opacity: 0.4 }]} accessibilityLabel="Send comment">
-        {sending ? <ActivityIndicator color="#09090b" /> : <Ionicons name="arrow-up" size={20} color="#09090b" />}
+        {sending ? <ActivityIndicator color="#ffffff" /> : <Ionicons name="arrow-up" size={20} color="#ffffff" />}
       </Pressable>
     </View>
   );
@@ -146,5 +146,5 @@ const styles = StyleSheet.create({
   empty: { textAlign: 'center', color: Colors.textMuted, fontFamily: Typography.fontRegular, padding: 40 },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderTopWidth: 1, borderTopColor: Colors.border },
   input: { flex: 1, backgroundColor: Colors.bgSecondary, borderRadius: Radii.full, paddingHorizontal: 16, paddingVertical: 10, color: Colors.textPrimary, fontFamily: Typography.fontRegular, fontSize: 15 },
-  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
+  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
 });

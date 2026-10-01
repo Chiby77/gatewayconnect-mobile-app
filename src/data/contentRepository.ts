@@ -14,6 +14,23 @@ export function listContent(type?: ContentItem['type']): ContentItem[] {
   return rows.map(row => ({ ...row, metadata: JSON.parse(row.metadata || '{}') }));
 }
 
+export interface EventItem {
+  id: string;
+  title: string;
+  event_date: string;
+  event_time: string;
+  location: string;
+  description: string | null;
+  banner_url: string | null;
+  category: string | null;
+  created_at: string;
+}
+
+export function listEvents(): EventItem[] {
+  return getDatabase().getAllSync<EventItem>(`SELECT * FROM events ORDER BY event_date ASC, event_time ASC`);
+}
+
+
 export interface PrayerRequest {
   id: string;
   user_id: string | null;

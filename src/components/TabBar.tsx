@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Typography, Radii } from '../theme/colors';
 
-export type Screen = 'home' | 'sermons' | 'bible' | 'community' | 'prayer' | 'store' | 'profile' | 'live' | 'chat';
+export type Screen = 'home' | 'sermons' | 'bible' | 'community' | 'prayer' | 'store' | 'profile' | 'live' | 'chat' | 'events';
 
 interface TabBarProps {
   screen: Screen;
