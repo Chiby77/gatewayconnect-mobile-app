@@ -22,6 +22,11 @@ export interface SermonItem {
   duration: string;
   youtubeId: string;
   thumbnailUrl: string;
+  source?: 'youtube' | 'facebook' | 'uploaded';
+  facebookVideoUrl?: string;
+  videoUrl?: string;
+  fileSizeMb?: number;
+  views?: string;
   isPaid?: boolean;
   priceUsd?: number;
 }
@@ -211,6 +216,9 @@ export const SEED_SERMONS: SermonItem[] = [
     duration: '42m',
     youtubeId: '-CibsaxijIk',
     thumbnailUrl: 'https://img.youtube.com/vi/-CibsaxijIk/hqdefault.jpg',
+    source: 'youtube',
+    fileSizeMb: 48,
+    views: '14.2K views',
   },
   {
     id: 'sermon_1',
@@ -221,6 +229,37 @@ export const SEED_SERMONS: SermonItem[] = [
     duration: '35m',
     youtubeId: 'upeY03DKvTo',
     thumbnailUrl: 'https://img.youtube.com/vi/upeY03DKvTo/hqdefault.jpg',
+    source: 'youtube',
+    fileSizeMb: 39,
+    views: '19.8K views',
+  },
+  {
+    id: 'sermon_fb_live_1',
+    title: 'Facebook Live: Midweek Prophetic Altar & Deliverance Service',
+    body: 'Full Facebook Live Sanctuary broadcast from Harare with Apostle Joe Daniels. Experience atmospheric worship, prophetic word of knowledge, and instant testimonies.',
+    speaker: 'Apostle Joe Daniels',
+    series: 'Facebook Live Stream',
+    duration: '58m',
+    youtubeId: 'Im5BmoPwSHI',
+    facebookVideoUrl: 'https://www.facebook.com/facebook/videos/10153231379946729/',
+    thumbnailUrl: 'https://img.youtube.com/vi/Im5BmoPwSHI/hqdefault.jpg',
+    source: 'facebook',
+    fileSizeMb: 64,
+    views: '22.4K views',
+  },
+  {
+    id: 'sermon_uploaded_1',
+    title: 'Sanctuary Direct Upload: Commanding the Morning & Prophetic Decrees',
+    body: 'Uploaded directly from the Gateway Sanctuary media desk for high-speed in-app playback and one-tap offline downloading.',
+    speaker: 'Apostle Joe Daniels',
+    series: 'Uploaded Sanctuary HD',
+    duration: '18m',
+    youtubeId: 'iaHCBW8XDGU',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    thumbnailUrl: 'https://img.youtube.com/vi/iaHCBW8XDGU/hqdefault.jpg',
+    source: 'uploaded',
+    fileSizeMb: 24,
+    views: '9.6K views',
   },
   {
     id: 'sermon_2',
@@ -231,6 +270,9 @@ export const SEED_SERMONS: SermonItem[] = [
     duration: '48m',
     youtubeId: 'Im5BmoPwSHI',
     thumbnailUrl: 'https://img.youtube.com/vi/Im5BmoPwSHI/hqdefault.jpg',
+    source: 'youtube',
+    fileSizeMb: 54,
+    views: '31.1K views',
   },
   {
     id: 'sermon_4',
@@ -241,6 +283,9 @@ export const SEED_SERMONS: SermonItem[] = [
     duration: '28m',
     youtubeId: 'iaHCBW8XDGU',
     thumbnailUrl: 'https://img.youtube.com/vi/iaHCBW8XDGU/hqdefault.jpg',
+    source: 'youtube',
+    fileSizeMb: 32,
+    views: '18.5K views',
   },
   {
     id: 'sermon_5',
@@ -251,6 +296,9 @@ export const SEED_SERMONS: SermonItem[] = [
     duration: '52m',
     youtubeId: '6STJ8Hv4RE8',
     thumbnailUrl: 'https://img.youtube.com/vi/6STJ8Hv4RE8/hqdefault.jpg',
+    source: 'youtube',
+    fileSizeMb: 59,
+    views: '27.3K views',
   },
   {
     id: 'sermon_masterclass_1',
@@ -261,6 +309,9 @@ export const SEED_SERMONS: SermonItem[] = [
     duration: '1h 15m',
     youtubeId: '-CibsaxijIk',
     thumbnailUrl: 'https://img.youtube.com/vi/-CibsaxijIk/hqdefault.jpg',
+    source: 'youtube',
+    fileSizeMb: 85,
+    views: '11.9K views',
     isPaid: true,
     priceUsd: 30,
   },
@@ -457,3 +508,806 @@ export function createGivingReceipt(params: {
     }),
   };
 }
+
+export interface MemberProfile {
+  id: string;
+  name: string;
+  handle: string;
+  role: string;
+  verified: boolean;
+  avatarColor: string;
+  initials: string;
+  bio: string;
+  location: string;
+  followersCount: number;
+  followingCount: number;
+  postsCount: number;
+}
+
+export interface StoryItem {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorHandle: string;
+  verified: boolean;
+  avatarColor: string;
+  initials: string;
+  caption: string;
+  imageKey: string;
+  timestamp: string;
+  viewed?: boolean;
+  likes?: number;
+}
+
+export interface SocialComment {
+  id: string;
+  authorName: string;
+  authorHandle: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface SocialPost {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorHandle: string;
+  authorRole: string;
+  verified: boolean;
+  avatarColor: string;
+  initials: string;
+  body: string;
+  imageKey?: string;
+  customImageUrl?: string;
+  scriptureTag?: string;
+  timestamp: string;
+  likes: number;
+  liked?: boolean;
+  reposts: number;
+  reposted?: boolean;
+  bookmarked?: boolean;
+  comments: SocialComment[];
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: string;
+  isMe: boolean;
+  status: 'sent' | 'delivered' | 'read';
+  imageKey?: string;
+  reaction?: string;
+}
+
+export interface ChatThread {
+  id: string;
+  name: string;
+  handle: string;
+  type: 'direct' | 'group';
+  avatarColor: string;
+  initials: string;
+  verified?: boolean;
+  online?: boolean;
+  membersCount?: number;
+  unreadCount: number;
+  lastMessage: string;
+  lastTimestamp: string;
+  messages: ChatMessage[];
+}
+
+export interface MinistryPage {
+  id: string;
+  name: string;
+  handle: string;
+  category: string;
+  description: string;
+  followersCount: number;
+  verified: boolean;
+  avatarColor: string;
+  initials: string;
+  bannerKey: string;
+}
+
+export interface PrayerAlertNotification {
+  id: string;
+  prayerId: string;
+  prayerTitle: string;
+  authorName: string;
+  newPrayingCount: number;
+  delta: number;
+  timestamp: string;
+  read: boolean;
+}
+
+export const SEED_PROFILES: MemberProfile[] = [
+  {
+    id: 'usr_apostle_joe',
+    name: 'Apostle Joe Daniels',
+    handle: '@apostlejoedaniels',
+    role: 'Senior Visionary',
+    verified: true,
+    avatarColor: '#0095f6',
+    initials: 'JD',
+    bio: 'Visionary Leader of Gateway Sanctuary International 🌍 | Raising Kingdom Giants | Make Heaven Crowded ✨🙏',
+    location: 'Harare, Zimbabwe',
+    followersCount: 48200,
+    followingCount: 124,
+    postsCount: 342,
+  },
+  {
+    id: 'usr_melinda',
+    name: 'Prophetess Melinda Daniels',
+    handle: '@melindadaniels',
+    role: 'Passion Ladies Lead',
+    verified: true,
+    avatarColor: '#ec4899',
+    initials: 'MD',
+    bio: 'Leading Passion Ladies Ministry 🌸 | Intercessor, Mother & Prophetic Voice | Proverbs 31 Woman ✨',
+    location: 'Harare, Zimbabwe',
+    followersCount: 29400,
+    followingCount: 185,
+    postsCount: 218,
+  },
+  {
+    id: 'usr_ignite',
+    name: 'Ignite Worship Team',
+    handle: '@igniteworshipzw',
+    role: 'Official Worship',
+    verified: true,
+    avatarColor: '#6366f1',
+    initials: 'IW',
+    bio: 'Atmospheric praise & prophetic worship from Gateway Sanctuary 🎶🔥 New live sessions every Sunday!',
+    location: 'Belvedere Sanctuary',
+    followersCount: 15800,
+    followingCount: 64,
+    postsCount: 129,
+  },
+  {
+    id: 'usr_chiedza',
+    name: 'Sister Chiedza M.',
+    handle: '@chiedza_grace',
+    role: 'Covenant Partner',
+    verified: false,
+    avatarColor: '#10b981',
+    initials: 'CM',
+    bio: 'Living testimony of Jesus’ healing power 🙌 | Passion Ladies & Sanctuary Choir member 💙',
+    location: 'Bulawayo / Harare',
+    followersCount: 1420,
+    followingCount: 390,
+    postsCount: 47,
+  },
+  {
+    id: 'usr_tinashe',
+    name: 'Brother Tinashe C.',
+    handle: '@tinashe_kingdom',
+    role: 'Pride of Lions',
+    verified: false,
+    avatarColor: '#0284c7',
+    initials: 'TC',
+    bio: 'Marketplace believer & Pride of Lions coordinator 🦁 | Step in Faith (2 Cor 5:7) 📈',
+    location: 'Harare, Zimbabwe',
+    followersCount: 980,
+    followingCount: 310,
+    postsCount: 31,
+  },
+];
+
+export const SEED_STORIES: StoryItem[] = [
+  {
+    id: 'story_1',
+    authorId: 'usr_apostle_joe',
+    authorName: 'Apostle Joe',
+    authorHandle: '@apostlejoedaniels',
+    verified: true,
+    avatarColor: '#0095f6',
+    initials: 'JD',
+    caption: '🔥 This week every closed door before your family is opening by fire! Walk in dominion! 🙌✨',
+    imageKey: 'apostlePreaching',
+    timestamp: '18m ago',
+    likes: 412,
+  },
+  {
+    id: 'story_2',
+    authorId: 'usr_melinda',
+    authorName: 'Prophetess Melinda',
+    authorHandle: '@melindadaniels',
+    verified: true,
+    avatarColor: '#ec4899',
+    initials: 'MD',
+    caption: '🌸 Passion Ladies Prayer Altar was electric tonight! Thank You Jesus for restored homes 💙🙏',
+    imageKey: 'altarCall',
+    timestamp: '1h ago',
+    likes: 289,
+  },
+  {
+    id: 'story_3',
+    authorId: 'usr_ignite',
+    authorName: 'Ignite Worship',
+    authorHandle: '@igniteworshipzw',
+    verified: true,
+    avatarColor: '#6366f1',
+    initials: 'IW',
+    caption: '🎶 Soundcheck & rehearsal for Sunday Glorious Service! Heaven is touching Harare! 🔥🎤',
+    imageKey: 'choirPraise',
+    timestamp: '2h ago',
+    likes: 194,
+  },
+  {
+    id: 'story_4',
+    authorId: 'usr_tinashe',
+    authorName: 'Bro Tinashe',
+    authorHandle: '@tinashe_kingdom',
+    verified: false,
+    avatarColor: '#0284c7',
+    initials: 'TC',
+    caption: '🦁 Pride of Lions Saturday morning fellowship! Iron sharpens iron 💪🔥',
+    imageKey: 'fellowshipGathering',
+    timestamp: '4h ago',
+    likes: 87,
+  },
+];
+
+export const SEED_SOCIAL_POSTS: SocialPost[] = [
+  {
+    id: 'post_1',
+    authorId: 'usr_apostle_joe',
+    authorName: 'Apostle Joe Daniels',
+    authorHandle: '@apostlejoedaniels',
+    authorRole: 'Senior Visionary',
+    verified: true,
+    avatarColor: '#0095f6',
+    initials: 'JD',
+    body: 'God changes your circle before He changes your life! 🌍✨ When heaven is ready to shift you into a new season of favor, He aligns you with voices that speak to your destiny. Drop an "AMEN 🔥" if you are ready for divine acceleration this week!',
+    imageKey: 'apostlePreaching',
+    scriptureTag: 'Isaiah 49:15-16',
+    timestamp: '25m',
+    likes: 642,
+    liked: false,
+    reposts: 148,
+    reposted: false,
+    comments: [
+      {
+        id: 'c_1',
+        authorName: 'Sister Chiedza M.',
+        authorHandle: '@chiedza_grace',
+        text: 'AMEN 🔥🙌 Receiving this prophetic word for my household!',
+        timestamp: '19m',
+      },
+      {
+        id: 'c_2',
+        authorName: 'Brother Tinashe C.',
+        authorHandle: '@tinashe_kingdom',
+        text: 'Powerful word Papa! Divine alignment is our portion 💙✨',
+        timestamp: '12m',
+      },
+    ],
+  },
+  {
+    id: 'post_2',
+    authorId: 'usr_ignite',
+    authorName: 'Ignite Worship Team',
+    authorHandle: '@igniteworshipzw',
+    authorRole: 'Official Worship',
+    verified: true,
+    avatarColor: '#6366f1',
+    initials: 'IW',
+    body: 'Nothing compares to the presence of God in the sanctuary! 🎶🙌 When praises go up, chains fall down. Which worship anthem has been carrying your spirit this week? 👇💙',
+    imageKey: 'sanctuaryWorship',
+    scriptureTag: 'Psalm 150:6',
+    timestamp: '2h',
+    likes: 318,
+    liked: true,
+    reposts: 76,
+    reposted: false,
+    comments: [
+      {
+        id: 'c_3',
+        authorName: 'Prophetess Melinda Daniels',
+        authorHandle: '@melindadaniels',
+        text: 'The atmosphere on Sunday was truly heaven on earth! 🔥🎶',
+        timestamp: '1h',
+      },
+    ],
+  },
+  {
+    id: 'post_3',
+    authorId: 'usr_chiedza',
+    authorName: 'Sister Chiedza M.',
+    authorHandle: '@chiedza_grace',
+    authorRole: 'Covenant Partner',
+    verified: false,
+    avatarColor: '#10b981',
+    initials: 'CM',
+    body: 'TESTIMONY TIME 😭🙌 After prayer at the Sunday Glorious Service, the doctors in Bulawayo ran confirmatory scans and the tumor is COMPLETELY GONE! Never stop trusting Jesus! 💙🙏✨',
+    imageKey: 'sundayGlory',
+    scriptureTag: 'Jeremiah 30:17',
+    timestamp: '4h',
+    likes: 512,
+    liked: false,
+    reposts: 119,
+    reposted: false,
+    comments: [],
+  },
+];
+
+export const SEED_CHAT_THREADS: ChatThread[] = [
+  {
+    id: 'chat_sanctuary_lounge',
+    name: 'Gateway Global Family 🌍',
+    handle: '1,420 members online',
+    type: 'group',
+    avatarColor: '#0095f6',
+    initials: 'GG',
+    verified: true,
+    online: true,
+    membersCount: 4850,
+    unreadCount: 3,
+    lastMessage: 'Apostle Joe: See you all at Wednesday Dominion Service! 🔥',
+    lastTimestamp: '10:42 AM',
+    messages: [
+      {
+        id: 'm_1',
+        senderId: 'usr_melinda',
+        senderName: 'Prophetess Melinda 🌸',
+        text: 'Good morning Gateway family! May peace and unusual favor follow you today 💙✨',
+        timestamp: '10:15 AM',
+        isMe: false,
+        status: 'read',
+      },
+      {
+        id: 'm_2',
+        senderId: 'usr_tinashe',
+        senderName: 'Brother Tinashe 🦁',
+        text: 'Amen! Standing in agreement from Harare CBD 🙌🔥',
+        timestamp: '10:28 AM',
+        isMe: false,
+        status: 'delivered',
+      },
+      {
+        id: 'm_3',
+        senderId: 'usr_apostle_joe',
+        senderName: 'Apostle Joe Daniels',
+        text: 'See you all at Wednesday Dominion Service! Come expectant for miracles 🔥🙏',
+        timestamp: '10:42 AM',
+        isMe: false,
+        status: 'sent',
+      },
+    ],
+  },
+  {
+    id: 'chat_pastoral_care',
+    name: 'Pastoral Prayer & Care 🙏',
+    handle: 'Direct Ministry Line',
+    type: 'direct',
+    avatarColor: '#0284c7',
+    initials: 'PC',
+    verified: true,
+    online: true,
+    unreadCount: 1,
+    lastMessage: 'We are standing in prayer with your household today 💙',
+    lastTimestamp: '09:30 AM',
+    messages: [
+      {
+        id: 'm_4',
+        senderId: 'usr_pastoral',
+        senderName: 'Pastoral Care Desk',
+        text: 'Shalom beloved! How can our intercessory team pray with you this week? 🙏💙',
+        timestamp: '09:15 AM',
+        isMe: false,
+        status: 'read',
+      },
+      {
+        id: 'm_5',
+        senderId: 'usr_me',
+        senderName: 'You',
+        text: 'Thank you so much! Praying for wisdom and peace over our family.',
+        timestamp: '09:24 AM',
+        isMe: true,
+        status: 'read',
+      },
+      {
+        id: 'm_6',
+        senderId: 'usr_pastoral',
+        senderName: 'Pastoral Care Desk',
+        text: 'We are standing in prayer with your household today 💙 Isaiah 54:17 is your portion!',
+        timestamp: '09:30 AM',
+        isMe: false,
+        status: 'delivered',
+      },
+    ],
+  },
+  {
+    id: 'chat_ignite_team',
+    name: 'Ignite Worship Hub 🎶',
+    handle: 'Choir & Instrumentalists',
+    type: 'group',
+    avatarColor: '#6366f1',
+    initials: 'IW',
+    verified: true,
+    online: true,
+    membersCount: 142,
+    unreadCount: 0,
+    lastMessage: 'Setlist for Sunday Glorious Service is uploaded 🎤✨',
+    lastTimestamp: 'Yesterday',
+    messages: [
+      {
+        id: 'm_7',
+        senderId: 'usr_ignite',
+        senderName: 'Ignite Worship Lead',
+        text: 'Setlist for Sunday Glorious Service is uploaded 🎤✨ Rehearsal starts Friday 6 PM sharp!',
+        timestamp: 'Yesterday',
+        isMe: false,
+        status: 'read',
+      },
+    ],
+  },
+  {
+    id: 'chat_sister_chiedza',
+    name: 'Sister Chiedza M.',
+    handle: '@chiedza_grace',
+    type: 'direct',
+    avatarColor: '#10b981',
+    initials: 'CM',
+    verified: false,
+    online: true,
+    unreadCount: 0,
+    lastMessage: 'Glory to Jesus! Your testimony blessed the whole church 🙌',
+    lastTimestamp: 'Yesterday',
+    messages: [
+      {
+        id: 'm_8',
+        senderId: 'usr_chiedza',
+        senderName: 'Sister Chiedza M.',
+        text: 'Hallelujah! Thank you for standing in prayer with me during Sunday service 💙🙏',
+        timestamp: 'Yesterday',
+        isMe: false,
+        status: 'read',
+      },
+      {
+        id: 'm_9',
+        senderId: 'usr_me',
+        senderName: 'You',
+        text: 'Glory to Jesus! Your testimony blessed the whole church 🙌',
+        timestamp: 'Yesterday',
+        isMe: true,
+        status: 'read',
+      },
+    ],
+  },
+];
+
+export const SEED_MINISTRY_PAGES: MinistryPage[] = [
+  {
+    id: 'page_apostle_jd',
+    name: 'Apostle Joe Daniels Ministries',
+    handle: '@apostlejoedaniels',
+    category: 'Apostolic & Prophetic Global Broadcast',
+    description: 'Official ministry page for global crusades, daily prophetic decrees, and apostolic teachings.',
+    followersCount: 48200,
+    verified: true,
+    avatarColor: '#0095f6',
+    initials: 'JD',
+    bannerKey: 'apostlePreaching',
+  },
+  {
+    id: 'page_gateway_media',
+    name: 'Gateway Sanctuary Media',
+    handle: '@gatewayconnectzw',
+    category: 'Live Broadcast & Reels',
+    description: 'High-definition service highlights, Sunday Glorious Service streams, and miracle testimonies.',
+    followersCount: 31500,
+    verified: true,
+    avatarColor: '#0284c7',
+    initials: 'GM',
+    bannerKey: 'sanctuaryWorship',
+  },
+  {
+    id: 'page_jd_collection',
+    name: 'JD Kingdom Apparel & Store',
+    handle: '@jdcollection_official',
+    category: 'Kingdom Streetwear & Books',
+    description: 'Wear your faith boldly. Official Make Heaven Crowded & Step In Faith apparel releases.',
+    followersCount: 19400,
+    verified: true,
+    avatarColor: '#3b82f6',
+    initials: 'JC',
+    bannerKey: 'youthIgnition',
+  },
+];
+
+/**
+ * Pure helper that compares previous prayer counts with updated prayer items from Firestore
+ * and returns any petitions whose `prayingCount` increased so the UI can alert the user.
+ */
+export function detectPrayerCountIncreases(
+  previousCounts: Record<string, number>,
+  currentPrayers: PrayerItem[]
+): Array<{ prayer: PrayerItem; delta: number }> {
+  const increases: Array<{ prayer: PrayerItem; delta: number }> = [];
+  for (const prayer of currentPrayers) {
+    const prev = previousCounts[prayer.id];
+    if (typeof prev === 'number' && prayer.prayingCount > prev) {
+      increases.push({
+        prayer,
+        delta: prayer.prayingCount - prev,
+      });
+    }
+  }
+  return increases;
+}
+
+/**
+ * Pure helper that updates all messages in the opened chat thread to status 'read'
+ * and clears unreadCount to 0 to implement read receipts when a user opens a thread.
+ */
+export function markThreadMessagesAsRead(
+  threads: ChatThread[],
+  threadId: string
+): ChatThread[] {
+  return threads.map((thread) => {
+    if (thread.id !== threadId) return thread;
+    return {
+      ...thread,
+      unreadCount: 0,
+      messages: thread.messages.map((msg) =>
+        msg.status === 'read' ? msg : { ...msg, status: 'read' as const }
+      ),
+    };
+  });
+}
+
+/**
+ * Pure helper to resolve the persisted theme preference from localStorage.
+ */
+export function resolveStoredTheme(storedValue: string | null | undefined): 'dark' | 'light' {
+  return storedValue === 'light' ? 'light' : 'dark';
+}
+
+export type DownloadStatus = 'downloading' | 'paused' | 'completed' | 'cancelled';
+
+export interface SermonDownloadTask {
+  sermonId: string;
+  sermon: SermonItem;
+  status: DownloadStatus;
+  progress: number; // 0 to 100
+  downloadedMb: number;
+  totalMb: number;
+  speedMbps: string;
+  updatedAt: number;
+}
+
+export const SEED_DOWNLOAD_TASKS: SermonDownloadTask[] = [
+  {
+    sermonId: 'sermon_uploaded_1',
+    sermon: SEED_SERMONS.find((s) => s.id === 'sermon_uploaded_1') || SEED_SERMONS[0],
+    status: 'completed',
+    progress: 100,
+    downloadedMb: 38,
+    totalMb: 38,
+    speedMbps: 'Completed',
+    updatedAt: 1711800000000,
+  },
+  {
+    sermonId: 'sermon_2',
+    sermon: SEED_SERMONS.find((s) => s.id === 'sermon_2') || SEED_SERMONS[1],
+    status: 'paused',
+    progress: 45,
+    downloadedMb: 23.4,
+    totalMb: 52,
+    speedMbps: 'Paused',
+    updatedAt: 1711800050000,
+  },
+];
+
+/**
+ * Starts a new sermon download task or resumes an existing paused/cancelled task.
+ */
+export function startOrResumeDownloadTask(
+  tasks: SermonDownloadTask[],
+  sermon: SermonItem,
+  nowMs = Date.now()
+): SermonDownloadTask[] {
+  const totalMb = sermon.fileSizeMb || 48;
+  const existing = tasks.find((t) => t.sermonId === sermon.id);
+  if (existing) {
+    const nextProgress =
+      existing.status === 'completed'
+        ? 100
+        : existing.progress <= 0 || existing.status === 'cancelled'
+        ? 12
+        : existing.progress;
+    return tasks.map((t) =>
+      t.sermonId === sermon.id
+        ? {
+            ...t,
+            status: nextProgress >= 100 ? 'completed' : 'downloading',
+            progress: nextProgress,
+            downloadedMb: Number(((totalMb * nextProgress) / 100).toFixed(1)),
+            speedMbps: nextProgress >= 100 ? 'Completed' : '4.8 MB/s',
+            updatedAt: nowMs,
+          }
+        : t
+    );
+  }
+
+  const initialProgress = 12;
+  const created: SermonDownloadTask = {
+    sermonId: sermon.id,
+    sermon: {
+      ...sermon,
+      videoUrl:
+        sermon.videoUrl ||
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    },
+    status: 'downloading',
+    progress: initialProgress,
+    downloadedMb: Number(((totalMb * initialProgress) / 100).toFixed(1)),
+    totalMb,
+    speedMbps: '4.8 MB/s',
+    updatedAt: nowMs,
+  };
+  return [created, ...tasks];
+}
+
+/**
+ * Pauses an active sermon download task, preserving its current progress.
+ */
+export function pauseDownloadTask(
+  tasks: SermonDownloadTask[],
+  sermonId: string,
+  nowMs = Date.now()
+): SermonDownloadTask[] {
+  return tasks.map((t) =>
+    t.sermonId === sermonId && t.status === 'downloading'
+      ? {
+          ...t,
+          status: 'paused',
+          speedMbps: 'Paused',
+          updatedAt: nowMs,
+        }
+      : t
+  );
+}
+
+/**
+ * Resumes a paused sermon download task from its saved progress percentage.
+ */
+export function resumeDownloadTask(
+  tasks: SermonDownloadTask[],
+  sermonId: string,
+  nowMs = Date.now()
+): SermonDownloadTask[] {
+  return tasks.map((t) =>
+    t.sermonId === sermonId && (t.status === 'paused' || t.status === 'cancelled')
+      ? {
+          ...t,
+          status: 'downloading',
+          progress: Math.max(t.progress, 10),
+          speedMbps: '5.2 MB/s',
+          updatedAt: nowMs,
+        }
+      : t
+  );
+}
+
+/**
+ * Cancels and removes an active or paused download task from the download queue.
+ */
+export function cancelDownloadTask(
+  tasks: SermonDownloadTask[],
+  sermonId: string
+): SermonDownloadTask[] {
+  return tasks.filter((t) => t.sermonId !== sermonId);
+}
+
+/**
+ * Advances all active ('downloading') tasks by `stepPercent` and returns updated tasks
+ * along with any sermons that just reached 100% completion.
+ */
+export function advanceActiveDownloadTasks(
+  tasks: SermonDownloadTask[],
+  stepPercent = 18,
+  nowMs = Date.now()
+): { tasks: SermonDownloadTask[]; newlyCompleted: SermonItem[] } {
+  const newlyCompleted: SermonItem[] = [];
+  const nextTasks = tasks.map((t) => {
+    if (t.status !== 'downloading') return t;
+    const nextProgress = Math.min(100, t.progress + stepPercent);
+    const isDone = nextProgress >= 100;
+    if (isDone) {
+      newlyCompleted.push(t.sermon);
+    }
+    return {
+      ...t,
+      status: isDone ? ('completed' as const) : ('downloading' as const),
+      progress: nextProgress,
+      downloadedMb: isDone
+        ? t.totalMb
+        : Number(((t.totalMb * nextProgress) / 100).toFixed(1)),
+      speedMbps: isDone ? 'Completed' : '5.1 MB/s',
+      updatedAt: nowMs,
+    };
+  });
+  return { tasks: nextTasks, newlyCompleted };
+}
+
+export interface VerseCardTheme {
+  id: string;
+  label: string;
+  gradientStops: [string, string, string];
+  accentColor: string;
+  textColor: string;
+  subTextColor: string;
+}
+
+export const VERSE_CARD_THEMES: VerseCardTheme[] = [
+  {
+    id: 'royal_blue',
+    label: '💙 Sanctuary Blue',
+    gradientStops: ['#051329', '#004e92', '#0095f6'],
+    accentColor: '#38bdf8',
+    textColor: '#ffffff',
+    subTextColor: '#e0f2fe',
+  },
+  {
+    id: 'covenant_gold',
+    label: '✨ Covenant Gold',
+    gradientStops: ['#1c1408', '#5c3a09', '#b45309'],
+    accentColor: '#fbbf24',
+    textColor: '#ffffff',
+    subTextColor: '#fef3c7',
+  },
+  {
+    id: 'emerald_glory',
+    label: '🌿 Emerald Glory',
+    gradientStops: ['#041f1a', '#065f46', '#059669'],
+    accentColor: '#34d399',
+    textColor: '#ffffff',
+    subTextColor: '#d1fae5',
+  },
+  {
+    id: 'crimson_altar',
+    label: '🔥 Altar Fire',
+    gradientStops: ['#280714', '#7f1d1d', '#be123c'],
+    accentColor: '#fda4af',
+    textColor: '#ffffff',
+    subTextColor: '#ffe4e6',
+  },
+  {
+    id: 'midnight_zion',
+    label: '🌌 Midnight Zion',
+    gradientStops: ['#090d16', '#1e1b4b', '#312e81'],
+    accentColor: '#818cf8',
+    textColor: '#ffffff',
+    subTextColor: '#e0e7ff',
+  },
+];
+
+/**
+ * Pure helper that wraps a scripture verse into balanced lines for canvas image rendering.
+ */
+export function wrapVerseTextIntoLines(text: string, maxCharsPerLine = 34): string[] {
+  const words = text.trim().split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    if (!currentLine) {
+      currentLine = word;
+    } else if (currentLine.length + 1 + word.length <= maxCharsPerLine) {
+      currentLine += ` ${word}`;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
+
+
+

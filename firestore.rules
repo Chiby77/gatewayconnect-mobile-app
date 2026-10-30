@@ -89,7 +89,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get: if isSignedIn() && isValidId(userId) && existing().uid == userId;
+      allow get: if isSignedIn() && isValidId(userId) && (resource == null || existing().uid == userId);
       allow create: if isVerifiedUser() &&
         isValidId(userId) &&
         userId == request.auth.uid &&
@@ -114,7 +114,7 @@ service cloud.firestore {
           isValidId(userId) &&
           isValidId(docId) &&
           userId == request.auth.uid &&
-          existing().uid == request.auth.uid &&
+          (resource == null || existing().uid == request.auth.uid) &&
           exists(/databases/$(database)/documents/users/$(userId)) &&
           get(/databases/$(database)/documents/users/$(userId)).data.uid == request.auth.uid;
         allow create: if isVerifiedUser() &&

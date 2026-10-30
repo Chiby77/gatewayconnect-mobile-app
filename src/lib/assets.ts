@@ -10,3 +10,15 @@ export const STORE_IMAGE_MAP: Record<string, string> = {
   prod_book_covenant_wealth: new URL('../../assets/store/jd_white_heaven.jpg', import.meta.url).href,
   prod_book_supernatural_dominion: new URL('../../assets/store/jd_green_faith.jpg', import.meta.url).href,
 };
+
+export const COMMUNITY_PHOTOS = {
+  apostlePreaching: 'https://img.youtube.com/vi/-CibsaxijIk/hqdefault.jpg',
+  sanctuaryWorship: 'https://img.youtube.com/vi/upeY03DKvTo/hqdefault.jpg',
+  choirPraise: 'https://img.youtube.com/vi/Im5BmoPwSHI/hqdefault.jpg',
+  altarCall: 'https://img.youtube.com/vi/iaHCBW8XDGU/hqdefault.jpg',
+  fellowshipGathering: new URL('../../assets/store/jd_white_heaven.jpg', import.meta.url).href,
+  youthIgnition: new URL('../../assets/store/jd_orange_child.jpg', import.meta.url).href,
+  sundayGlory: new URL('../../assets/store/jd_green_faith.jpg', import.meta.url).href,
+};
+
+

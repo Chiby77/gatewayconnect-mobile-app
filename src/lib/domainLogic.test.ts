@@ -6,7 +6,22 @@ import {
   filterBibleBooks,
   validateGivingInput,
   createGivingReceipt,
+  detectPrayerCountIncreases,
+  markThreadMessagesAsRead,
+  resolveStoredTheme,
+  startOrResumeDownloadTask,
+  pauseDownloadTask,
+  resumeDownloadTask,
+  cancelDownloadTask,
+  advanceActiveDownloadTasks,
+  wrapVerseTextIntoLines,
+  VERSE_CARD_THEMES,
   SEED_SERMONS,
+  SEED_PRAYERS,
+  SEED_STORIES,
+  SEED_SOCIAL_POSTS,
+  SEED_CHAT_THREADS,
+  SEED_MINISTRY_PAGES,
 } from './domainLogic';
 import { getChapterVerses } from '../data/bibleData';
 
@@ -17,9 +32,12 @@ test('formatCurrencyAmount converts USD to ZiG, GBP, ZAR accurately', () => {
   assert.equal(formatCurrencyAmount(10, 'ZAR'), 'R185');
 });
 
-test('filterSermons filters by series and search query', () => {
+test('filterSermons filters by series and search query and includes YouTube, Facebook, and Uploaded sources', () => {
   const all = filterSermons(SEED_SERMONS, 'All', '');
   assert.equal(all.length, SEED_SERMONS.length);
+  assert.ok(all.some((s) => s.source === 'youtube'));
+  assert.ok(all.some((s) => s.source === 'facebook'));
+  assert.ok(all.some((s) => s.source === 'uploaded'));
 
   const bySeries = filterSermons(SEED_SERMONS, 'Family & Marriage', '');
   assert.equal(bySeries.length, 1);
@@ -73,4 +91,88 @@ test('validateGivingInput and createGivingReceipt enforce valid offerings', () =
   assert.equal(receipt.id, 'GCZ-GIVE-123456');
   assert.equal(receipt.fund, 'Tithe');
   assert.equal(receipt.formattedAmount, '$50.00');
+});
+
+test('detectPrayerCountIncreases detects when someone prays with a petition', () => {
+  const previousCounts = {
+    pray_1: 18,
+    pray_2: 14,
+  };
+  const updatedPrayers = SEED_PRAYERS.map((p) =>
+    p.id === 'pray_1' ? { ...p, prayingCount: 20 } : p
+  );
+  const increases = detectPrayerCountIncreases(previousCounts, updatedPrayers);
+  assert.equal(increases.length, 1);
+  assert.equal(increases[0].prayer.id, 'pray_1');
+  assert.equal(increases[0].delta, 2);
+});
+
+test('markThreadMessagesAsRead updates all message statuses to read and zeroes unreadCount when opening a thread', () => {
+  const initialLounge = SEED_CHAT_THREADS.find((t) => t.id === 'chat_sanctuary_lounge')!;
+  assert.ok(initialLounge.unreadCount > 0);
+  assert.ok(initialLounge.messages.some((m) => m.status !== 'read'));
+
+  const updatedThreads = markThreadMessagesAsRead(SEED_CHAT_THREADS, 'chat_sanctuary_lounge');
+  const updatedLounge = updatedThreads.find((t) => t.id === 'chat_sanctuary_lounge')!;
+  assert.equal(updatedLounge.unreadCount, 0);
+  assert.ok(updatedLounge.messages.every((m) => m.status === 'read'));
+});
+
+test('resolveStoredTheme validates stored localStorage theme preference', () => {
+  assert.equal(resolveStoredTheme('light'), 'light');
+  assert.equal(resolveStoredTheme('dark'), 'dark');
+  assert.equal(resolveStoredTheme(null), 'dark');
+  assert.equal(resolveStoredTheme('invalid'), 'dark');
+});
+
+test('social, stories, chat threads, and ministry pages have valid structures', () => {
+  assert.ok(SEED_STORIES.length >= 4);
+  assert.ok(SEED_SOCIAL_POSTS.length >= 3);
+  assert.ok(SEED_CHAT_THREADS.length >= 4);
+  assert.ok(SEED_MINISTRY_PAGES.length >= 3);
+});
+
+test('sermon download manager supports start, advance, pause, resume, and cancel transitions', () => {
+  const targetSermon = SEED_SERMONS[0];
+  let tasks = startOrResumeDownloadTask([], targetSermon, 1000);
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0].sermonId, targetSermon.id);
+  assert.equal(tasks[0].status, 'downloading');
+  assert.equal(tasks[0].progress, 12);
+
+  // Advance progress
+  const step1 = advanceActiveDownloadTasks(tasks, 28, 2000);
+  tasks = step1.tasks;
+  assert.equal(tasks[0].progress, 40);
+  assert.equal(step1.newlyCompleted.length, 0);
+
+  // Pause task
+  tasks = pauseDownloadTask(tasks, targetSermon.id, 3000);
+  assert.equal(tasks[0].status, 'paused');
+
+  // Advancing while paused does not change progress
+  const pausedStep = advanceActiveDownloadTasks(tasks, 30, 4000);
+  assert.equal(pausedStep.tasks[0].progress, 40);
+
+  // Resume task and advance to 100% completion
+  tasks = resumeDownloadTask(tasks, targetSermon.id, 5000);
+  assert.equal(tasks[0].status, 'downloading');
+  const finalStep = advanceActiveDownloadTasks(tasks, 65, 6000);
+  assert.equal(finalStep.tasks[0].status, 'completed');
+  assert.equal(finalStep.tasks[0].progress, 100);
+  assert.equal(finalStep.newlyCompleted.length, 1);
+
+  // Cancel task removes it from queue
+  const afterCancel = cancelDownloadTask(finalStep.tasks, targetSermon.id);
+  assert.equal(afterCancel.length, 0);
+});
+
+test('wrapVerseTextIntoLines wraps scripture verses cleanly and VERSE_CARD_THEMES has presets', () => {
+  assert.ok(VERSE_CARD_THEMES.length >= 5);
+  const lines = wrapVerseTextIntoLines(
+    'The LORD is my shepherd; I shall not want. He maketh me to lie down in green pastures.',
+    28
+  );
+  assert.ok(lines.length >= 3);
+  assert.ok(lines.every((l) => l.length <= 28));
 });
