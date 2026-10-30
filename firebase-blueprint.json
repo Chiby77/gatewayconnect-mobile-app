@@ -1,0 +1,226 @@
+{
+  "entities": {
+    "PublicUserProfile": {
+      "title": "PublicUserProfile",
+      "description": "Publicly visible covenant member profile without PII.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the member.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the believer.",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "handle": {
+          "type": "string",
+          "description": "Social handle of the member.",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "memberId": {
+          "type": "string",
+          "description": "Gateway Church member identifier.",
+          "minLength": 3,
+          "maxLength": 40
+        },
+        "badgeType": {
+          "type": "string",
+          "description": "Member badge tier.",
+          "enum": ["none", "silver", "gold", "platinum", "blue", "developer"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["uid", "name", "handle", "memberId", "badgeType", "createdAt", "updatedAt"]
+    },
+    "PrivateUserInfo": {
+      "title": "PrivateUserInfo",
+      "description": "Isolated private PII document for a user.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "phone", "location", "updatedAt"]
+    },
+    "PrayerRequest": {
+      "title": "PrayerRequest",
+      "description": "Prayer petition submitted to the Gateway Church altar wall.",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "prayingCount": {
+          "type": "number",
+          "description": "Count of intercessors standing in faith."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "answered"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["authorId", "authorName", "title", "body", "prayingCount", "status", "createdAt", "updatedAt"]
+    },
+    "LiveDecree": {
+      "title": "LiveDecree",
+      "description": "Prophetic decree message posted in the live sanctuary stream.",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["authorId", "authorName", "text", "createdAt"]
+    },
+    "GivingReceiptRecord": {
+      "title": "GivingReceiptRecord",
+      "description": "Private covenant giving receipt belonging to a user.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "receiptCode": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 40
+        },
+        "amount": {
+          "type": "number"
+        },
+        "formattedAmount": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "ZiG", "GBP", "ZAR"]
+        },
+        "fund": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "status": {
+          "type": "string",
+          "enum": ["completed"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "receiptCode", "amount", "formattedAmount", "currency", "fund", "method", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/PublicUserProfile" },
+      "description": "Public covenant member profile."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/PrivateUserInfo" },
+      "description": "Isolated PII profile data accessible only by the owner."
+    },
+    "/prayerRequests/{prayerId}": {
+      "schema": { "$ref": "#/entities/PrayerRequest" },
+      "description": "Prayer requests submitted by verified members."
+    },
+    "/decrees/{decreeId}": {
+      "schema": { "$ref": "#/entities/LiveDecree" },
+      "description": "Live sanctuary decrees submitted by verified members."
+    },
+    "/givingReceipts/{receiptId}": {
+      "schema": { "$ref": "#/entities/GivingReceiptRecord" },
+      "description": "Covenant giving receipts accessible only to the donor."
+    }
+  }
+}

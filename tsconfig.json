@@ -1,30 +1,38 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "ESNext",
+    "types": ["vite/client", "node"],
     "lib": [
+      "ES2022",
       "DOM",
-      "ESNext"
+      "DOM.Iterable"
     ],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
     "allowJs": true,
-    "strict": true,
-    "noEmit": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "jsx": "react-native",
-    "moduleResolution": "bundler",
-    "customConditions": [
-      "react-native"
-    ],
-    "skipLibCheck": true
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "exclude": [
-    "node_modules",
-    "android",
-    "ios"
-  ],
-  "extends": "expo/tsconfig.base"
+    "src/main.tsx",
+    "src/WebApp.tsx",
+    "src/remote/firebase.ts",
+    "src/lib/**/*.ts",
+    "src/data/bibleData.ts",
+    "src/theme/colors.ts",
+    "firebase-applet-config.json"
+  ]
 }
