@@ -149,7 +149,7 @@ export const BibleVerseShareCard: React.FC<BibleVerseShareCardProps> = ({
     // 9. Footer Branding Watermark
     ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
     ctx.font = '600 22px "Plus Jakarta Sans", "Inter", sans-serif';
-    ctx.fillText('Gateway Connect Mobile • Apostle Joe Daniels Ministries', width / 2, 975);
+    ctx.fillText('Gateway Connect Sanctuary • Apostle Joe Daniels Ministries', width / 2, 975);
 
     try {
       const dataUrl = canvas.toDataURL('image/png');
@@ -323,7 +323,7 @@ export const BibleVerseShareCard: React.FC<BibleVerseShareCardProps> = ({
         />
         <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-xs border border-white/15 text-[9px] font-bold text-white flex items-center gap-1">
           <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-          <span>HD 1080×1080 Ready</span>
+          <span>✨ Artwork Ready</span>
         </div>
       </div>
 

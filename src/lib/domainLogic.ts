@@ -27,6 +27,8 @@ export interface SermonItem {
   videoUrl?: string;
   fileSizeMb?: number;
   views?: string;
+  publishedAt?: string;
+  savedAtMs?: number;
   isPaid?: boolean;
   priceUsd?: number;
 }
@@ -219,6 +221,7 @@ export const SEED_SERMONS: SermonItem[] = [
     source: 'youtube',
     fileSizeMb: 48,
     views: '14.2K views',
+    savedAtMs: 1711800100000,
   },
   {
     id: 'sermon_1',
@@ -232,6 +235,7 @@ export const SEED_SERMONS: SermonItem[] = [
     source: 'youtube',
     fileSizeMb: 39,
     views: '19.8K views',
+    savedAtMs: 1711800200000,
   },
   {
     id: 'sermon_fb_live_1',
@@ -246,6 +250,7 @@ export const SEED_SERMONS: SermonItem[] = [
     source: 'facebook',
     fileSizeMb: 64,
     views: '22.4K views',
+    savedAtMs: 1711800300000,
   },
   {
     id: 'sermon_uploaded_1',
@@ -260,6 +265,7 @@ export const SEED_SERMONS: SermonItem[] = [
     source: 'uploaded',
     fileSizeMb: 24,
     views: '9.6K views',
+    savedAtMs: 1711800500000,
   },
   {
     id: 'sermon_2',
@@ -529,14 +535,19 @@ export interface StoryItem {
   authorId: string;
   authorName: string;
   authorHandle: string;
+  authorAvatarUrl?: string;
   verified: boolean;
   avatarColor: string;
   initials: string;
   caption: string;
   imageKey: string;
+  customMediaUrl?: string;
+  mediaType?: 'image' | 'video';
   timestamp: string;
+  createdAtMs?: number;
+  expiresAtMs?: number;
   viewed?: boolean;
-  likes?: number;
+  likes: number;
 }
 
 export interface SocialComment {
@@ -553,12 +564,15 @@ export interface SocialPost {
   authorName: string;
   authorHandle: string;
   authorRole: string;
+  authorAvatarUrl?: string;
   verified: boolean;
   avatarColor: string;
   initials: string;
   body: string;
   imageKey?: string;
   customImageUrl?: string;
+  customVideoUrl?: string;
+  mediaType?: 'image' | 'video';
   scriptureTag?: string;
   timestamp: string;
   likes: number;
@@ -1065,7 +1079,7 @@ export function resolveStoredTheme(storedValue: string | null | undefined): 'dar
   return storedValue === 'light' ? 'light' : 'dark';
 }
 
-export type DownloadStatus = 'downloading' | 'paused' | 'completed' | 'cancelled';
+export type DownloadStatus = 'downloading' | 'paused' | 'queued' | 'completed' | 'cancelled';
 
 export interface SermonDownloadTask {
   sermonId: string;
@@ -1098,6 +1112,16 @@ export const SEED_DOWNLOAD_TASKS: SermonDownloadTask[] = [
     totalMb: 52,
     speedMbps: 'Paused',
     updatedAt: 1711800050000,
+  },
+  {
+    sermonId: 'sermon_fb_live_1',
+    sermon: SEED_SERMONS.find((s) => s.id === 'sermon_fb_live_1') || SEED_SERMONS[2],
+    status: 'queued',
+    progress: 0,
+    downloadedMb: 0,
+    totalMb: 64,
+    speedMbps: 'In Queue',
+    updatedAt: 1711800080000,
   },
 ];
 
@@ -1180,11 +1204,13 @@ export function resumeDownloadTask(
   nowMs = Date.now()
 ): SermonDownloadTask[] {
   return tasks.map((t) =>
-    t.sermonId === sermonId && (t.status === 'paused' || t.status === 'cancelled')
+    t.sermonId === sermonId &&
+    (t.status === 'paused' || t.status === 'queued' || t.status === 'cancelled')
       ? {
           ...t,
           status: 'downloading',
           progress: Math.max(t.progress, 10),
+          downloadedMb: Number(((t.totalMb * Math.max(t.progress, 10)) / 100).toFixed(1)),
           speedMbps: '5.2 MB/s',
           updatedAt: nowMs,
         }
@@ -1309,5 +1335,243 @@ export function wrapVerseTextIntoLines(text: string, maxCharsPerLine = 34): stri
   return lines;
 }
 
+/**
+ * Pure helper to parse stored search history JSON from localStorage with safe fallback.
+ */
+export function loadSearchHistory(
+  rawJson: string | null | undefined,
+  defaultQueries: string[] = []
+): string[] {
+  if (!rawJson) return defaultQueries;
+  try {
+    const parsed = JSON.parse(rawJson);
+    if (Array.isArray(parsed)) {
+      const cleaned = parsed
+        .map((item) => String(item || '').trim())
+        .filter((item) => item.length > 0);
+      return cleaned.length > 0 ? cleaned.slice(0, 8) : defaultQueries;
+    }
+  } catch {
+    // Fallback on invalid JSON
+  }
+  return defaultQueries;
+}
+
+/**
+ * Pure helper to save a new search query to the top of a recent search history list,
+ * deduplicating case-insensitively and capping at `maxItems`.
+ */
+export function saveSearchQueryToHistory(
+  currentHistory: string[],
+  query: string,
+  maxItems = 8
+): string[] {
+  const trimmed = query.trim();
+  if (!trimmed) return currentHistory;
+  const filtered = currentHistory.filter(
+    (item) => item.toLowerCase() !== trimmed.toLowerCase()
+  );
+  return [trimmed, ...filtered].slice(0, maxItems);
+}
+
+/**
+ * Pure helper to remove a specific search query chip from the history list.
+ */
+export function removeSearchQueryFromHistory(
+  currentHistory: string[],
+  queryToRemove: string
+): string[] {
+  return currentHistory.filter(
+    (item) => item.toLowerCase() !== queryToRemove.trim().toLowerCase()
+  );
+}
+
+export type OfflineSortOption = 'dateAdded' | 'alphabetical' | 'duration';
+
+/**
+ * Pure helper to parse human-readable sermon duration strings (e.g. "1h 15m", "42m", "45:00")
+ * into total minutes for sorting.
+ */
+export function parseSermonDurationMinutes(durationStr: string): number {
+  const clean = String(durationStr || '').trim().toLowerCase();
+  if (!clean) return 0;
+
+  // Match "1h 15m" or "1h" or "42m"
+  const hoursMatch = clean.match(/(\d+)\s*h/);
+  const minsMatch = clean.match(/(\d+)\s*m/);
+  if (hoursMatch || minsMatch) {
+    const hours = hoursMatch ? parseInt(hoursMatch[1], 10) : 0;
+    const mins = minsMatch ? parseInt(minsMatch[1], 10) : 0;
+    return hours * 60 + mins;
+  }
+
+  // Match "45:00" or "1:15:00"
+  if (clean.includes(':')) {
+    const parts = clean.split(':').map((p) => parseInt(p, 10) || 0);
+    if (parts.length === 3) {
+      return parts[0] * 60 + parts[1] + Math.round(parts[2] / 60);
+    }
+    if (parts.length === 2) {
+      return parts[0] + Math.round(parts[1] / 60);
+    }
+  }
+
+  const fallbackNum = parseInt(clean, 10);
+  return Number.isNaN(fallbackNum) ? 0 : fallbackNum;
+}
+
+/**
+ * Pure helper to sort offline library sermons by 'dateAdded', 'alphabetical', or 'duration'.
+ */
+export function sortOfflineSermons<T extends SermonItem>(
+  sermons: T[],
+  sortBy: OfflineSortOption
+): T[] {
+  const copy = [...sermons];
+  if (sortBy === 'alphabetical') {
+    return copy.sort((a, b) => a.title.localeCompare(b.title));
+  }
+  if (sortBy === 'duration') {
+    return copy.sort(
+      (a, b) =>
+        parseSermonDurationMinutes(b.duration) - parseSermonDurationMinutes(a.duration)
+    );
+  }
+  // 'dateAdded': sort by savedAtMs descending (most recently added first)
+  return copy.sort((a, b) => (b.savedAtMs || 0) - (a.savedAtMs || 0));
+}
+
+export type OfflineStorageStatus =
+  | 'fully_downloaded'
+  | 'partially_downloaded'
+  | 'in_queue'
+  | 'not_downloaded';
+
+export interface OfflineStorageStatusInfo {
+  status: OfflineStorageStatus;
+  label: string;
+  shortLabel: string;
+  progress: number;
+  downloadedMb: number;
+  totalMb: number;
+}
+
+/**
+ * Pure helper that determines whether a sermon is fully downloaded, partially downloaded,
+ * currently in the queue, or not downloaded.
+ */
+export function resolveSermonStorageStatus(
+  sermon: SermonItem,
+  offlineSermons: SermonItem[],
+  downloadTasks: SermonDownloadTask[]
+): OfflineStorageStatusInfo {
+  const defaultTotalMb = sermon.fileSizeMb || 48;
+  const task = downloadTasks.find((t) => t.sermonId === sermon.id);
+  const inOfflineDb = offlineSermons.some((os) => os.id === sermon.id);
+
+  if (task) {
+    if (task.status === 'completed' || task.progress >= 100) {
+      return {
+        status: 'fully_downloaded',
+        label: 'Fully Downloaded',
+        shortLabel: '✓ Fully Downloaded',
+        progress: 100,
+        downloadedMb: task.totalMb,
+        totalMb: task.totalMb,
+      };
+    }
+    if (task.status === 'queued' || task.progress <= 0) {
+      return {
+        status: 'in_queue',
+        label: 'In Queue',
+        shortLabel: '⏳ In Queue',
+        progress: 0,
+        downloadedMb: 0,
+        totalMb: task.totalMb,
+      };
+    }
+    if (task.status === 'paused' || (task.status === 'downloading' && task.progress < 100)) {
+      return {
+        status: 'partially_downloaded',
+        label: `Partially Downloaded (${task.progress}%)`,
+        shortLabel: `◐ Partial (${task.progress}%)`,
+        progress: task.progress,
+        downloadedMb: task.downloadedMb,
+        totalMb: task.totalMb,
+      };
+    }
+  }
+
+  if (inOfflineDb) {
+    return {
+      status: 'fully_downloaded',
+      label: 'Fully Downloaded',
+      shortLabel: '✓ Fully Downloaded',
+      progress: 100,
+      downloadedMb: defaultTotalMb,
+      totalMb: defaultTotalMb,
+    };
+  }
+
+  return {
+    status: 'not_downloaded',
+    label: 'Not Downloaded',
+    shortLabel: 'Not Saved',
+    progress: 0,
+    downloadedMb: 0,
+    totalMb: defaultTotalMb,
+  };
+}
+
+export const STORY_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+/**
+ * Pure helper that returns true if a story has passed its 24-hour expiration window.
+ */
+export function isStoryExpired(
+  story: Pick<StoryItem, 'createdAtMs' | 'expiresAtMs'>,
+  nowMs = Date.now()
+): boolean {
+  if (typeof story.expiresAtMs === 'number') {
+    return nowMs >= story.expiresAtMs;
+  }
+  if (typeof story.createdAtMs === 'number') {
+    return nowMs - story.createdAtMs >= STORY_EXPIRATION_MS;
+  }
+  return false;
+}
+
+/**
+ * Pure helper that filters out any stories older than 24 hours.
+ */
+export function filterActiveStories<T extends Pick<StoryItem, 'createdAtMs' | 'expiresAtMs'>>(
+  stories: T[],
+  nowMs = Date.now()
+): T[] {
+  return stories.filter((st) => !isStoryExpired(st, nowMs));
+}
+
+/**
+ * Pure helper that formats how much time remains before a story auto-removes after 24 hours.
+ */
+export function formatStoryTimeRemaining(
+  story: Pick<StoryItem, 'createdAtMs' | 'expiresAtMs'>,
+  nowMs = Date.now()
+): string {
+  const expiresAt =
+    typeof story.expiresAtMs === 'number'
+      ? story.expiresAtMs
+      : typeof story.createdAtMs === 'number'
+      ? story.createdAtMs + STORY_EXPIRATION_MS
+      : nowMs + STORY_EXPIRATION_MS;
+  const diffMs = expiresAt - nowMs;
+  if (diffMs <= 0) return 'Expired';
+  const totalMinutes = Math.ceil(diffMs / (60 * 1000));
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m left`;
+  }
+  const hours = Math.ceil(diffMs / (60 * 60 * 1000));
+  return `${Math.min(24, hours)}h left`;
+}
 
 

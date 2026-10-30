@@ -16,7 +16,18 @@ import {
   advanceActiveDownloadTasks,
   wrapVerseTextIntoLines,
   VERSE_CARD_THEMES,
+  loadSearchHistory,
+  saveSearchQueryToHistory,
+  removeSearchQueryFromHistory,
+  parseSermonDurationMinutes,
+  sortOfflineSermons,
+  resolveSermonStorageStatus,
+  STORY_EXPIRATION_MS,
+  isStoryExpired,
+  filterActiveStories,
+  formatStoryTimeRemaining,
   SEED_SERMONS,
+  SEED_DOWNLOAD_TASKS,
   SEED_PRAYERS,
   SEED_STORIES,
   SEED_SOCIAL_POSTS,
@@ -176,3 +187,109 @@ test('wrapVerseTextIntoLines wraps scripture verses cleanly and VERSE_CARD_THEME
   assert.ok(lines.length >= 3);
   assert.ok(lines.every((l) => l.length <= 28));
 });
+
+test('search history helpers load, deduplicate, prepend, and remove queries accurately', () => {
+  const defaults = ['Psalms', 'John', 'Isaiah'];
+  assert.deepEqual(loadSearchHistory(null, defaults), defaults);
+  assert.deepEqual(loadSearchHistory('invalid-json', defaults), defaults);
+  assert.deepEqual(loadSearchHistory(JSON.stringify(['Romans', 'Genesis']), defaults), [
+    'Romans',
+    'Genesis',
+  ]);
+
+  const afterSave = saveSearchQueryToHistory(['Psalms', 'John'], 'Isaiah', 5);
+  assert.deepEqual(afterSave, ['Isaiah', 'Psalms', 'John']);
+
+  // Case-insensitive deduplication moves existing query to front
+  const afterDedup = saveSearchQueryToHistory(afterSave, 'john', 5);
+  assert.deepEqual(afterDedup, ['john', 'Isaiah', 'Psalms']);
+
+  // Removing a query works case-insensitively
+  const afterRemove = removeSearchQueryFromHistory(afterDedup, 'ISAIAH');
+  assert.deepEqual(afterRemove, ['john', 'Psalms']);
+});
+
+test('parseSermonDurationMinutes and sortOfflineSermons order by dateAdded, alphabetical, and duration', () => {
+  assert.equal(parseSermonDurationMinutes('42m'), 42);
+  assert.equal(parseSermonDurationMinutes('1h 15m'), 75);
+  assert.equal(parseSermonDurationMinutes('45:00'), 45);
+
+  const sample = [
+    { ...SEED_SERMONS[0], title: 'Zebra Sermon', duration: '25m', savedAtMs: 1000 },
+    { ...SEED_SERMONS[1], title: 'Alpha Sermon', duration: '55m', savedAtMs: 3000 },
+    { ...SEED_SERMONS[2], title: 'Middle Sermon', duration: '40m', savedAtMs: 2000 },
+  ];
+
+  const byDate = sortOfflineSermons(sample, 'dateAdded');
+  assert.deepEqual(
+    byDate.map((s) => s.title),
+    ['Alpha Sermon', 'Middle Sermon', 'Zebra Sermon']
+  );
+
+  const byAlpha = sortOfflineSermons(sample, 'alphabetical');
+  assert.deepEqual(
+    byAlpha.map((s) => s.title),
+    ['Alpha Sermon', 'Middle Sermon', 'Zebra Sermon']
+  );
+
+  const byDuration = sortOfflineSermons(sample, 'duration');
+  assert.deepEqual(
+    byDuration.map((s) => s.duration),
+    ['55m', '40m', '25m']
+  );
+});
+
+test('resolveSermonStorageStatus distinguishes fully downloaded, partially downloaded, queued, and not downloaded items', () => {
+  const fullSermon = SEED_SERMONS.find((s) => s.id === 'sermon_uploaded_1')!;
+  const partialSermon = SEED_SERMONS.find((s) => s.id === 'sermon_2')!;
+  const queuedSermon = SEED_SERMONS.find((s) => s.id === 'sermon_fb_live_1')!;
+  const notSavedSermon = SEED_SERMONS.find((s) => s.id === 'sermon_4')!;
+
+  const fullStatus = resolveSermonStorageStatus(
+    fullSermon,
+    [fullSermon],
+    SEED_DOWNLOAD_TASKS
+  );
+  assert.equal(fullStatus.status, 'fully_downloaded');
+  assert.equal(fullStatus.progress, 100);
+
+  const partialStatus = resolveSermonStorageStatus(
+    partialSermon,
+    [fullSermon],
+    SEED_DOWNLOAD_TASKS
+  );
+  assert.equal(partialStatus.status, 'partially_downloaded');
+  assert.equal(partialStatus.progress, 45);
+
+  const queuedStatus = resolveSermonStorageStatus(
+    queuedSermon,
+    [fullSermon],
+    SEED_DOWNLOAD_TASKS
+  );
+  assert.equal(queuedStatus.status, 'in_queue');
+  assert.equal(queuedStatus.progress, 0);
+
+  const noneStatus = resolveSermonStorageStatus(
+    notSavedSermon,
+    [fullSermon],
+    SEED_DOWNLOAD_TASKS
+  );
+  assert.equal(noneStatus.status, 'not_downloaded');
+});
+
+test('24-hour story expiration helpers filter expired stories and format remaining time', () => {
+  const now = 1711800000000;
+  const freshStory = { id: 's1', createdAtMs: now - 2 * 60 * 60 * 1000 }; // 2 hours old
+  const expiredStory = { id: 's2', createdAtMs: now - (STORY_EXPIRATION_MS + 1000) }; // 24h + 1s old
+
+  assert.equal(isStoryExpired(freshStory, now), false);
+  assert.equal(isStoryExpired(expiredStory, now), true);
+
+  const active = filterActiveStories([freshStory, expiredStory], now);
+  assert.equal(active.length, 1);
+  assert.equal(active[0].id, 's1');
+  assert.equal(formatStoryTimeRemaining(freshStory, now), '22h left');
+  assert.equal(formatStoryTimeRemaining(expiredStory, now), 'Expired');
+});
+
+

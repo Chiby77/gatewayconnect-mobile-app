@@ -30,14 +30,16 @@ import {
   Download,
   Wifi,
   BatteryCharging,
-  Smartphone,
   Sun,
   Moon,
   Upload,
   Play,
   Trash2,
-  Code2,
-  Copy,
+  ShoppingBag,
+  Radio,
+  Clock,
+  Camera,
+  ArrowUpDown,
 } from 'lucide-react';
 import { BIBLE_BOOKS, getChapterVerses } from './data/bibleData';
 import { GATEWAY_LOGO_URL, STORE_IMAGE_MAP, COMMUNITY_PHOTOS } from './lib/assets';
@@ -77,6 +79,15 @@ import {
   resumeDownloadTask,
   cancelDownloadTask,
   advanceActiveDownloadTasks,
+  loadSearchHistory,
+  saveSearchQueryToHistory,
+  removeSearchQueryFromHistory,
+  OfflineSortOption,
+  sortOfflineSermons,
+  resolveSermonStorageStatus,
+  STORY_EXPIRATION_MS,
+  filterActiveStories,
+  formatStoryTimeRemaining,
 } from './lib/domainLogic';
 import {
   BibleVerseShareCard,
@@ -127,27 +138,40 @@ interface FloatingReaction {
 
 const STORY_REACTION_EMOJIS = ['❤️', '🔥', '🙌', '🙏', '💙', '✨'] as const;
 
-const KOTLIN_PREVIEW_SNIPPET = `package org.joedaniels.gatewayconnect
+const DEFAULT_BIBLE_SEARCH_HISTORY = ['Psalms', 'John', 'Isaiah', 'Proverbs', 'Romans'];
+const DEFAULT_SERMON_SEARCH_HISTORY = ['Dominion', 'Circle', 'Worship', 'Marriage', 'Altar'];
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.*
+interface LiveBroadcastComment {
+  id: string;
+  author: string;
+  location: string;
+  text: string;
+  timestamp: string;
+}
 
-/**
- * Gateway Connect — Native Kotlin + Jetpack Compose Android Application
- * Source Path: /android-kotlin/app/src/main/java/org/joedaniels/gatewayconnect/MainActivity.kt
- */
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            GatewayConnectMobileApp()
-        }
-    }
-}`;
+const INITIAL_LIVE_COMMENTS: LiveBroadcastComment[] = [
+  {
+    id: 'lc_1',
+    author: 'Sister Rutendo M.',
+    location: 'Harare',
+    text: 'Watching live from Borrowdale! The worship is electric 🔥🙌',
+    timestamp: 'Just now',
+  },
+  {
+    id: 'lc_2',
+    author: 'Deacon Tawanda',
+    location: 'Bulawayo',
+    text: 'Amen Apostle Joe! Walking in covenant dominion this week 🙏💙',
+    timestamp: '1m ago',
+  },
+  {
+    id: 'lc_3',
+    author: 'Grace Nyasha',
+    location: 'London, UK',
+    text: 'Connected live on the diaspora stream! Glory to God ✨🔥',
+    timestamp: '2m ago',
+  },
+];
 
 const PHOTO_PRESETS: Array<{ key: keyof typeof COMMUNITY_PHOTOS; label: string }> = [
   { key: 'apostlePreaching', label: '📸 Sunday Word' },
@@ -190,17 +214,73 @@ export function WebApp() {
     });
   };
 
-  // Online Status & Native Kotlin Android Project Modal
+  // Online Status
   const isOnline = useOnlineStatus();
-  const [showKotlinModal, setShowKotlinModal] = useState(false);
 
-  // Auth & Member Profile State
+  // Auth & Member Profile State (Profile Picture, Background Banner & About Section)
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
   const [userName, setUserName] = useState('Brother Farai Moyo');
   const [userHandle, setUserHandle] = useState('@faraimoyo_zw');
-  const [userBio, setUserBio] = useState(
-    'Grateful believer in Harare 🌍 | Walking by faith (2 Cor 5:7) ✨ | Ignite Worship & Pride of Lions 💙🙏'
-  );
+  const [userBio, setUserBio] = useState<string>(() => {
+    try {
+      return (
+        (typeof window !== 'undefined' && window.localStorage.getItem('gateway_profile_bio')) ||
+        'Grateful believer in Harare 🌍 | Walking by faith (2 Cor 5:7) ✨ | Ignite Worship & Pride of Lions 💙🙏'
+      );
+    } catch {
+      return 'Grateful believer in Harare 🌍 | Walking by faith (2 Cor 5:7) ✨ | Ignite Worship & Pride of Lions 💙🙏';
+    }
+  });
+  const [userAboutDetails, setUserAboutDetails] = useState<string>(() => {
+    try {
+      return (
+        (typeof window !== 'undefined' && window.localStorage.getItem('gateway_profile_about')) ||
+        'Passionate about Kingdom worship, intercessory prayer, mentorship, and serving in the Harare Sanctuary hospitality & media team.'
+      );
+    } catch {
+      return 'Passionate about Kingdom worship, intercessory prayer, mentorship, and serving in the Harare Sanctuary hospitality & media team.';
+    }
+  });
+  const [userMinistryRole, setUserMinistryRole] = useState<string>(() => {
+    try {
+      return (
+        (typeof window !== 'undefined' && window.localStorage.getItem('gateway_profile_role')) ||
+        'Ignite Worship & Sanctuary Media'
+      );
+    } catch {
+      return 'Ignite Worship & Sanctuary Media';
+    }
+  });
+  const [userFavoriteScripture, setUserFavoriteScripture] = useState<string>(() => {
+    try {
+      return (
+        (typeof window !== 'undefined' && window.localStorage.getItem('gateway_profile_scripture')) ||
+        '2 Corinthians 5:7 — For we walk by faith, not by sight.'
+      );
+    } catch {
+      return '2 Corinthians 5:7 — For we walk by faith, not by sight.';
+    }
+  });
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string>(() => {
+    try {
+      return (
+        (typeof window !== 'undefined' && window.localStorage.getItem('gateway_profile_avatar')) ||
+        ''
+      );
+    } catch {
+      return '';
+    }
+  });
+  const [userBannerUrl, setUserBannerUrl] = useState<string>(() => {
+    try {
+      return (
+        (typeof window !== 'undefined' && window.localStorage.getItem('gateway_profile_banner')) ||
+        COMMUNITY_PHOTOS.sanctuaryWorship
+      );
+    } catch {
+      return COMMUNITY_PHOTOS.sanctuaryWorship;
+    }
+  });
   const [userPhone, setUserPhone] = useState('0772 891 402');
   const [userLocation, setUserLocation] = useState('Harare, Zimbabwe');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -217,24 +297,46 @@ export function WebApp() {
     'page_apostle_jd',
   ]);
 
-  // Stories State + Floating Live Reactions State
-  const [stories, setStories] = useState<StoryItem[]>(SEED_STORIES);
+  // Stories State + Floating Live Reactions State + 24-Hour Auto-Expiration
+  const [stories, setStories] = useState<StoryItem[]>(() => {
+    const now = Date.now();
+    return SEED_STORIES.map((st, idx) => {
+      const createdAtMs = now - (idx + 1) * 2 * 60 * 60 * 1000;
+      return {
+        ...st,
+        createdAtMs,
+        expiresAtMs: createdAtMs + STORY_EXPIRATION_MS,
+      };
+    });
+  });
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const [storyReplyText, setStoryReplyText] = useState('');
   const [floatingStoryReactions, setFloatingStoryReactions] = useState<FloatingReaction[]>([]);
   const [showCreateStoryModal, setShowCreateStoryModal] = useState(false);
   const [newStoryCaption, setNewStoryCaption] = useState('');
   const [newStoryPhotoKey, setNewStoryPhotoKey] = useState<keyof typeof COMMUNITY_PHOTOS>('sanctuaryWorship');
+  const [newStoryCustomMediaUrl, setNewStoryCustomMediaUrl] = useState<string>('');
+  const [newStoryMediaType, setNewStoryMediaType] = useState<'image' | 'video'>('image');
 
-  // Feed State (X + Instagram hybrid)
+  // Feed State (X + Instagram + WhatsApp device media upload & camera capture)
   const [feedFilter, setFeedFilter] = useState<'foryou' | 'following'>('foryou');
   const [posts, setPosts] = useState<SocialPost[]>(SEED_SOCIAL_POSTS);
   const [composerText, setComposerText] = useState('');
   const [composerPhotoKey, setComposerPhotoKey] = useState<keyof typeof COMMUNITY_PHOTOS | ''>('');
+  const [composerCustomMediaUrl, setComposerCustomMediaUrl] = useState<string>('');
+  const [composerMediaType, setComposerMediaType] = useState<'image' | 'video'>('image');
   const [composerScripture, setComposerScripture] = useState('');
   const [showPhotoSelector, setShowPhotoSelector] = useState(false);
   const [expandedCommentsPostId, setExpandedCommentsPostId] = useState<string | null>('post_1');
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+
+  // In-App Camera / Video Recorder Modal State (for Posts, Stories, or Profile Picture)
+  const [cameraCaptureTarget, setCameraCaptureTarget] = useState<'post' | 'story' | 'avatar' | null>(null);
+  const [cameraCaptureMode, setCameraCaptureMode] = useState<'photo' | 'video'>('photo');
+  const [isRecordingClip, setIsRecordingClip] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
 
   // WhatsApp-Style Chat State with Read Receipts
   const [chatThreads, setChatThreads] = useState<ChatThread[]>(SEED_CHAT_THREADS);
@@ -279,16 +381,30 @@ export function WebApp() {
     pray_2: 14,
   });
 
-  // Sermons State (YouTube, Facebook Live, Uploaded Videos & Global Offline Downloads Manager)
+  // Sermons State (YouTube, Facebook Live, Uploaded Videos, Offline Library Grid & Global Downloads Manager)
   const [sermons, setSermons] = useState<SermonItem[]>(SEED_SERMONS);
   const [sermonSourceFilter, setSermonSourceFilter] = useState<
-    'all' | 'youtube' | 'facebook' | 'uploaded' | 'offline' | 'downloads'
+    'all' | 'live' | 'offline' | 'youtube' | 'facebook' | 'uploaded' | 'downloads'
   >('all');
   const [selectedSeries, setSelectedSeries] = useState<string>('All');
   const [sermonSearch, setSermonSearch] = useState('');
+  const [isSermonSearchFocused, setIsSermonSearchFocused] = useState(false);
+  const [sermonSearchHistory, setSermonSearchHistory] = useState<string[]>(() => {
+    try {
+      return loadSearchHistory(
+        typeof window !== 'undefined'
+          ? window.localStorage.getItem('gateway_sermon_search_history')
+          : null,
+        DEFAULT_SERMON_SEARCH_HISTORY
+      );
+    } catch {
+      return DEFAULT_SERMON_SEARCH_HISTORY;
+    }
+  });
   const [activeVideoSermonId, setActiveVideoSermonId] = useState<string>(SEED_SERMONS[0].id);
   const [unlockedSermonIds, setUnlockedSermonIds] = useState<string[]>([]);
   const [offlineSermons, setOfflineSermons] = useState<SermonItem[]>([]);
+  const [offlineSortBy, setOfflineSortBy] = useState<OfflineSortOption>('dateAdded');
   const [downloadTasks, setDownloadTasks] = useState<SermonDownloadTask[]>(SEED_DOWNLOAD_TASKS);
   const [showDownloadsManager, setShowDownloadsManager] = useState<boolean>(true);
   const [useDirectStreamPlayer, setUseDirectStreamPlayer] = useState(false);
@@ -302,9 +418,28 @@ export function WebApp() {
   const [uploadSermonUrl, setUploadSermonUrl] = useState('');
   const [uploadSermonBody, setUploadSermonBody] = useState('');
 
-  // Bible State & Highlighted Verse Share Card Studio
+  // In-App Facebook Live Broadcast State
+  const [livePlayerMode, setLivePlayerMode] = useState<'facebook' | 'direct'>('direct');
+  const [liveViewerCount, setLiveViewerCount] = useState<number>(1482);
+  const [liveComments, setLiveComments] = useState<LiveBroadcastComment[]>(INITIAL_LIVE_COMMENTS);
+  const [liveCommentDraft, setLiveCommentDraft] = useState('');
+
+  // Bible State, Search History & Highlighted Verse Share Card Studio
   const [testamentFilter, setTestamentFilter] = useState<'ALL' | 'OT' | 'NT'>('ALL');
   const [bibleSearch, setBibleSearch] = useState('');
+  const [isBibleSearchFocused, setIsBibleSearchFocused] = useState(false);
+  const [bibleSearchHistory, setBibleSearchHistory] = useState<string[]>(() => {
+    try {
+      return loadSearchHistory(
+        typeof window !== 'undefined'
+          ? window.localStorage.getItem('gateway_bible_search_history')
+          : null,
+        DEFAULT_BIBLE_SEARCH_HISTORY
+      );
+    } catch {
+      return DEFAULT_BIBLE_SEARCH_HISTORY;
+    }
+  });
   const [selectedBookName, setSelectedBookName] = useState('Psalms');
   const [selectedChapter, setSelectedChapter] = useState(23);
   const [highlightedVerses, setHighlightedVerses] = useState<Record<string, boolean>>({
@@ -314,14 +449,24 @@ export function WebApp() {
   });
   const [activeShareVerseKey, setActiveShareVerseKey] = useState<string>('Psalms:23:1');
 
-  // Store & Giving State (backed by LocalForage IndexedDB + Firestore sync)
-  const [storeSubTab, setStoreSubTab] = useState<'give' | 'merch'>('give');
+  // Store & Giving State (Merch Store + Paynow Checkout + LocalForage Giving Receipts)
+  const [storeSubTab, setStoreSubTab] = useState<'merch' | 'give'>('merch');
+  const [merchCategoryFilter, setMerchCategoryFilter] = useState<
+    'All' | 'Kingdom Apparel' | 'Books & Manuals'
+  >('All');
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
+  const [paynowPhone, setPaynowPhone] = useState('0772 891 402');
+  const [paynowMethod, setPaynowMethod] = useState<'EcoCash' | 'Innbucks' | 'OneMoney' | 'Card'>(
+    'EcoCash'
+  );
   const [selectedFundId, setSelectedFundId] = useState('tithe');
   const [givingAmountInput, setGivingAmountInput] = useState('50');
-  const [givingMethod, setGivingMethod] = useState<'EcoCash' | 'Innbucks' | 'OneMoney' | 'Card'>('EcoCash');
+  const [givingMethod, setGivingMethod] = useState<'EcoCash' | 'Innbucks' | 'OneMoney' | 'Card'>(
+    'EcoCash'
+  );
   const [givingPhone, setGivingPhone] = useState('0772 891 402');
   const [receipts, setReceipts] = useState<StoredGivingReceipt[]>([]);
-  const [cartProductIds, setCartProductIds] = useState<string[]>([]);
+  const [cartProductIds, setCartProductIds] = useState<string[]>(['jd_cream_butgod']);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -353,12 +498,15 @@ export function WebApp() {
 
         // Load offline downloaded sermons from IndexedDB
         const savedSermons = await loadOfflineSermonsFromIndexedDB();
-        if (savedSermons.length === 0) {
-          const defaultOffline = SEED_SERMONS.find((s) => s.id === 'sermon_uploaded_1');
-          if (defaultOffline) {
-            await saveOfflineSermonToIndexedDB(defaultOffline);
-            if (mounted) setOfflineSermons([defaultOffline]);
+        if (savedSermons.length < 2) {
+          const defaults = SEED_SERMONS.filter(
+            (s) => s.id === 'sermon_uploaded_1' || s.id === 'sermon_1'
+          );
+          for (const item of defaults) {
+            await saveOfflineSermonToIndexedDB(item);
           }
+          const reloaded = await loadOfflineSermonsFromIndexedDB();
+          if (mounted) setOfflineSermons(reloaded);
         } else if (mounted) {
           setOfflineSermons(savedSermons);
         }
@@ -594,9 +742,238 @@ export function WebApp() {
     setActiveChatId(threadId);
   };
 
+  // Active (non-expired) stories filtered by 24-hour window + periodic auto-cleanup
+  const activeStories = useMemo(() => filterActiveStories(stories, Date.now()), [stories]);
+
+  useEffect(() => {
+    const pruneTimer = setInterval(() => {
+      setStories((prev) => {
+        const filtered = filterActiveStories(prev, Date.now());
+        return filtered.length === prev.length ? prev : filtered;
+      });
+    }, 30000);
+    return () => clearInterval(pruneTimer);
+  }, []);
+
+  // Manage live camera stream when cameraCaptureTarget modal is open
+  useEffect(() => {
+    if (!cameraCaptureTarget) {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach((tr) => tr.stop());
+        cameraStreamRef.current = null;
+      }
+      setIsRecordingClip(false);
+      setRecordingSeconds(0);
+      return;
+    }
+
+    let cancelled = false;
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: 'user' }, audio: cameraCaptureMode === 'video' })
+        .then((stream) => {
+          if (cancelled) {
+            stream.getTracks().forEach((tr) => tr.stop());
+            return;
+          }
+          cameraStreamRef.current = stream;
+          if (cameraVideoRef.current) {
+            cameraVideoRef.current.srcObject = stream;
+          }
+        })
+        .catch(() => {
+          // Hardware camera unavailable (e.g. desktop without webcam); fallback preview is used
+        });
+    }
+
+    return () => {
+      cancelled = true;
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach((tr) => tr.stop());
+        cameraStreamRef.current = null;
+      }
+    };
+  }, [cameraCaptureTarget, cameraCaptureMode]);
+
+  useEffect(() => {
+    if (!isRecordingClip) return;
+    const t = setInterval(() => {
+      setRecordingSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [isRecordingClip]);
+
+  const handleCompleteCameraCapture = (type: 'photo' | 'video') => {
+    if (type === 'photo') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 720;
+      canvas.height = 540;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        if (cameraVideoRef.current && cameraStreamRef.current) {
+          ctx.drawImage(cameraVideoRef.current, 0, 0, canvas.width, canvas.height);
+        } else {
+          const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+          grad.addColorStop(0, '#0095f6');
+          grad.addColorStop(0.5, '#0284c7');
+          grad.addColorStop(1, '#1e1b4b');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 30px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('📸 Gateway Sanctuary Moment', canvas.width / 2, canvas.height / 2 - 15);
+          ctx.font = '20px sans-serif';
+          ctx.fillStyle = '#bae6fd';
+          ctx.fillText(
+            `${userName} • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+            canvas.width / 2,
+            canvas.height / 2 + 25
+          );
+        }
+      }
+      const dataUrl = canvas.toDataURL('image/png');
+      if (cameraCaptureTarget === 'post') {
+        setComposerCustomMediaUrl(dataUrl);
+        setComposerMediaType('image');
+        setComposerPhotoKey('');
+        showToast('📸 Camera photo attached to your post!');
+      } else if (cameraCaptureTarget === 'story') {
+        setNewStoryCustomMediaUrl(dataUrl);
+        setNewStoryMediaType('image');
+        showToast('📸 Camera photo ready for your 24h Story!');
+      } else if (cameraCaptureTarget === 'avatar') {
+        setUserAvatarUrl(dataUrl);
+        try {
+          window.localStorage.setItem('gateway_profile_avatar', dataUrl);
+        } catch {
+          // Ignore quota errors
+        }
+        showToast('📸 New profile picture captured & saved!');
+      }
+    } else {
+      const recordedVideoUrl =
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+      if (cameraCaptureTarget === 'post') {
+        setComposerCustomMediaUrl(recordedVideoUrl);
+        setComposerMediaType('video');
+        setComposerPhotoKey('');
+        showToast('🎥 Video clip recorded and attached to your post!');
+      } else if (cameraCaptureTarget === 'story') {
+        setNewStoryCustomMediaUrl(recordedVideoUrl);
+        setNewStoryMediaType('video');
+        showToast('🎥 Video clip recorded for your 24h Story!');
+      }
+    }
+    setIsRecordingClip(false);
+    setRecordingSeconds(0);
+    setCameraCaptureTarget(null);
+  };
+
+  const handleComposerDeviceMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isVideo = file.type.startsWith('video/');
+    if (isVideo) {
+      const url = URL.createObjectURL(file);
+      setComposerCustomMediaUrl(url);
+      setComposerMediaType('video');
+      setComposerPhotoKey('');
+      showToast(`🎥 Video "${file.name}" attached from your device!`);
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setComposerCustomMediaUrl(reader.result);
+          setComposerMediaType('image');
+          setComposerPhotoKey('');
+          showToast(`🖼️ Photo "${file.name}" attached from your device!`);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleStoryDeviceMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isVideo = file.type.startsWith('video/');
+    if (isVideo) {
+      const url = URL.createObjectURL(file);
+      setNewStoryCustomMediaUrl(url);
+      setNewStoryMediaType('video');
+      showToast(`🎥 Video "${file.name}" loaded for your 24h Story!`);
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setNewStoryCustomMediaUrl(reader.result);
+          setNewStoryMediaType('image');
+          showToast(`🖼️ Photo "${file.name}" loaded for your 24h Story!`);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setUserAvatarUrl(reader.result);
+        try {
+          window.localStorage.setItem('gateway_profile_avatar', reader.result);
+        } catch {
+          // Ignore storage quota errors
+        }
+        showToast('🖼️ Profile picture updated!');
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleBannerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setUserBannerUrl(reader.result);
+        try {
+          window.localStorage.setItem('gateway_profile_banner', reader.result);
+        } catch {
+          // Ignore storage quota errors
+        }
+        showToast('🏞️ Profile background cover image updated!');
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleSaveProfileDetails = () => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('gateway_profile_bio', userBio);
+        window.localStorage.setItem('gateway_profile_about', userAboutDetails);
+        window.localStorage.setItem('gateway_profile_role', userMinistryRole);
+        window.localStorage.setItem('gateway_profile_scripture', userFavoriteScripture);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    setIsEditingProfile(false);
+    showToast('✅ Profile picture, background & About details saved!');
+  };
+
   const handleSendStoryReaction = (emoji: string) => {
-    if (activeStoryIndex === null || !stories[activeStoryIndex]) return;
-    const targetStory = stories[activeStoryIndex];
+    if (activeStoryIndex === null || !activeStories[activeStoryIndex]) return;
+    const targetStory = activeStories[activeStoryIndex];
 
     // Spawn 3 staggered floating emoji particles for Instagram Live style feel
     const baseId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -609,8 +986,8 @@ export function WebApp() {
 
     // Increment story reaction count
     setStories((prev) =>
-      prev.map((st, idx) =>
-        idx === activeStoryIndex ? { ...st, likes: st.likes + 1 } : st
+      prev.map((st) =>
+        st.id === targetStory.id ? { ...st, likes: st.likes + 1 } : st
       )
     );
 
@@ -680,6 +1057,7 @@ export function WebApp() {
   const handleWatchOfflineSermon = (sermon: SermonItem) => {
     setActiveVideoSermonId(sermon.id);
     setUseDirectStreamPlayer(true);
+    setSermonSourceFilter('all');
     showToast(`▶️ Playing offline video: "${sermon.title}"`);
   };
 
@@ -749,18 +1127,130 @@ export function WebApp() {
     showToast('🎬 Sermon published & ready for in-app and offline playback!');
   };
 
+  const handleSaveSermonSearchQuery = (queryToSave: string) => {
+    const clean = queryToSave.trim();
+    if (!clean) return;
+    setSermonSearchHistory((prev) => {
+      const next = saveSearchQueryToHistory(prev, clean, 6);
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('gateway_sermon_search_history', JSON.stringify(next));
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  const handleSelectSermonSearchSuggestion = (chip: string) => {
+    setSermonSearch(chip);
+    handleSaveSermonSearchQuery(chip);
+  };
+
+  const handleRemoveSermonSearchSuggestion = (chip: string) => {
+    setSermonSearchHistory((prev) => {
+      const next = removeSearchQueryFromHistory(prev, chip);
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('gateway_sermon_search_history', JSON.stringify(next));
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  const handleSaveBibleSearchQuery = (queryToSave: string) => {
+    const clean = queryToSave.trim();
+    if (!clean) return;
+    setBibleSearchHistory((prev) => {
+      const next = saveSearchQueryToHistory(prev, clean, 6);
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('gateway_bible_search_history', JSON.stringify(next));
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  const handleSelectBibleSearchSuggestion = (chip: string) => {
+    setBibleSearch(chip);
+    handleSaveBibleSearchQuery(chip);
+    const matchingBook = BIBLE_BOOKS.find(
+      (b) => b.name.toLowerCase() === chip.trim().toLowerCase()
+    );
+    if (matchingBook) {
+      setSelectedBookName(matchingBook.name);
+      setSelectedChapter(1);
+    }
+  };
+
+  const handleRemoveBibleSearchSuggestion = (chip: string) => {
+    setBibleSearchHistory((prev) => {
+      const next = removeSearchQueryFromHistory(prev, chip);
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('gateway_bible_search_history', JSON.stringify(next));
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  const handlePostLiveBroadcastComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = liveCommentDraft.trim();
+    if (!clean) return;
+    const item: LiveBroadcastComment = {
+      id: `lc_${Date.now()}`,
+      author: userName,
+      location: userLocation.split(',')[0] || 'Harare',
+      text: clean,
+      timestamp: 'Just now',
+    };
+    setLiveComments((prev) => [item, ...prev]);
+    setLiveCommentDraft('');
+    setLiveViewerCount((prev) => prev + 1);
+    showToast('💬 Posted to the Live Sanctuary Broadcast!');
+  };
+
+  // Combined Offline Library items (includes saved offline sermons + partially downloaded & queued items so storage status is visible for all)
+  const offlineLibrarySermons = useMemo(() => {
+    const map = new Map<string, SermonItem>();
+    for (const s of offlineSermons) {
+      map.set(s.id, s);
+    }
+    for (const task of downloadTasks) {
+      if (!map.has(task.sermon.id)) {
+        map.set(task.sermon.id, task.sermon);
+      }
+    }
+    const merged = Array.from(map.values());
+    const filtered = filterSermons(merged, selectedSeries, sermonSearch);
+    return sortOfflineSermons(filtered, offlineSortBy);
+  }, [offlineSermons, downloadTasks, selectedSeries, sermonSearch, offlineSortBy]);
+
   const filteredSermons = useMemo(() => {
-    const baseList = sermonSourceFilter === 'offline' ? offlineSermons : sermons;
-    const bySeriesAndSearch = filterSermons(baseList, selectedSeries, sermonSearch);
+    if (sermonSourceFilter === 'offline') {
+      return offlineLibrarySermons;
+    }
+    const bySeriesAndSearch = filterSermons(sermons, selectedSeries, sermonSearch);
     if (
       sermonSourceFilter === 'all' ||
-      sermonSourceFilter === 'offline' ||
+      sermonSourceFilter === 'live' ||
       sermonSourceFilter === 'downloads'
     ) {
       return bySeriesAndSearch;
     }
     return bySeriesAndSearch.filter((s) => (s.source || 'youtube') === sermonSourceFilter);
-  }, [sermons, offlineSermons, sermonSourceFilter, selectedSeries, sermonSearch]);
+  }, [sermons, offlineLibrarySermons, sermonSourceFilter, selectedSeries, sermonSearch]);
 
   const activeSermon = useMemo(
     () =>
@@ -908,8 +1398,8 @@ export function WebApp() {
 
   const handlePublishPost = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!composerText.trim() && !composerPhotoKey) {
-      showToast('Write a message or choose a photo to post ✨');
+    if (!composerText.trim() && !composerPhotoKey && !composerCustomMediaUrl) {
+      showToast('Write a message or attach a photo/video to post ✨');
       return;
     }
     const newPost: SocialPost = {
@@ -917,9 +1407,10 @@ export function WebApp() {
       authorId: 'usr_me',
       authorName: userName,
       authorHandle: userHandle,
-      authorRole: 'Gateway Member',
+      authorRole: userMinistryRole || 'Gateway Member',
       verified: true,
       avatarColor: '#0095f6',
+      authorAvatarUrl: userAvatarUrl || undefined,
       initials: userName
         .split(' ')
         .map((n) => n[0])
@@ -928,6 +1419,15 @@ export function WebApp() {
         .toUpperCase(),
       body: composerText.trim() || 'Sharing a blessed moment from Gateway Sanctuary! 🙌✨',
       imageKey: composerPhotoKey || undefined,
+      customImageUrl:
+        composerCustomMediaUrl && composerMediaType === 'image'
+          ? composerCustomMediaUrl
+          : undefined,
+      customVideoUrl:
+        composerCustomMediaUrl && composerMediaType === 'video'
+          ? composerCustomMediaUrl
+          : undefined,
+      mediaType: composerCustomMediaUrl ? composerMediaType : composerPhotoKey ? 'image' : undefined,
       scriptureTag: composerScripture.trim() || undefined,
       timestamp: 'Just now',
       likes: 1,
@@ -939,6 +1439,8 @@ export function WebApp() {
     setPosts((prev) => [newPost, ...prev]);
     setComposerText('');
     setComposerPhotoKey('');
+    setComposerCustomMediaUrl('');
+    setComposerMediaType('image');
     setComposerScripture('');
     setShowPhotoSelector(false);
     showToast('✨ Your post is live on the Gateway Feed!');
@@ -1013,13 +1515,15 @@ export function WebApp() {
 
   const handleCreateStory = (e: React.FormEvent) => {
     e.preventDefault();
+    const nowMs = Date.now();
     const created: StoryItem = {
-      id: `story_${Date.now()}`,
+      id: `story_${nowMs}`,
       authorId: 'usr_me',
       authorName: 'Your Story',
       authorHandle: userHandle,
       verified: true,
       avatarColor: '#0095f6',
+      authorAvatarUrl: userAvatarUrl || undefined,
       initials: userName
         .split(' ')
         .map((n) => n[0])
@@ -1030,14 +1534,20 @@ export function WebApp() {
         newStoryCaption.trim() ||
         '🙌 Walking in covenant favor and gratitude today! #GatewayConnect 💙✨',
       imageKey: newStoryPhotoKey,
+      customMediaUrl: newStoryCustomMediaUrl || undefined,
+      mediaType: newStoryCustomMediaUrl ? newStoryMediaType : 'image',
       timestamp: 'Just now',
+      createdAtMs: nowMs,
+      expiresAtMs: nowMs + STORY_EXPIRATION_MS,
       likes: 1,
     };
     setStories((prev) => [created, ...prev]);
     setNewStoryCaption('');
+    setNewStoryCustomMediaUrl('');
+    setNewStoryMediaType('image');
     setShowCreateStoryModal(false);
     setActiveStoryIndex(0);
-    showToast('📸 Story shared with your followers!');
+    showToast('📸 Story shared! Automatically removes after 24 hours ⏳');
   };
 
   const handleSendChatMessage = (e: React.FormEvent) => {
@@ -1241,8 +1751,49 @@ export function WebApp() {
     );
   };
 
-  const handleOpenKotlinProjectModal = () => {
-    setShowKotlinModal(true);
+  const cartProducts = useMemo(
+    () => SEED_PRODUCTS.filter((p) => cartProductIds.includes(p.id)),
+    [cartProductIds]
+  );
+
+  const cartTotalUsd = useMemo(
+    () => cartProducts.reduce((sum, item) => sum + item.price, 0),
+    [cartProducts]
+  );
+
+  const filteredMerchProducts = useMemo(() => {
+    if (merchCategoryFilter === 'All') return SEED_PRODUCTS;
+    return SEED_PRODUCTS.filter((p) => p.category === merchCategoryFilter);
+  }, [merchCategoryFilter]);
+
+  const handlePaynowMerchCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cartProducts.length === 0) {
+      showToast('Add at least one item from the Kingdom Store to checkout 🛍️');
+      return;
+    }
+    const orderReceipt = createGivingReceipt({
+      amount: Number(cartTotalUsd.toFixed(2)),
+      currency,
+      fundId: 'building',
+      method: paynowMethod,
+      phone: paynowPhone,
+    });
+    const merchReceipt: StoredGivingReceipt = {
+      ...orderReceipt,
+      fund: `Merch Order (${cartProducts.length} item${cartProducts.length > 1 ? 's' : ''})`,
+      synced: isOnline,
+    };
+    await saveReceiptToIndexedDB(merchReceipt, isOnline);
+    const allLocal = await loadReceiptsFromIndexedDB();
+    setReceipts(allLocal);
+    setCartProductIds([]);
+    showToast(
+      `🛍️ Order confirmed via Paynow (${paynowMethod})! Total: ${formatCurrencyAmount(
+        cartTotalUsd,
+        currency
+      )}`
+    );
   };
 
   const handleGoogleSignIn = async () => {
@@ -1342,7 +1893,7 @@ export function WebApp() {
 
         {/* Mobile App Top Bar (52px) */}
         <header
-          className={`h-13 backdrop-blur-md border-b px-3 flex items-center justify-between gap-1 shrink-0 z-20 ${
+          className={`h-13 backdrop-blur-md border-b px-2.5 flex items-center justify-between gap-1 shrink-0 z-20 ${
             isLight
               ? 'bg-white/95 border-slate-300 text-slate-900'
               : 'bg-[#0b0f19]/95 border-slate-800/80 text-white'
@@ -1373,12 +1924,12 @@ export function WebApp() {
                 <CheckCircle2 className="w-3 h-3 text-[#0095f6] shrink-0 fill-[#0095f6]/20" />
               </div>
               <p className="text-[8px] text-[#0095f6] font-bold leading-none">
-                Kotlin Android ✨
+                Sanctuary ✨
               </p>
             </div>
           </button>
 
-          {/* Quick Ministry Pills (Bible, Give) */}
+          {/* Quick Ministry Pills (Live, Bible, Store) */}
           <div
             className={`flex items-center gap-0.5 p-0.5 rounded-full border ${
               isLight ? 'bg-slate-100 border-slate-300' : 'bg-[#131d31] border-slate-800'
@@ -1386,9 +1937,27 @@ export function WebApp() {
           >
             <button
               type="button"
+              onClick={() => {
+                setActiveTab('sermons');
+                setSermonSourceFilter('live');
+              }}
+              title="Watch Facebook Live Broadcast"
+              className={`px-1.5 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-1 ${
+                activeTab === 'sermons' && sermonSourceFilter === 'live'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : isLight
+                  ? 'text-rose-600 hover:bg-rose-50'
+                  : 'text-rose-400 hover:text-white'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              <span>Live</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('bible')}
               title="KJV Bible"
-              className={`px-2 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-0.5 ${
+              className={`px-1.5 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-0.5 ${
                 activeTab === 'bible'
                   ? 'bg-[#0095f6] text-white shadow-xs'
                   : isLight
@@ -1401,9 +1970,12 @@ export function WebApp() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('store')}
-              title="Give & Store"
-              className={`px-2 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-0.5 ${
+              onClick={() => {
+                setActiveTab('store');
+                setStoreSubTab('merch');
+              }}
+              title="Kingdom Merch Store & Giving"
+              className={`px-1.5 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-0.5 ${
                 activeTab === 'store'
                   ? 'bg-[#0095f6] text-white shadow-xs'
                   : isLight
@@ -1411,36 +1983,26 @@ export function WebApp() {
                   : 'text-slate-300 hover:text-white'
               }`}
             >
-              <span>💝</span>
-              <span>Give</span>
+              <span>🛍️</span>
+              <span>Store</span>
             </button>
           </div>
 
-          {/* Right Actions: Theme Toggle, Kotlin APK Source, Notifications Bell & Sign In */}
+          {/* Right Actions: Theme Toggle, Notifications Bell & Sign In */}
           <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={handleToggleTheme}
               aria-label="Toggle color theme"
               title={isLight ? 'Switch to Dark Theme' : 'Switch to High-Contrast Light Theme'}
-              className={`h-7 px-2 rounded-full border text-[10px] font-extrabold flex items-center gap-1 transition ${
+              className={`h-7 px-1.5 rounded-full border text-[10px] font-extrabold flex items-center gap-0.5 transition ${
                 isLight
                   ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
                   : 'bg-[#131d31] text-amber-300 border-slate-700 hover:bg-slate-800'
               }`}
             >
-              {isLight ? <Moon className="w-3 h-3" /> : <Sun className="w-3 h-3" />}
-              <span>{isLight ? 'Dark' : 'Light'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleOpenKotlinProjectModal}
-              aria-label="Kotlin Android Project"
-              title="View Native Kotlin Android Project"
-              className="w-7 h-7 rounded-full bg-[#0095f6]/15 hover:bg-[#0095f6]/25 border border-[#0095f6]/40 flex items-center justify-center text-[#0095f6] transition"
-            >
-              <Code2 className="w-3.5 h-3.5" />
+              {isLight ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
+              <span className="hidden min-[410px]:inline">{isLight ? 'Dark' : 'Light'}</span>
             </button>
 
             <button
@@ -1556,84 +2118,171 @@ export function WebApp() {
                 </button>
               </div>
 
-              {/* Instagram-Style Stories Row */}
-              <div className="px-3.5 py-3 border-b border-slate-800/80 bg-[#0e1525]/60">
+              {/* Instagram & WhatsApp-Style 24-Hour Stories Row */}
+              <div className="px-3.5 py-3 border-b border-slate-800/80 bg-[#0e1525]/60 space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <span className="font-bold text-slate-300">📸 Sanctuary Stories</span>
+                  <span className="text-[#38bdf8] font-semibold">⏳ Auto-removes after 24h</span>
+                </div>
                 <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
                   <button
                     type="button"
+                    data-testid="open-create-story-btn"
                     onClick={() => setShowCreateStoryModal(true)}
                     className="flex flex-col items-center gap-1 shrink-0 group focus:outline-none"
                   >
-                    <div className="relative w-15 h-15 rounded-full p-0.5 border-2 border-dashed border-[#0095f6] flex items-center justify-center bg-[#131d31] group-hover:scale-105 transition">
-                      <Plus className="w-5 h-5 text-[#0095f6]" />
+                    <div className="relative w-15 h-15 rounded-full p-0.5 border-2 border-dashed border-[#0095f6] flex items-center justify-center bg-[#131d31] group-hover:scale-105 transition overflow-hidden">
+                      {userAvatarUrl ? (
+                        <img
+                          src={userAvatarUrl}
+                          alt={userName}
+                          className="w-full h-full rounded-full object-cover opacity-75"
+                        />
+                      ) : (
+                        <Plus className="w-5 h-5 text-[#0095f6]" />
+                      )}
                       <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#0095f6] text-white text-[10px] font-bold flex items-center justify-center shadow">
                         +
                       </span>
                     </div>
-                    <span className="text-[10px] font-semibold text-slate-300">Your Story</span>
+                    <span className="text-[10px] font-semibold text-slate-300">Add 24h Story</span>
                   </button>
 
-                  {stories.map((story, idx) => (
-                    <button
-                      key={story.id}
-                      type="button"
-                      onClick={() => setActiveStoryIndex(idx)}
-                      className="flex flex-col items-center gap-1 shrink-0 group focus:outline-none"
-                    >
-                      <div className="w-15 h-15 rounded-full p-[2px] bg-gradient-to-tr from-[#0095f6] via-[#38bdf8] to-[#6366f1] group-hover:scale-105 transition">
-                        <div className="w-full h-full rounded-full bg-[#0b0f19] p-0.5 overflow-hidden relative">
-                          <img
-                            src={
-                              COMMUNITY_PHOTOS[
-                                story.imageKey as keyof typeof COMMUNITY_PHOTOS
-                              ] || COMMUNITY_PHOTOS.sanctuaryWorship
-                            }
-                            alt={story.authorName}
-                            className="w-full h-full rounded-full object-cover"
-                          />
+                  {activeStories.map((story, idx) => {
+                    const storyThumb =
+                      story.customMediaUrl && story.mediaType !== 'video'
+                        ? story.customMediaUrl
+                        : COMMUNITY_PHOTOS[story.imageKey as keyof typeof COMMUNITY_PHOTOS] ||
+                          COMMUNITY_PHOTOS.sanctuaryWorship;
+                    return (
+                      <button
+                        key={story.id}
+                        type="button"
+                        data-testid={`story-ring-${story.id}`}
+                        onClick={() => setActiveStoryIndex(idx)}
+                        className="flex flex-col items-center gap-1 shrink-0 group focus:outline-none"
+                      >
+                        <div className="relative w-15 h-15 rounded-full p-[2px] bg-gradient-to-tr from-[#0095f6] via-[#38bdf8] to-[#6366f1] group-hover:scale-105 transition">
+                          <div className="w-full h-full rounded-full bg-[#0b0f19] p-0.5 overflow-hidden relative">
+                            <img
+                              src={storyThumb}
+                              alt={story.authorName}
+                              className="w-full h-full rounded-full object-cover"
+                            />
+                          </div>
+                          <span
+                            data-testid={`story-expiry-badge-${story.id}`}
+                            className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-full bg-slate-950/90 border border-[#0095f6]/50 text-[8px] font-extrabold text-[#38bdf8] whitespace-nowrap"
+                          >
+                            {formatStoryTimeRemaining(story).replace(' left', '')}
+                          </span>
                         </div>
-                      </div>
-                      <span className="text-[10px] font-medium text-slate-200 max-w-[64px] truncate">
-                        {story.authorName}
-                      </span>
-                    </button>
-                  ))}
+                        <span className="text-[10px] font-medium text-slate-200 max-w-[64px] truncate mt-0.5">
+                          {story.authorName}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* X / Instagram Post Composer */}
+              {/* In-App Facebook Live Broadcast Banner Card on Home Feed */}
+              <div className="mx-3.5 mt-3 p-3 rounded-2xl bg-gradient-to-r from-rose-950/90 via-[#131d31] to-[#131d31] border border-rose-500/40 flex items-center justify-between gap-2.5 shadow-md">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="relative w-11 h-11 rounded-xl overflow-hidden shrink-0 border border-rose-500/60">
+                    <img
+                      src={COMMUNITY_PHOTOS.apostlePreaching}
+                      alt="Facebook Live Broadcast"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute top-0.5 left-0.5 px-1 rounded bg-rose-600 text-[8px] font-extrabold text-white uppercase">
+                      LIVE
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-rose-400 uppercase">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                        <span>Facebook Live Now</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono-tabular">
+                        • {liveViewerCount.toLocaleString()} watching
+                      </span>
+                    </div>
+                    <p className="text-xs font-extrabold text-white truncate">
+                      Sunday Sanctuary Live • Apostle Joe Daniels
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('sermons');
+                    setSermonSourceFilter('live');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-extrabold shrink-0 shadow-xs transition"
+                >
+                  Watch Live
+                </button>
+              </div>
+
+              {/* WhatsApp / Instagram / X Style Post Composer with Device Upload + Camera / Video Recorder */}
               <form
                 onSubmit={handlePublishPost}
                 className="p-3.5 border-b border-slate-800 bg-[#131d31]/50 space-y-2.5"
               >
                 <div className="flex gap-2.5">
-                  <div className="w-9 h-9 rounded-full bg-[#0095f6] text-white font-extrabold text-xs flex items-center justify-center shrink-0">
-                    {userName
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase()}
+                  <div className="w-9 h-9 rounded-full bg-[#0095f6] text-white font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                    {userAvatarUrl ? (
+                      <img
+                        src={userAvatarUrl}
+                        alt={userName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      userName
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()
+                    )}
                   </div>
                   <div className="flex-1 space-y-2 min-w-0">
                     <textarea
                       rows={2}
+                      data-testid="feed-composer-textarea"
                       value={composerText}
                       onChange={(e) => setComposerText(e.target.value)}
-                      placeholder="What is God doing in your life today? Share a word, photo, or testimony ✨🙏"
+                      placeholder="What is God doing in your life today? Upload a photo/video from device or snap with camera ✨🙏"
                       className="w-full bg-transparent text-xs sm:text-sm text-white placeholder:text-slate-400 focus:outline-none resize-none"
                     />
 
-                    {composerPhotoKey && (
-                      <div className="relative rounded-2xl overflow-hidden border border-slate-700 max-h-48">
-                        <img
-                          src={COMMUNITY_PHOTOS[composerPhotoKey]}
-                          alt="Selected attachment"
-                          className="w-full h-44 object-cover"
-                        />
+                    {(composerPhotoKey || composerCustomMediaUrl) && (
+                      <div className="relative rounded-2xl overflow-hidden border border-slate-700 max-h-52 bg-black">
+                        {composerCustomMediaUrl && composerMediaType === 'video' ? (
+                          <video
+                            src={composerCustomMediaUrl}
+                            controls
+                            playsInline
+                            className="w-full h-44 object-cover"
+                          />
+                        ) : (
+                          <img
+                            src={
+                              composerCustomMediaUrl ||
+                              (composerPhotoKey ? COMMUNITY_PHOTOS[composerPhotoKey] : '')
+                            }
+                            alt="Selected attachment"
+                            className="w-full h-44 object-cover"
+                          />
+                        )}
                         <button
                           type="button"
-                          onClick={() => setComposerPhotoKey('')}
+                          onClick={() => {
+                            setComposerPhotoKey('');
+                            setComposerCustomMediaUrl('');
+                          }}
                           className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center"
                         >
                           <X className="w-4 h-4" />
@@ -1644,7 +2293,7 @@ export function WebApp() {
                     {showPhotoSelector && (
                       <div className="p-2.5 rounded-2xl bg-[#0b0f19] border border-slate-800 space-y-1.5">
                         <p className="text-[10px] font-semibold text-slate-400">
-                          📸 Choose a Sanctuary Photo to Attach:
+                          📸 Choose a Sanctuary Preset or Upload From Device:
                         </p>
                         <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
                           {PHOTO_PRESETS.map((preset) => (
@@ -1653,6 +2302,7 @@ export function WebApp() {
                               type="button"
                               onClick={() => {
                                 setComposerPhotoKey(preset.key);
+                                setComposerCustomMediaUrl('');
                                 setShowPhotoSelector(false);
                               }}
                               className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold shrink-0 border transition ${
@@ -1668,17 +2318,63 @@ export function WebApp() {
                       </div>
                     )}
 
-                    {/* Composer Toolbar */}
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
-                      <div className="flex items-center gap-1">
+                    {/* Composer Toolbar: Upload from Device, Camera Photo, Record Video, Presets, Scripture */}
+                    <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-800/80 flex-wrap">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {/* Upload Photo or Video from Device */}
+                        <label
+                          data-testid="composer-device-upload-label"
+                          className="min-h-[32px] px-2 rounded-xl bg-[#0b0f19] hover:bg-slate-800 border border-slate-700 text-[#38bdf8] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Device</span>
+                          <input
+                            type="file"
+                            data-testid="composer-device-file-input"
+                            accept="image/*,video/*"
+                            onChange={handleComposerDeviceMediaChange}
+                            className="hidden"
+                          />
+                        </label>
+
+                        {/* Take Photo with Camera */}
+                        <button
+                          type="button"
+                          data-testid="composer-open-camera-btn"
+                          onClick={() => {
+                            setCameraCaptureMode('photo');
+                            setCameraCaptureTarget('post');
+                          }}
+                          className="min-h-[32px] px-2 rounded-xl bg-[#0b0f19] hover:bg-slate-800 border border-slate-700 text-[#0095f6] text-[11px] font-bold flex items-center gap-1 transition"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>Camera</span>
+                        </button>
+
+                        {/* Record Video Clip */}
+                        <button
+                          type="button"
+                          data-testid="composer-record-video-btn"
+                          onClick={() => {
+                            setCameraCaptureMode('video');
+                            setCameraCaptureTarget('post');
+                          }}
+                          className="min-h-[32px] px-2 rounded-xl bg-[#0b0f19] hover:bg-slate-800 border border-slate-700 text-rose-400 text-[11px] font-bold flex items-center gap-1 transition"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Record</span>
+                        </button>
+
+                        {/* Sanctuary Photo Presets */}
                         <button
                           type="button"
                           onClick={() => setShowPhotoSelector((prev) => !prev)}
-                          className="min-h-[34px] px-2 rounded-xl hover:bg-slate-800 text-[#0095f6] text-xs font-semibold flex items-center gap-1 transition"
+                          className="min-h-[32px] px-2 rounded-xl hover:bg-slate-800 text-slate-300 text-[11px] font-semibold flex items-center gap-1 transition"
                         >
-                          <ImageIcon className="w-4 h-4" />
-                          <span>Photo</span>
+                          <ImageIcon className="w-3.5 h-3.5 text-[#0095f6]" />
+                          <span>Presets</span>
                         </button>
+
                         <button
                           type="button"
                           onClick={() =>
@@ -1686,28 +2382,19 @@ export function WebApp() {
                               prev ? '' : 'Isaiah 49:15-16'
                             )
                           }
-                          className={`min-h-[34px] px-2 rounded-xl hover:bg-slate-800 text-xs font-semibold flex items-center gap-1 transition ${
-                            composerScripture ? 'text-[#38bdf8] bg-slate-800/80' : 'text-[#0095f6]'
+                          className={`min-h-[32px] px-2 rounded-xl hover:bg-slate-800 text-[11px] font-semibold flex items-center gap-1 transition ${
+                            composerScripture ? 'text-[#38bdf8] bg-slate-800/80' : 'text-slate-300'
                           }`}
                         >
-                          <BookOpen className="w-4 h-4" />
-                          <span>{composerScripture || 'Scripture'}</span>
+                          <BookOpen className="w-3.5 h-3.5 text-[#0095f6]" />
+                          <span>{composerScripture || 'Verse'}</span>
                         </button>
-                        {['🔥', '🙏', '💙'].map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => setComposerText((prev) => `${prev} ${emoji}`.trimStart())}
-                            className="w-7 h-7 rounded-full hover:bg-slate-800 text-xs flex items-center justify-center transition"
-                          >
-                            {emoji}
-                          </button>
-                        ))}
                       </div>
 
                       <button
                         type="submit"
-                        className="min-h-[34px] px-4 rounded-full bg-[#0095f6] hover:bg-[#1d9bf0] text-white text-xs font-extrabold shadow-md shadow-[#0095f6]/20 transition shrink-0"
+                        data-testid="composer-publish-post-btn"
+                        className="min-h-[32px] px-4 rounded-full bg-[#0095f6] hover:bg-[#1d9bf0] text-white text-xs font-extrabold shadow-md shadow-[#0095f6]/20 transition shrink-0"
                       >
                         Post
                       </button>
@@ -1723,6 +2410,9 @@ export function WebApp() {
                   const photoUrl = post.imageKey
                     ? COMMUNITY_PHOTOS[post.imageKey as keyof typeof COMMUNITY_PHOTOS]
                     : post.customImageUrl;
+                  const videoUrl = post.customVideoUrl;
+                  const avatarImgUrl =
+                    post.authorAvatarUrl || (post.authorId === 'usr_me' ? userAvatarUrl : '');
                   const memberObj =
                     SEED_PROFILES.find((m) => m.id === post.authorId) || SEED_PROFILES[0];
 
@@ -1737,10 +2427,18 @@ export function WebApp() {
                           className="flex items-center gap-2.5 cursor-pointer group min-w-0"
                         >
                           <div
-                            className="w-9 h-9 rounded-full flex items-center justify-center font-extrabold text-xs text-white shrink-0 ring-2 ring-[#0095f6]/40"
+                            className="w-9 h-9 rounded-full flex items-center justify-center font-extrabold text-xs text-white shrink-0 ring-2 ring-[#0095f6]/40 overflow-hidden"
                             style={{ backgroundColor: post.avatarColor }}
                           >
-                            {post.initials}
+                            {avatarImgUrl ? (
+                              <img
+                                src={avatarImgUrl}
+                                alt={post.authorName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              post.initials
+                            )}
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1 flex-wrap">
@@ -1786,7 +2484,18 @@ export function WebApp() {
                         </div>
                       )}
 
-                      {photoUrl && (
+                      {videoUrl && (
+                        <div className="rounded-2xl overflow-hidden border border-slate-800 bg-black">
+                          <video
+                            src={videoUrl}
+                            controls
+                            playsInline
+                            className="w-full max-h-[340px] object-cover"
+                          />
+                        </div>
+                      )}
+
+                      {photoUrl && !videoUrl && (
                         <div
                           onDoubleClick={() => handleToggleLikePost(post.id)}
                           className="rounded-2xl overflow-hidden border border-slate-800 bg-[#131d31] cursor-pointer"
@@ -2594,16 +3303,81 @@ export function WebApp() {
               </div>
 
               <div className="bg-[#131d31] p-3 rounded-2xl border border-slate-800 space-y-2">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={bibleSearch}
-                    onChange={(e) => setBibleSearch(e.target.value)}
-                    placeholder="Search 66 books..."
-                    className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#0095f6]"
-                  />
-                </div>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSaveBibleSearchQuery(bibleSearch);
+                  }}
+                  className="relative flex items-center gap-1.5"
+                >
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      data-testid="bible-search-input"
+                      value={bibleSearch}
+                      onFocus={() => setIsBibleSearchFocused(true)}
+                      onClick={() => setIsBibleSearchFocused(true)}
+                      onChange={(e) => setBibleSearch(e.target.value)}
+                      placeholder="Search 66 books (e.g., Psalms, John, Isaiah)..."
+                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white focus:outline-none focus:border-[#0095f6]"
+                    />
+                    {bibleSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setBibleSearch('')}
+                        aria-label="Clear Bible search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {bibleSearch.trim() && (
+                    <button
+                      type="submit"
+                      className="px-2.5 py-1.5 rounded-xl bg-[#0095f6] text-white text-[11px] font-bold shrink-0"
+                    >
+                      Save
+                    </button>
+                  )}
+                </form>
+
+                {/* Bible Search History Suggestion Chips (Shown when search input is tapped/focused) */}
+                {isBibleSearchFocused && bibleSearchHistory.length > 0 && (
+                  <div
+                    data-testid="bible-search-history-chips"
+                    className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 shrink-0">
+                      <Clock className="w-3 h-3 text-[#38bdf8]" />
+                      <span>Recent:</span>
+                    </span>
+                    {bibleSearchHistory.map((chip) => (
+                      <div
+                        key={chip}
+                        className="inline-flex items-center rounded-full bg-[#0b0f19] border border-slate-700 hover:border-[#0095f6] shrink-0 overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleSelectBibleSearchSuggestion(chip)}
+                          className="px-2.5 py-0.5 text-[11px] font-semibold text-[#38bdf8] hover:text-white transition"
+                        >
+                          {chip}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBibleSearchSuggestion(chip)}
+                          aria-label={`Remove ${chip} from search history`}
+                          className="pr-2 pl-0.5 py-0.5 text-[10px] text-slate-500 hover:text-rose-400"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
                   {filteredBooks.map((b) => (
                     <button
@@ -2757,11 +3531,13 @@ export function WebApp() {
                 </div>
               </div>
 
-              {/* Source Filter Pills: All, YouTube, Facebook, Uploaded, Downloads Manager */}
+              {/* Source Filter Pills: All, Live Feed, Offline Library (Grid), YouTube, Facebook, Uploaded, Downloads Manager */}
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                 {(
                   [
                     { id: 'all', label: `All (${sermons.length})` },
+                    { id: 'live', label: '🔴 Live Feed' },
+                    { id: 'offline', label: `📂 Offline Library (${offlineLibrarySermons.length})` },
                     { id: 'youtube', label: '▶️ YouTube' },
                     { id: 'facebook', label: '📘 Facebook' },
                     { id: 'uploaded', label: '📹 Uploaded' },
@@ -2771,6 +3547,7 @@ export function WebApp() {
                   <button
                     key={tab.id}
                     type="button"
+                    data-testid={`sermon-subtab-${tab.id}`}
                     onClick={() => {
                       setSermonSourceFilter(tab.id);
                       if (tab.id === 'downloads') {
@@ -2779,7 +3556,9 @@ export function WebApp() {
                     }}
                     className={`px-3 py-1.5 rounded-full text-[11px] font-bold shrink-0 transition ${
                       sermonSourceFilter === tab.id
-                        ? 'bg-[#0095f6] text-white shadow-xs'
+                        ? tab.id === 'live'
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : 'bg-[#0095f6] text-white shadow-xs'
                         : 'bg-[#131d31] text-slate-300 border border-slate-800'
                     }`}
                   >
@@ -2788,288 +3567,752 @@ export function WebApp() {
                 ))}
               </div>
 
-              {/* Global Sermon Downloads Manager View (Progress Bars + Pause / Resume / Cancel) */}
-              {(showDownloadsManager || sermonSourceFilter === 'downloads') && (
-                <SermonDownloadsManager
-                  tasks={downloadTasks}
-                  onPause={handlePauseSermonDownload}
-                  onResume={handleResumeSermonDownload}
-                  onCancel={handleCancelSermonDownload}
-                  onWatchOffline={handleWatchOfflineSermon}
-                  onStartSampleDownload={() => handleDownloadSermonOffline(activeSermon)}
-                />
-              )}
+              {/* IN-APP FACEBOOK LIVE FEED VIEW (Shown when '🔴 Live Feed' is selected) */}
+              {sermonSourceFilter === 'live' && (
+                <div
+                  data-testid="facebook-live-feed-card"
+                  className="rounded-2xl overflow-hidden bg-[#131d31] border border-rose-500/50 shadow-xl space-y-3 p-3.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-extrabold uppercase flex items-center gap-1">
+                        <Radio className="w-3 h-3 animate-pulse" />
+                        <span>LIVE ON FACEBOOK</span>
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-300 font-mono-tabular">
+                        👁 {liveViewerCount.toLocaleString()} watching now
+                      </span>
+                    </div>
 
-              {/* In-App Sermon Video Player Card */}
-              <div className="rounded-2xl overflow-hidden bg-[#131d31] border border-slate-800 shadow-lg">
-                <div className="aspect-video bg-black relative">
-                  {activeSermon.isPaid && !unlockedSermonIds.includes(activeSermon.id) ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center p-5 text-center bg-gradient-to-b from-[#0b0f19] to-[#131d31]">
-                      <Lock className="w-8 h-8 text-[#0095f6] mb-1.5" />
-                      <h3 className="text-sm font-extrabold text-white">{activeSermon.title}</h3>
-                      <p className="text-[11px] text-slate-300 mt-1 mb-3">
-                        Unlock this Apostolic Masterclass session to watch the full broadcast.
-                      </p>
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => {
-                          setUnlockedSermonIds((prev) => [...prev, activeSermon.id]);
-                          showToast(`🔓 Unlocked "${activeSermon.title}"!`);
-                        }}
-                        className="px-4 py-2 rounded-full bg-[#0095f6] text-white text-xs font-extrabold"
+                        onClick={() => setLivePlayerMode('direct')}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
+                          livePlayerMode === 'direct'
+                            ? 'bg-[#0095f6] text-white'
+                            : 'bg-[#0b0f19] text-slate-400'
+                        }`}
                       >
-                        Unlock ({formatCurrencyAmount(activeSermon.priceUsd || 30, currency)})
+                        HD Stream
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLivePlayerMode('facebook')}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
+                          livePlayerMode === 'facebook'
+                            ? 'bg-[#0095f6] text-white'
+                            : 'bg-[#0b0f19] text-slate-400'
+                        }`}
+                      >
+                        Facebook Plugin
                       </button>
                     </div>
-                  ) : activeSermon.source === 'uploaded' ||
-                    sermonSourceFilter === 'offline' ||
-                    useDirectStreamPlayer ? (
-                    <video
-                      key={`${activeSermon.id}_video`}
-                      src={
-                        activeSermon.videoUrl ||
-                        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
-                      }
-                      poster={activeSermon.thumbnailUrl}
-                      controls
-                      playsInline
-                      className="w-full h-full object-cover bg-black"
-                    />
-                  ) : activeSermon.source === 'facebook' ? (
-                    <iframe
-                      key={`${activeSermon.id}_fb`}
-                      title={activeSermon.title}
-                      src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(
-                        activeSermon.facebookVideoUrl ||
+                  </div>
+
+                  <div className="aspect-video rounded-xl overflow-hidden bg-black relative border border-slate-800">
+                    {livePlayerMode === 'facebook' ? (
+                      <iframe
+                        title="Gateway Facebook Live Stream"
+                        src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(
                           'https://www.facebook.com/facebook/videos/10153231379946729/'
-                      )}&show_text=false&autoplay=false`}
-                      className="w-full h-full border-0"
-                      allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <iframe
-                      key={`${activeSermon.id}_yt`}
-                      title={activeSermon.title}
-                      src={`https://www.youtube.com/embed/${activeSermon.youtubeId}?rel=0&playsinline=1`}
-                      className="w-full h-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  )}
-                </div>
-
-                <div className="p-3.5 space-y-2.5">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded-full bg-[#0095f6]/20 text-[#38bdf8] text-[10px] font-bold uppercase">
-                        {activeSermon.source === 'facebook'
-                          ? '📘 Facebook Live'
-                          : activeSermon.source === 'uploaded'
-                          ? '📹 Sanctuary Upload'
-                          : '▶️ YouTube Stream'}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-semibold">
-                        {activeSermon.series}
-                      </span>
+                        )}&show_text=false&autoplay=true`}
+                        className="w-full h-full border-0"
+                        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <video
+                        src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+                        poster={COMMUNITY_PHOTOS.apostlePreaching}
+                        controls
+                        playsInline
+                        className="w-full h-full object-cover bg-black"
+                      />
+                    )}
+                    <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-rose-600/90 text-white text-[10px] font-extrabold uppercase tracking-wider pointer-events-none">
+                      ● LIVE SANCTUARY FEED
                     </div>
-                    <span className="text-[11px] text-slate-400 font-mono-tabular">
-                      ⏱ {activeSermon.duration} • {activeSermon.views || '1.9K views'}
-                    </span>
                   </div>
 
-                  <div>
-                    <h2 className="text-sm font-extrabold text-white">{activeSermon.title}</h2>
-                    <p className="text-[11px] text-[#38bdf8] font-semibold">
-                      {activeSermon.speaker} • {activeSermon.publishedAt}
-                    </p>
-                    <p className="text-xs text-slate-300 leading-relaxed mt-1">
-                      {activeSermon.body}
-                    </p>
-                  </div>
-
-                  {/* Player Action Bar: Download Offline & Player Mode Switch */}
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
-                    {(() => {
-                      const task = downloadTasks.find((t) => t.sermonId === activeSermon.id);
-                      const isCompleted =
-                        task?.status === 'completed' ||
-                        offlineSermons.some((os) => os.id === activeSermon.id);
-                      const isDownloading = task?.status === 'downloading';
-                      const isPaused = task?.status === 'paused';
-
-                      return (
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-sm font-extrabold text-white">
+                        🔴 Sunday Glory & Prophetic Word Live Stream
+                      </h2>
+                      <p className="text-[11px] text-[#38bdf8] font-semibold">
+                        Apostle Joe & Pastor Melinda Daniels • Harare Sanctuary
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {(['❤️', '🔥', '🙌', '🙏'] as const).map((emoji) => (
                         <button
+                          key={emoji}
                           type="button"
-                          onClick={() => handleDownloadSermonOffline(activeSermon)}
-                          className={`flex-1 min-h-[38px] px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition ${
-                            isCompleted
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                              : isPaused
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                              : 'bg-[#0095f6] hover:bg-[#1d9bf0] text-white'
-                          }`}
+                          onClick={() => {
+                            setLiveViewerCount((prev) => prev + 1);
+                            showToast(`${emoji} Sent live reaction to the Sanctuary stream!`);
+                          }}
+                          className="w-8 h-8 rounded-full bg-[#0b0f19] hover:bg-slate-800 border border-slate-700 text-sm flex items-center justify-center transition active:scale-125"
                         >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>
-                            {isDownloading
-                              ? `Downloading ${task.progress}%...`
-                              : isPaused
-                              ? `Resume Download (${task.progress}%)`
-                              : isCompleted
-                              ? `✓ Saved Offline (${activeSermon.fileSizeMb || 48} MB)`
-                              : `Download Offline (${activeSermon.fileSizeMb || 48} MB)`}
-                          </span>
+                          {emoji}
                         </button>
-                      );
-                    })()}
+                      ))}
+                    </div>
+                  </div>
 
-                    {activeSermon.source !== 'uploaded' && (
+                  {/* Interactive Live Broadcast Chat */}
+                  <div className="p-3 rounded-xl bg-[#0b0f19] border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
+                      <span>💬 LIVE CONGREGATION CHAT</span>
+                      <span className="text-emerald-400">● Connected</span>
+                    </div>
+                    <div className="max-h-28 overflow-y-auto space-y-1.5 pr-1">
+                      {liveComments.map((c) => (
+                        <div key={c.id} className="text-xs leading-snug">
+                          <span className="font-bold text-[#38bdf8]">{c.author}</span>{' '}
+                          <span className="text-[10px] text-slate-500">({c.location}):</span>{' '}
+                          <span className="text-slate-200">{c.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <form
+                      onSubmit={handlePostLiveBroadcastComment}
+                      className="flex items-center gap-1.5 pt-1"
+                    >
+                      <input
+                        type="text"
+                        value={liveCommentDraft}
+                        onChange={(e) => setLiveCommentDraft(e.target.value)}
+                        placeholder="Comment on the live stream (e.g., Amen! 🔥)..."
+                        className="flex-1 bg-[#131d31] border border-slate-700 rounded-full px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#0095f6]"
+                      />
+                      <button
+                        type="submit"
+                        className="px-3 py-1.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold shrink-0"
+                      >
+                        Send
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Sermon Search Input + Recent Search History Suggestion Chips (Always at top for quick discovery) */}
+              <div className="space-y-2">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSaveSermonSearchQuery(sermonSearch);
+                  }}
+                  className="relative flex items-center gap-1.5"
+                >
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      data-testid="sermon-search-input"
+                      value={sermonSearch}
+                      onFocus={() => setIsSermonSearchFocused(true)}
+                      onClick={() => setIsSermonSearchFocused(true)}
+                      onChange={(e) => setSermonSearch(e.target.value)}
+                      placeholder="Search YouTube, Facebook or Offline sermons..."
+                      className="w-full bg-[#131d31] border border-slate-800 rounded-xl pl-8 pr-7 py-2 text-xs text-white focus:outline-none focus:border-[#0095f6]"
+                    />
+                    {sermonSearch && (
                       <button
                         type="button"
-                        onClick={() => setUseDirectStreamPlayer((prev) => !prev)}
-                        className="min-h-[38px] px-3 rounded-xl bg-[#0b0f19] border border-slate-700 text-[11px] font-bold text-[#38bdf8] flex items-center gap-1 shrink-0"
+                        onClick={() => setSermonSearch('')}
+                        aria-label="Clear sermon search"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                       >
-                        <Play className="w-3 h-3" />
-                        <span>{useDirectStreamPlayer ? 'Embed Player' : 'Direct HD Video'}</span>
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
-                </div>
-              </div>
+                  {sermonSearch.trim() && (
+                    <button
+                      type="submit"
+                      className="px-3 py-2 rounded-xl bg-[#0095f6] text-white text-xs font-bold shrink-0"
+                    >
+                      Save
+                    </button>
+                  )}
+                </form>
 
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={sermonSearch}
-                  onChange={(e) => setSermonSearch(e.target.value)}
-                  placeholder="Search YouTube, Facebook or Uploaded sermons..."
-                  className="w-full bg-[#131d31] border border-slate-800 rounded-xl pl-8 pr-3.5 py-2 text-xs text-white focus:outline-none focus:border-[#0095f6]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                {filteredSermons.length === 0 ? (
-                  <div className="p-6 rounded-2xl bg-[#131d31]/60 border border-slate-800 text-center space-y-2">
-                    <p className="text-xs font-bold text-white">No sermons match this filter yet</p>
-                    <p className="text-[11px] text-slate-400">
-                      Tap &ldquo;Download Offline&rdquo; on any sermon or upload a new sanctuary video.
-                    </p>
-                  </div>
-                ) : (
-                  filteredSermons.map((s) => {
-                    const task = downloadTasks.find((t) => t.sermonId === s.id);
-                    const isOfflineSaved =
-                      task?.status === 'completed' ||
-                      offlineSermons.some((os) => os.id === s.id);
-                    return (
+                {isSermonSearchFocused && sermonSearchHistory.length > 0 && (
+                  <div
+                    data-testid="sermon-search-history-chips"
+                    className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 shrink-0">
+                      <Clock className="w-3 h-3 text-[#38bdf8]" />
+                      <span>Recent:</span>
+                    </span>
+                    {sermonSearchHistory.map((chip) => (
                       <div
-                        key={s.id}
-                        className={`w-full p-2.5 rounded-2xl border flex items-center gap-3 text-left transition ${
-                          activeSermon.id === s.id
-                            ? 'bg-[#131d31] border-[#0095f6]'
-                            : 'bg-[#131d31]/60 border-slate-800'
-                        }`}
+                        key={chip}
+                        className="inline-flex items-center rounded-full bg-[#131d31] border border-slate-700 hover:border-[#0095f6] shrink-0 overflow-hidden"
                       >
                         <button
                           type="button"
-                          onClick={() => {
-                            setActiveVideoSermonId(s.id);
-                            if (s.source === 'uploaded') {
-                              setUseDirectStreamPlayer(true);
-                            } else {
-                              setUseDirectStreamPlayer(false);
-                            }
-                          }}
-                          className="flex items-center gap-3 min-w-0 flex-1 text-left"
+                          onClick={() => handleSelectSermonSearchSuggestion(chip)}
+                          className="px-2.5 py-0.5 text-[11px] font-semibold text-[#38bdf8] hover:text-white transition"
                         >
-                          <div className="relative w-22 h-15 rounded-xl overflow-hidden shrink-0 bg-black">
-                            <img
-                              src={s.thumbnailUrl}
-                              alt={s.title}
-                              className="w-full h-full object-cover"
-                            />
-                            <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-black/80 text-[9px] font-bold text-white font-mono-tabular">
-                              {s.duration}
-                            </span>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[9px] font-extrabold text-[#38bdf8] uppercase">
-                                {s.source === 'facebook'
-                                  ? '📘 Facebook'
-                                  : s.source === 'uploaded'
-                                  ? '📹 Uploaded'
-                                  : '▶️ YouTube'}
-                              </span>
-                              {isOfflineSaved && (
-                                <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-bold">
-                                  ✓ Offline
-                                </span>
-                              )}
-                              {task?.status === 'downloading' && (
-                                <span className="px-1.5 py-0.2 rounded-full bg-[#0095f6]/20 text-[#38bdf8] text-[9px] font-bold font-mono-tabular">
-                                  ⬇ {task.progress}%
-                                </span>
-                              )}
-                              {task?.status === 'paused' && (
-                                <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-bold font-mono-tabular">
-                                  ⏸ {task.progress}%
-                                </span>
-                              )}
-                            </div>
-                            <h3 className="text-xs font-bold text-white truncate mt-0.5">
-                              {s.title}
-                            </h3>
-                            <p className="text-[11px] text-slate-400 truncate">{s.speaker}</p>
-                          </div>
+                          {chip}
                         </button>
-
                         <button
                           type="button"
-                          onClick={() =>
-                            isOfflineSaved
-                              ? handleCancelSermonDownload(s.id)
-                              : handleDownloadSermonOffline(s)
-                          }
-                          title={isOfflineSaved ? 'Remove offline copy' : 'Download for offline watching'}
-                          className={`min-w-[36px] min-h-[36px] px-2 rounded-xl border text-[10px] font-bold flex items-center justify-center shrink-0 transition ${
-                            isOfflineSaved
-                              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                              : 'bg-[#0b0f19] border-slate-700 text-[#38bdf8] hover:border-[#0095f6]'
-                          }`}
+                          onClick={() => handleRemoveSermonSearchSuggestion(chip)}
+                          aria-label={`Remove ${chip} from sermon search history`}
+                          className="pr-2 pl-0.5 py-0.5 text-[10px] text-slate-500 hover:text-rose-400"
                         >
-                          {task?.status === 'downloading' ? (
-                            <span>{task.progress}%</span>
-                          ) : isOfflineSaved ? (
-                            <Trash2 className="w-3.5 h-3.5" />
-                          ) : (
-                            <Download className="w-3.5 h-3.5" />
-                          )}
+                          ×
                         </button>
                       </div>
-                    );
-                  })
+                    ))}
+                  </div>
                 )}
               </div>
+
+              {/* Global Sermon Downloads Manager View (Progress Bars + Pause / Resume / Cancel) */}
+              {(showDownloadsManager || sermonSourceFilter === 'downloads') &&
+                sermonSourceFilter !== 'offline' && (
+                  <SermonDownloadsManager
+                    tasks={downloadTasks}
+                    onPause={handlePauseSermonDownload}
+                    onResume={handleResumeSermonDownload}
+                    onCancel={handleCancelSermonDownload}
+                    onWatchOffline={handleWatchOfflineSermon}
+                    onStartSampleDownload={() => handleDownloadSermonOffline(activeSermon)}
+                  />
+                )}
+
+              {/* In-App Sermon Video Player Card (Shown when not in Offline Library Grid tab) */}
+              {sermonSourceFilter !== 'offline' && (
+                <div className="rounded-2xl overflow-hidden bg-[#131d31] border border-slate-800 shadow-lg">
+                  <div className="aspect-video bg-black relative">
+                    {activeSermon.isPaid && !unlockedSermonIds.includes(activeSermon.id) ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-5 text-center bg-gradient-to-b from-[#0b0f19] to-[#131d31]">
+                        <Lock className="w-8 h-8 text-[#0095f6] mb-1.5" />
+                        <h3 className="text-sm font-extrabold text-white">{activeSermon.title}</h3>
+                        <p className="text-[11px] text-slate-300 mt-1 mb-3">
+                          Unlock this Apostolic Masterclass session to watch the full broadcast.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUnlockedSermonIds((prev) => [...prev, activeSermon.id]);
+                            showToast(`🔓 Unlocked "${activeSermon.title}"!`);
+                          }}
+                          className="px-4 py-2 rounded-full bg-[#0095f6] text-white text-xs font-extrabold"
+                        >
+                          Unlock ({formatCurrencyAmount(activeSermon.priceUsd || 30, currency)})
+                        </button>
+                      </div>
+                    ) : activeSermon.source === 'uploaded' || useDirectStreamPlayer ? (
+                      <video
+                        key={`${activeSermon.id}_video`}
+                        src={
+                          activeSermon.videoUrl ||
+                          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+                        }
+                        poster={activeSermon.thumbnailUrl}
+                        controls
+                        playsInline
+                        className="w-full h-full object-cover bg-black"
+                      />
+                    ) : activeSermon.source === 'facebook' ? (
+                      <iframe
+                        key={`${activeSermon.id}_fb`}
+                        title={activeSermon.title}
+                        src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(
+                          activeSermon.facebookVideoUrl ||
+                            'https://www.facebook.com/facebook/videos/10153231379946729/'
+                        )}&show_text=false&autoplay=false`}
+                        className="w-full h-full border-0"
+                        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <iframe
+                        key={`${activeSermon.id}_yt`}
+                        title={activeSermon.title}
+                        src={`https://www.youtube.com/embed/${activeSermon.youtubeId}?rel=0&playsinline=1`}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    )}
+                  </div>
+
+                  <div className="p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full bg-[#0095f6]/20 text-[#38bdf8] text-[10px] font-bold uppercase">
+                          {activeSermon.source === 'facebook'
+                            ? '📘 Facebook Live'
+                            : activeSermon.source === 'uploaded'
+                            ? '📹 Sanctuary Upload'
+                            : '▶️ YouTube Stream'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-semibold">
+                          {activeSermon.series}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-mono-tabular">
+                        ⏱ {activeSermon.duration} • {activeSermon.views || '1.9K views'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h2 className="text-sm font-extrabold text-white">{activeSermon.title}</h2>
+                      <p className="text-[11px] text-[#38bdf8] font-semibold">
+                        {activeSermon.speaker} • {activeSermon.publishedAt}
+                      </p>
+                      <p className="text-xs text-slate-300 leading-relaxed mt-1">
+                        {activeSermon.body}
+                      </p>
+                    </div>
+
+                    {/* Player Action Bar: Download Offline & Player Mode Switch */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                      {(() => {
+                        const task = downloadTasks.find((t) => t.sermonId === activeSermon.id);
+                        const isCompleted =
+                          task?.status === 'completed' ||
+                          offlineSermons.some((os) => os.id === activeSermon.id);
+                        const isDownloading = task?.status === 'downloading';
+                        const isPaused = task?.status === 'paused';
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadSermonOffline(activeSermon)}
+                            className={`flex-1 min-h-[38px] px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition ${
+                              isCompleted
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                : isPaused
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                : 'bg-[#0095f6] hover:bg-[#1d9bf0] text-white'
+                            }`}
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>
+                              {isDownloading
+                                ? `Downloading ${task.progress}%...`
+                                : isPaused
+                                ? `Resume Download (${task.progress}%)`
+                                : isCompleted
+                                ? `✓ Saved Offline (${activeSermon.fileSizeMb || 48} MB)`
+                                : `Download Offline (${activeSermon.fileSizeMb || 48} MB)`}
+                            </span>
+                          </button>
+                        );
+                      })()}
+
+                      {activeSermon.source !== 'uploaded' && (
+                        <button
+                          type="button"
+                          onClick={() => setUseDirectStreamPlayer((prev) => !prev)}
+                          className="min-h-[38px] px-3 rounded-xl bg-[#0b0f19] border border-slate-700 text-[11px] font-bold text-[#38bdf8] flex items-center gap-1 shrink-0"
+                        >
+                          <Play className="w-3 h-3" />
+                          <span>{useDirectStreamPlayer ? 'Embed Player' : 'Direct HD Video'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* OFFLINE LIBRARY SUB-TAB: 2-Column Grid Layout with Sorting & Visual Storage Status Indicator */}
+              {sermonSourceFilter === 'offline' ? (
+                <div data-testid="offline-library-grid-section" className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5">
+                        <span>📂 Offline Library</span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono-tabular">
+                          {filteredSermons.length} items
+                        </span>
+                      </h2>
+                      <p className="text-[11px] text-slate-400">
+                        Clear storage status for downloaded, partial & queued sermons
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadSermonOffline(activeSermon)}
+                      className="px-2.5 py-1.5 rounded-xl bg-[#0095f6]/20 border border-[#0095f6]/40 text-[#38bdf8] text-[10px] font-extrabold shrink-0"
+                    >
+                      + Save Current
+                    </button>
+                  </div>
+
+                  {/* Sorting Controls Bar: Date Added, Alphabetical, Duration */}
+                  <div
+                    data-testid="offline-sort-bar"
+                    className="p-2.5 rounded-2xl bg-[#131d31] border border-slate-800 flex items-center justify-between gap-2 flex-wrap"
+                  >
+                    <div className="flex items-center gap-1 text-[11px] font-bold text-slate-300">
+                      <ArrowUpDown className="w-3.5 h-3.5 text-[#38bdf8]" />
+                      <span>Sort By:</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {(
+                        [
+                          { id: 'dateAdded', label: '📅 Date Added' },
+                          { id: 'alphabetical', label: '🔤 Alphabetical' },
+                          { id: 'duration', label: '⏱ Duration' },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          data-testid={`offline-sort-${opt.id}`}
+                          onClick={() => setOfflineSortBy(opt.id)}
+                          className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold transition ${
+                            offlineSortBy === opt.id
+                              ? 'bg-[#0095f6] text-white shadow-xs'
+                              : 'bg-[#0b0f19] text-slate-300 border border-slate-800 hover:border-slate-700'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Storage Status Summary Strip (Fully Downloaded, Partially Downloaded, In Queue) */}
+                  {(() => {
+                    let fullCount = 0;
+                    let partialCount = 0;
+                    let queueCount = 0;
+                    for (const item of filteredSermons) {
+                      const st = resolveSermonStorageStatus(item, offlineSermons, downloadTasks);
+                      if (st.status === 'fully_downloaded') fullCount++;
+                      else if (st.status === 'partially_downloaded') partialCount++;
+                      else if (st.status === 'in_queue') queueCount++;
+                    }
+                    return (
+                      <div
+                        data-testid="offline-storage-summary"
+                        className="grid grid-cols-3 gap-1.5 text-center"
+                      >
+                        <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                          <p className="text-xs font-extrabold text-emerald-300 font-mono-tabular">
+                            {fullCount}
+                          </p>
+                          <p className="text-[9px] font-bold text-emerald-400">
+                            ✓ Fully Downloaded
+                          </p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                          <p className="text-xs font-extrabold text-amber-300 font-mono-tabular">
+                            {partialCount}
+                          </p>
+                          <p className="text-[9px] font-bold text-amber-400">
+                            ◐ Partial Download
+                          </p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/30">
+                          <p className="text-xs font-extrabold text-sky-300 font-mono-tabular">
+                            {queueCount}
+                          </p>
+                          <p className="text-[9px] font-bold text-sky-400">⏳ In Queue</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {filteredSermons.length === 0 ? (
+                    <div className="p-6 rounded-2xl bg-[#131d31]/60 border border-slate-800 text-center space-y-2">
+                      <p className="text-xs font-bold text-white">
+                        No sermons in your Offline Library match this search
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Tap &ldquo;Download Offline&rdquo; on any sermon to save it to your Offline
+                        Library grid.
+                      </p>
+                    </div>
+                  ) : (
+                    <div
+                      data-testid="offline-library-grid"
+                      className="grid grid-cols-2 gap-3"
+                    >
+                      {filteredSermons.map((s) => {
+                        const storageInfo = resolveSermonStorageStatus(
+                          s,
+                          offlineSermons,
+                          downloadTasks
+                        );
+                        const isFull = storageInfo.status === 'fully_downloaded';
+                        const isPartial = storageInfo.status === 'partially_downloaded';
+                        const isQueued = storageInfo.status === 'in_queue';
+
+                        return (
+                          <div
+                            key={s.id}
+                            data-testid={`offline-grid-card-${s.id}`}
+                            className={`rounded-2xl overflow-hidden border flex flex-col justify-between transition ${
+                              activeSermon.id === s.id
+                                ? 'bg-[#131d31] border-[#0095f6] shadow-md'
+                                : 'bg-[#131d31]/80 border-slate-800'
+                            }`}
+                          >
+                            <div>
+                              <div
+                                onClick={() => handleWatchOfflineSermon(s)}
+                                className="relative h-28 bg-black cursor-pointer group"
+                              >
+                                <img
+                                  src={s.thumbnailUrl}
+                                  alt={s.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                                <span
+                                  className={`absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold ${
+                                    isFull
+                                      ? 'bg-emerald-500/95 text-slate-950'
+                                      : isPartial
+                                      ? 'bg-amber-400/95 text-slate-950'
+                                      : 'bg-sky-400/95 text-slate-950'
+                                  }`}
+                                >
+                                  {storageInfo.shortLabel}
+                                </span>
+                                <span className="absolute bottom-1.5 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[9px] font-bold text-white font-mono-tabular">
+                                  {s.duration}
+                                </span>
+                              </div>
+
+                              <div className="p-2.5 space-y-1.5">
+                                <span className="text-[9px] font-bold uppercase text-[#38bdf8] block truncate">
+                                  {s.series}
+                                </span>
+                                <h3
+                                  data-testid="offline-card-title"
+                                  className="text-xs font-extrabold text-white line-clamp-2 leading-snug"
+                                >
+                                  {s.title}
+                                </h3>
+                                <p className="text-[10px] text-slate-400 truncate">{s.speaker}</p>
+
+                                {/* Visual Storage Status Indicator Next to Offline Sermon Item */}
+                                <div
+                                  data-testid={`offline-status-indicator-${s.id}`}
+                                  className={`p-1.5 rounded-xl border space-y-1 ${
+                                    isFull
+                                      ? 'bg-emerald-500/10 border-emerald-500/30'
+                                      : isPartial
+                                      ? 'bg-amber-500/10 border-amber-500/30'
+                                      : 'bg-sky-500/10 border-sky-500/30'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span
+                                      className={`text-[9px] font-extrabold leading-tight ${
+                                        isFull
+                                          ? 'text-emerald-300'
+                                          : isPartial
+                                          ? 'text-amber-300'
+                                          : 'text-sky-300'
+                                      }`}
+                                    >
+                                      {storageInfo.label}
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-1.5 rounded-full bg-black/50 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${
+                                        isFull
+                                          ? 'bg-emerald-400'
+                                          : isPartial
+                                          ? 'bg-amber-400'
+                                          : 'bg-sky-400'
+                                      }`}
+                                      style={{ width: `${Math.max(8, storageInfo.progress)}%` }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between text-[9px] text-slate-400 font-mono-tabular">
+                                    <span>
+                                      {storageInfo.downloadedMb}/{storageInfo.totalMb} MB
+                                    </span>
+                                    <span>{storageInfo.progress}%</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-2.5 pt-0 flex items-center gap-1.5">
+                              {isFull ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleWatchOfflineSermon(s)}
+                                  className="flex-1 min-h-[32px] rounded-xl bg-[#0095f6] hover:bg-[#1d9bf0] text-white text-[11px] font-extrabold flex items-center justify-center gap-1 transition"
+                                >
+                                  <Play className="w-3 h-3" />
+                                  <span>Watch</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleResumeSermonDownload(s.id)}
+                                  className="flex-1 min-h-[32px] rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-extrabold flex items-center justify-center gap-1 transition"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span>{isQueued ? 'Start Now' : 'Resume'}</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleCancelSermonDownload(s.id)}
+                                title="Remove from Offline Library"
+                                aria-label={`Remove ${s.title} from Offline Library`}
+                                className="min-w-[32px] min-h-[32px] rounded-xl bg-[#0b0f19] border border-slate-700 hover:border-rose-500/60 text-slate-400 hover:text-rose-400 flex items-center justify-center transition"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredSermons.length === 0 ? (
+                    <div className="p-6 rounded-2xl bg-[#131d31]/60 border border-slate-800 text-center space-y-2">
+                      <p className="text-xs font-bold text-white">No sermons match this filter yet</p>
+                      <p className="text-[11px] text-slate-400">
+                        Tap &ldquo;Download Offline&rdquo; on any sermon or upload a new sanctuary video.
+                      </p>
+                    </div>
+                  ) : (
+                    filteredSermons.map((s) => {
+                      const storageInfo = resolveSermonStorageStatus(
+                        s,
+                        offlineSermons,
+                        downloadTasks
+                      );
+                      const isOfflineSaved = storageInfo.status === 'fully_downloaded';
+                      const isPartial = storageInfo.status === 'partially_downloaded';
+                      const isQueued = storageInfo.status === 'in_queue';
+                      return (
+                        <div
+                          key={s.id}
+                          className={`w-full p-2.5 rounded-2xl border flex items-center gap-3 text-left transition ${
+                            activeSermon.id === s.id
+                              ? 'bg-[#131d31] border-[#0095f6]'
+                              : 'bg-[#131d31]/60 border-slate-800'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveVideoSermonId(s.id);
+                              if (s.source === 'uploaded') {
+                                setUseDirectStreamPlayer(true);
+                              } else {
+                                setUseDirectStreamPlayer(false);
+                              }
+                            }}
+                            className="flex items-center gap-3 min-w-0 flex-1 text-left"
+                          >
+                            <div className="relative w-22 h-15 rounded-xl overflow-hidden shrink-0 bg-black">
+                              <img
+                                src={s.thumbnailUrl}
+                                alt={s.title}
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-black/80 text-[9px] font-bold text-white font-mono-tabular">
+                                {s.duration}
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className="text-[9px] font-extrabold text-[#38bdf8] uppercase">
+                                  {s.source === 'facebook'
+                                    ? '📘 Facebook'
+                                    : s.source === 'uploaded'
+                                    ? '📹 Uploaded'
+                                    : '▶️ YouTube'}
+                                </span>
+                                {storageInfo.status !== 'not_downloaded' && (
+                                  <span
+                                    data-testid={`sermon-list-storage-badge-${s.id}`}
+                                    className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
+                                      isOfflineSaved
+                                        ? 'bg-emerald-500/20 text-emerald-300'
+                                        : isPartial
+                                        ? 'bg-amber-500/20 text-amber-300'
+                                        : 'bg-sky-500/20 text-sky-300'
+                                    }`}
+                                  >
+                                    {storageInfo.label}
+                                  </span>
+                                )}
+                              </div>
+                              <h3 className="text-xs font-bold text-white truncate mt-0.5">
+                                {s.title}
+                              </h3>
+                              <p className="text-[11px] text-slate-400 truncate">{s.speaker}</p>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              isOfflineSaved
+                                ? handleCancelSermonDownload(s.id)
+                                : isPartial || isQueued
+                                ? handleResumeSermonDownload(s.id)
+                                : handleDownloadSermonOffline(s)
+                            }
+                            title={
+                              isOfflineSaved
+                                ? 'Remove offline copy'
+                                : isPartial || isQueued
+                                ? 'Resume download'
+                                : 'Download for offline watching'
+                            }
+                            className={`min-w-[36px] min-h-[36px] px-2 rounded-xl border text-[10px] font-bold flex items-center justify-center shrink-0 transition ${
+                              isOfflineSaved
+                                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                                : isPartial
+                                ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                                : isQueued
+                                ? 'bg-sky-500/15 border-sky-500/40 text-sky-300'
+                                : 'bg-[#0b0f19] border-slate-700 text-[#38bdf8] hover:border-[#0095f6]'
+                            }`}
+                          >
+                            {isPartial ? (
+                              <span>{storageInfo.progress}%</span>
+                            ) : isQueued ? (
+                              <span>⏳</span>
+                            ) : isOfflineSaved ? (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            ) : (
+                              <Download className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {/* ==================== 7. GIVING & KINGDOM STORE (LOCALFORAGE SYNC) ==================== */}
+          {/* ==================== 7. KINGDOM MERCH STORE & GIVING (PAYNOW READY) ==================== */}
           {activeTab === 'store' && (
             <div className="p-3.5 space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex gap-1 bg-[#131d31] p-1 rounded-2xl border border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setStoreSubTab('give')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                      storeSubTab === 'give' ? 'bg-[#0095f6] text-white' : 'text-slate-300'
-                    }`}
-                  >
-                    💝 Give
-                  </button>
                   <button
                     type="button"
                     onClick={() => setStoreSubTab('merch')}
@@ -3077,7 +4320,16 @@ export function WebApp() {
                       storeSubTab === 'merch' ? 'bg-[#0095f6] text-white' : 'text-slate-300'
                     }`}
                   >
-                    🛍️ Store ({SEED_PRODUCTS.length})
+                    🛍️ Merch Store ({SEED_PRODUCTS.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStoreSubTab('give')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                      storeSubTab === 'give' ? 'bg-[#0095f6] text-white' : 'text-slate-300'
+                    }`}
+                  >
+                    💝 Give & Tithes
                   </button>
                 </div>
 
@@ -3199,7 +4451,7 @@ export function WebApp() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-xs font-extrabold text-white">
-                          🧾 Your Giving Receipts ({receipts.length})
+                          🧾 Your Giving & Store Receipts ({receipts.length})
                         </h3>
                         <p className="text-[10px] text-slate-400">
                           Stored on your device & synced when connected
@@ -3236,129 +4488,385 @@ export function WebApp() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {SEED_PRODUCTS.map((prod) => {
-                    const inCart = cartProductIds.includes(prod.id);
-                    return (
-                      <div
-                        key={prod.id}
-                        className="rounded-2xl bg-[#131d31] border border-slate-800 overflow-hidden flex flex-col justify-between"
-                      >
-                        <div>
-                          <img
-                            src={STORE_IMAGE_MAP[prod.id]}
-                            alt={prod.name}
-                            className="w-full h-36 object-cover"
-                          />
-                          <div className="p-2.5 space-y-1">
-                            <span className="text-[9px] font-bold uppercase text-[#38bdf8]">
-                              {prod.category}
+                <div data-testid="merch-store-section" className="space-y-3.5">
+                  {/* Store Banner & Category Filters */}
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#0095f6]/20 via-[#131d31] to-[#131d31] border border-[#0095f6]/40 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#38bdf8]">
+                          🛍️ Official JD Kingdom Collection
+                        </span>
+                        <h2 className="text-sm font-extrabold text-white">
+                          Sanctuary Apparel, Faith Wear & Books
+                        </h2>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full bg-[#0095f6]/20 text-[#38bdf8] text-[10px] font-extrabold font-mono-tabular">
+                        Bag ({cartProductIds.length})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                      {(['All', 'Kingdom Apparel', 'Books & Manuals'] as const).map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setMerchCategoryFilter(cat)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 transition ${
+                            merchCategoryFilter === cat
+                              ? 'bg-[#0095f6] text-white'
+                              : 'bg-[#0b0f19] text-slate-300 border border-slate-800'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 2-Column Merch Product Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {filteredMerchProducts.map((prod) => {
+                      const inCart = cartProductIds.includes(prod.id);
+                      const chosenSize = selectedSizes[prod.id] || 'L';
+                      return (
+                        <div
+                          key={prod.id}
+                          className="rounded-2xl bg-[#131d31] border border-slate-800 overflow-hidden flex flex-col justify-between shadow-md"
+                        >
+                          <div>
+                            <div className="relative h-36 bg-black">
+                              <img
+                                src={STORE_IMAGE_MAP[prod.id]}
+                                alt={prod.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/70 text-[9px] font-bold text-[#38bdf8]">
+                                {prod.category === 'Kingdom Apparel' ? '👕 Apparel' : '📘 Book'}
+                              </span>
+                            </div>
+                            <div className="p-2.5 space-y-1.5">
+                              <h3 className="text-xs font-extrabold text-white line-clamp-2 leading-snug">
+                                {prod.name}
+                              </h3>
+                              {prod.category === 'Kingdom Apparel' && (
+                                <div className="flex items-center gap-1">
+                                  {(['S', 'M', 'L', 'XL'] as const).map((sz) => (
+                                    <button
+                                      key={sz}
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedSizes((prev) => ({ ...prev, [prod.id]: sz }))
+                                      }
+                                      className={`w-6 h-5 rounded text-[9px] font-bold transition ${
+                                        chosenSize === sz
+                                          ? 'bg-[#0095f6] text-white'
+                                          : 'bg-[#0b0f19] text-slate-400 border border-slate-800'
+                                      }`}
+                                    >
+                                      {sz}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="p-2.5 pt-0 flex items-center justify-between gap-1">
+                            <span className="text-xs font-extrabold text-white font-mono-tabular">
+                              {formatCurrencyAmount(prod.price, currency)}
                             </span>
-                            <h3 className="text-xs font-bold text-white line-clamp-2">
-                              {prod.name}
-                            </h3>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCartProductIds((prev) =>
+                                  inCart
+                                    ? prev.filter((id) => id !== prod.id)
+                                    : [...prev, prod.id]
+                                );
+                                showToast(
+                                  inCart
+                                    ? `Removed ${prod.name}`
+                                    : `🛍️ Added ${prod.name} (${chosenSize}) to bag!`
+                                );
+                              }}
+                              className={`px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold transition ${
+                                inCart
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                  : 'bg-[#0095f6] text-white'
+                              }`}
+                            >
+                              {inCart ? '✓ In Bag' : '+ Add'}
+                            </button>
                           </div>
                         </div>
-                        <div className="p-2.5 pt-0 flex items-center justify-between gap-1">
-                          <span className="text-xs font-extrabold text-white font-mono-tabular">
-                            {formatCurrencyAmount(prod.price, currency)}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCartProductIds((prev) =>
-                                inCart
-                                  ? prev.filter((id) => id !== prod.id)
-                                  : [...prev, prod.id]
-                              );
-                              showToast(
-                                inCart
-                                  ? `Removed ${prod.name}`
-                                  : `🛍️ Added ${prod.name} to bag!`
-                              );
-                            }}
-                            className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition ${
-                              inCart
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : 'bg-[#0095f6] text-white'
-                            }`}
-                          >
-                            {inCart ? '✓ In Bag' : '+ Bag'}
-                          </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Shopping Bag & Paynow Checkout Card */}
+                  <form
+                    onSubmit={handlePaynowMerchCheckout}
+                    className="p-3.5 rounded-2xl bg-[#131d31] border border-[#0095f6]/40 space-y-3 shadow-lg"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShoppingBag className="w-4 h-4 text-[#38bdf8]" />
+                        <div>
+                          <h3 className="text-xs font-extrabold text-white">
+                            💳 Express Checkout (Paynow Ready)
+                          </h3>
+                          <p className="text-[10px] text-slate-400">
+                            EcoCash • Innbucks • OneMoney • Visa/Mastercard
+                          </p>
                         </div>
                       </div>
-                    );
-                  })}
+                      <span className="text-xs font-extrabold text-[#38bdf8] font-mono-tabular">
+                        {formatCurrencyAmount(cartTotalUsd, currency)}
+                      </span>
+                    </div>
+
+                    {cartProducts.length > 0 && (
+                      <div className="space-y-1 bg-[#0b0f19] p-2.5 rounded-xl border border-slate-800">
+                        {cartProducts.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between text-[11px] text-slate-200"
+                          >
+                            <span className="truncate pr-2">
+                              • {item.name}{' '}
+                              {item.category === 'Kingdom Apparel'
+                                ? `(${selectedSizes[item.id] || 'L'})`
+                                : ''}
+                            </span>
+                            <span className="font-mono-tabular font-bold text-white shrink-0">
+                              {formatCurrencyAmount(item.price, currency)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {(['EcoCash', 'Innbucks', 'OneMoney', 'Card'] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setPaynowMethod(m)}
+                          className={`py-1.5 rounded-xl text-[10px] font-bold border transition ${
+                            paynowMethod === m
+                              ? 'bg-[#0095f6] text-white border-[#0095f6]'
+                              : 'bg-[#0b0f19] text-slate-300 border-slate-800'
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+
+                    {paynowMethod !== 'Card' && (
+                      <input
+                        type="tel"
+                        value={paynowPhone}
+                        onChange={(e) => setPaynowPhone(e.target.value)}
+                        placeholder={`Enter ${paynowMethod} number for Paynow prompt`}
+                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#0095f6]"
+                      />
+                    )}
+
+                    <button
+                      type="submit"
+                      className="w-full min-h-[42px] rounded-xl bg-[#0095f6] hover:bg-[#1d9bf0] text-white font-extrabold text-xs shadow-md shadow-[#0095f6]/25 transition"
+                    >
+                      Checkout with Paynow ({formatCurrencyAmount(cartTotalUsd, currency)}) 🛍️
+                    </button>
+                  </form>
                 </div>
               )}
             </div>
           )}
 
-          {/* ==================== 8. INSTAGRAM + X STYLE PROFILE ==================== */}
+          {/* ==================== 8. INSTAGRAM + X STYLE PROFILE (AVATAR, BACKGROUND BANNER & ABOUT ME) ==================== */}
           {activeTab === 'profile' && (
             <div>
-              <div className="h-28 bg-gradient-to-r from-[#0095f6] via-[#0284c7] to-[#6366f1] relative">
+              {/* Customizable Background Cover Image Banner */}
+              <div className="h-32 bg-gradient-to-r from-[#0095f6] via-[#0284c7] to-[#6366f1] relative overflow-hidden">
                 <img
-                  src={COMMUNITY_PHOTOS.sanctuaryWorship}
+                  data-testid="profile-banner-img"
+                  src={userBannerUrl || COMMUNITY_PHOTOS.sanctuaryWorship}
                   alt="Sanctuary Banner"
-                  className="w-full h-full object-cover opacity-45"
+                  className="w-full h-full object-cover opacity-80"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f19]/80 via-transparent to-black/30" />
+
+                {/* Upload Cover Background Image Button */}
+                <label
+                  data-testid="profile-banner-upload-label"
+                  className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full bg-black/70 hover:bg-black/85 border border-white/20 text-white text-[10px] font-extrabold flex items-center gap-1 cursor-pointer backdrop-blur-xs transition"
+                >
+                  <ImageIcon className="w-3 h-3 text-[#38bdf8]" />
+                  <span>Change Cover</span>
+                  <input
+                    type="file"
+                    data-testid="profile-banner-file-input"
+                    accept="image/*"
+                    onChange={handleBannerFileChange}
+                    className="hidden"
+                  />
+                </label>
               </div>
 
-              <div className="px-3.5 pb-3.5 -mt-9 relative space-y-2.5 border-b border-slate-800">
+              <div className="px-3.5 pb-3.5 -mt-10 relative space-y-3 border-b border-slate-800">
                 <div className="flex items-end justify-between">
-                  <div className="w-18 h-18 rounded-full p-1 bg-gradient-to-tr from-[#0095f6] to-[#38bdf8]">
-                    <div className="w-full h-full rounded-full bg-[#0b0f19] flex items-center justify-center text-white font-extrabold text-lg">
-                      {userName
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase()}
+                  {/* Customizable Profile Picture Avatar with Upload & Camera Trigger */}
+                  <div className="relative group">
+                    <div className="w-20 h-20 rounded-full p-1 bg-gradient-to-tr from-[#0095f6] to-[#38bdf8] shadow-lg">
+                      <div className="w-full h-full rounded-full bg-[#0b0f19] flex items-center justify-center text-white font-extrabold text-lg overflow-hidden">
+                        {userAvatarUrl ? (
+                          <img
+                            data-testid="profile-avatar-img"
+                            src={userAvatarUrl}
+                            alt={userName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          userName
+                            .split(' ')
+                            .map((n) => n[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase()
+                        )}
+                      </div>
                     </div>
+                    <label
+                      data-testid="profile-avatar-upload-label"
+                      title="Upload Profile Picture"
+                      className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#0095f6] hover:bg-[#1d9bf0] text-white border-2 border-[#0b0f19] flex items-center justify-center cursor-pointer shadow-md transition"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <input
+                        type="file"
+                        data-testid="profile-avatar-file-input"
+                        accept="image/*"
+                        onChange={handleAvatarFileChange}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
+
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={handleOpenKotlinProjectModal}
-                      className="min-h-[34px] px-3 rounded-full bg-[#0095f6] text-white text-xs font-bold flex items-center gap-1 shadow-xs"
+                      onClick={() => {
+                        setCameraCaptureMode('photo');
+                        setCameraCaptureTarget('avatar');
+                      }}
+                      className="min-h-[34px] px-2.5 rounded-full bg-[#131d31] border border-slate-700 text-[11px] font-bold text-[#38bdf8] flex items-center gap-1"
                     >
-                      <Smartphone className="w-3.5 h-3.5" />
-                      <span>Kotlin Android</span>
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Snap Photo</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsEditingProfile((prev) => !prev)}
-                      className="min-h-[34px] px-3 rounded-full bg-[#131d31] border border-slate-700 text-xs font-bold text-white"
+                      data-testid="profile-edit-toggle-btn"
+                      onClick={() =>
+                        isEditingProfile ? handleSaveProfileDetails() : setIsEditingProfile(true)
+                      }
+                      className="min-h-[34px] px-3 rounded-full bg-[#0095f6] text-white text-xs font-extrabold shadow-xs"
                     >
-                      {isEditingProfile ? 'Done' : 'Edit ✏️'}
+                      {isEditingProfile ? 'Save ✓' : 'Edit Profile ✏️'}
                     </button>
                   </div>
                 </div>
 
                 {isEditingProfile ? (
-                  <div className="p-3 rounded-2xl bg-[#131d31] border border-slate-700 space-y-2">
+                  <div
+                    data-testid="profile-edit-form"
+                    className="p-3 rounded-2xl bg-[#131d31] border border-[#0095f6]/50 space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-extrabold text-[#38bdf8] uppercase">
+                        ✨ Edit Profile Picture, Cover & About
+                      </span>
+                    </div>
+
+                    {/* Quick Cover Background Presets */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400">
+                        🏞️ Choose Background Cover Preset or Upload Above:
+                      </label>
+                      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                        {PHOTO_PRESETS.map((preset) => (
+                          <button
+                            key={preset.key}
+                            type="button"
+                            onClick={() => {
+                              const url = COMMUNITY_PHOTOS[preset.key];
+                              setUserBannerUrl(url);
+                              try {
+                                window.localStorage.setItem('gateway_profile_banner', url);
+                              } catch {
+                                // Ignore
+                              }
+                            }}
+                            className="px-2 py-1 rounded-lg bg-[#0b0f19] border border-slate-700 text-[10px] font-semibold text-slate-200 shrink-0"
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value)}
+                        placeholder="Display Name"
+                        className="bg-[#0b0f19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                      />
+                      <input
+                        type="text"
+                        value={userHandle}
+                        onChange={(e) => setUserHandle(e.target.value)}
+                        placeholder="@handle"
+                        className="bg-[#0b0f19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                      />
+                    </div>
+
                     <input
                       type="text"
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                      placeholder="Display Name"
-                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
-                    />
-                    <input
-                      type="text"
-                      value={userHandle}
-                      onChange={(e) => setUserHandle(e.target.value)}
-                      placeholder="@handle"
-                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
-                    />
-                    <textarea
-                      rows={2}
+                      data-testid="profile-bio-input"
                       value={userBio}
                       onChange={(e) => setUserBio(e.target.value)}
-                      placeholder="Bio"
+                      placeholder="Short Headline Bio"
+                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                    />
+
+                    <textarea
+                      rows={3}
+                      data-testid="profile-about-textarea"
+                      value={userAboutDetails}
+                      onChange={(e) => setUserAboutDetails(e.target.value)}
+                      placeholder="About Me (Share your testimony, ministry passion & journey)..."
                       className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white resize-none"
                     />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={userMinistryRole}
+                        onChange={(e) => setUserMinistryRole(e.target.value)}
+                        placeholder="Ministry / Department"
+                        className="bg-[#0b0f19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                      />
+                      <input
+                        type="text"
+                        value={userFavoriteScripture}
+                        onChange={(e) => setUserFavoriteScripture(e.target.value)}
+                        placeholder="Favorite Scripture"
+                        className="bg-[#0b0f19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                      />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2">
                       <input
                         type="text"
@@ -3375,24 +4883,70 @@ export function WebApp() {
                         className="bg-[#0b0f19] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
                       />
                     </div>
+
+                    <button
+                      type="button"
+                      data-testid="profile-save-btn"
+                      onClick={handleSaveProfileDetails}
+                      className="w-full min-h-[38px] rounded-xl bg-[#0095f6] hover:bg-[#1d9bf0] text-white text-xs font-extrabold"
+                    >
+                      Save Profile & About Changes ✓
+                    </button>
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1">
-                      <h1 className="text-base font-extrabold text-white">{userName}</h1>
-                      <CheckCircle2 className="w-4 h-4 text-[#0095f6]" />
+                  <div className="space-y-2.5">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <h1 className="text-base font-extrabold text-white">{userName}</h1>
+                        <CheckCircle2 className="w-4 h-4 text-[#0095f6]" />
+                      </div>
+                      <p className="text-xs text-slate-400">{userHandle}</p>
+                      <p className="text-xs text-slate-200 leading-relaxed pt-0.5">{userBio}</p>
                     </div>
-                    <p className="text-xs text-slate-400">{userHandle}</p>
-                    <p className="text-xs text-slate-200 leading-relaxed pt-0.5">{userBio}</p>
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400 pt-1">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-[#0095f6]" />
-                        {userLocation}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-[#0095f6]" />
-                        Covenant Member
-                      </span>
+
+                    {/* Dedicated "About" Card on User Profile */}
+                    <div
+                      data-testid="profile-about-card"
+                      className="p-3 rounded-2xl bg-[#131d31] border border-slate-800 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#38bdf8]">
+                          📋 About {userName.split(' ')[0]}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingProfile(true)}
+                          className="text-[10px] font-bold text-[#0095f6] hover:underline"
+                        >
+                          Edit About ✏️
+                        </button>
+                      </div>
+                      <p
+                        data-testid="profile-about-text"
+                        className="text-xs text-slate-200 leading-relaxed"
+                      >
+                        {userAboutDetails}
+                      </p>
+                      <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-slate-800/80 text-[11px] text-slate-300">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[#38bdf8]">🙌 Ministry:</span>
+                          <span className="font-semibold text-white">{userMinistryRole}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[#38bdf8]">📖 Life Verse:</span>
+                          <span className="font-semibold text-white">{userFavoriteScripture}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-slate-400 pt-0.5">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-[#0095f6]" />
+                            {userLocation}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-[#0095f6]" />
+                            Covenant Member
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3579,11 +5133,11 @@ export function WebApp() {
           </div>
         )}
 
-        {/* Story Viewer Modal with Instagram Live Style Floating Emoji Reactions */}
-        {activeStoryIndex !== null && stories[activeStoryIndex] && (
+        {/* Story Viewer Modal with Instagram Live Style Floating Emoji Reactions & 24-Hour Expiration Countdown */}
+        {activeStoryIndex !== null && activeStories[activeStoryIndex] && (
           <div className="absolute inset-0 z-50 bg-black flex flex-col">
             <div className="p-3 pt-4 flex gap-1.5">
-              {stories.map((st, idx) => (
+              {activeStories.map((st, idx) => (
                 <div
                   key={st.id}
                   onClick={() => setActiveStoryIndex(idx)}
@@ -3601,17 +5155,34 @@ export function WebApp() {
             <div className="px-4 py-2 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs ring-2 ring-[#0095f6]"
-                  style={{ backgroundColor: stories[activeStoryIndex].avatarColor }}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs ring-2 ring-[#0095f6] overflow-hidden"
+                  style={{ backgroundColor: activeStories[activeStoryIndex].avatarColor }}
                 >
-                  {stories[activeStoryIndex].initials}
+                  {activeStories[activeStoryIndex].authorAvatarUrl ? (
+                    <img
+                      src={activeStories[activeStoryIndex].authorAvatarUrl}
+                      alt={activeStories[activeStoryIndex].authorName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    activeStories[activeStoryIndex].initials
+                  )}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white">
-                    {stories[activeStoryIndex].authorName}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-bold text-white">
+                      {activeStories[activeStoryIndex].authorName}
+                    </p>
+                    <span
+                      data-testid="story-viewer-expiry-pill"
+                      className="px-1.5 py-0.5 rounded-full bg-[#0095f6]/25 border border-[#0095f6]/50 text-[9px] font-extrabold text-[#38bdf8]"
+                    >
+                      ⏳ {formatStoryTimeRemaining(activeStories[activeStoryIndex])}
+                    </span>
+                  </div>
                   <p className="text-[10px] text-slate-300">
-                    {stories[activeStoryIndex].timestamp} • ❤️ {stories[activeStoryIndex].likes} reactions
+                    {activeStories[activeStoryIndex].timestamp} • ❤️{' '}
+                    {activeStories[activeStoryIndex].likes} reactions • Auto-removes after 24h
                   </p>
                 </div>
               </div>
@@ -3625,17 +5196,30 @@ export function WebApp() {
               </button>
             </div>
 
-            <div className="flex-1 relative overflow-hidden">
-              <img
-                src={
-                  COMMUNITY_PHOTOS[
-                    stories[activeStoryIndex].imageKey as keyof typeof COMMUNITY_PHOTOS
-                  ] || COMMUNITY_PHOTOS.sanctuaryWorship
-                }
-                alt={stories[activeStoryIndex].authorName}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/30" />
+            <div className="flex-1 relative overflow-hidden bg-black">
+              {activeStories[activeStoryIndex].customMediaUrl &&
+              activeStories[activeStoryIndex].mediaType === 'video' ? (
+                <video
+                  src={activeStories[activeStoryIndex].customMediaUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <img
+                  src={
+                    activeStories[activeStoryIndex].customMediaUrl ||
+                    COMMUNITY_PHOTOS[
+                      activeStories[activeStoryIndex].imageKey as keyof typeof COMMUNITY_PHOTOS
+                    ] ||
+                    COMMUNITY_PHOTOS.sanctuaryWorship
+                  }
+                  alt={activeStories[activeStoryIndex].authorName}
+                  className="w-full h-full object-cover"
+                />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/30 pointer-events-none" />
 
               {/* Floating Emoji Reactions Overlay (Instagram Live Style) */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -3653,7 +5237,7 @@ export function WebApp() {
 
               <div className="absolute bottom-4 left-4 right-4 space-y-2.5">
                 <p className="text-sm font-bold text-white leading-snug">
-                  {stories[activeStoryIndex].caption}
+                  {activeStories[activeStoryIndex].caption}
                 </p>
 
                 {/* Quick Reaction Emoji Bar */}
@@ -3681,7 +5265,7 @@ export function WebApp() {
                 type="text"
                 value={storyReplyText}
                 onChange={(e) => setStoryReplyText(e.target.value)}
-                placeholder={`Reply to ${stories[activeStoryIndex].authorName}...`}
+                placeholder={`Reply to ${activeStories[activeStoryIndex].authorName}...`}
                 className="flex-1 bg-[#0b0f19] border border-slate-700 rounded-full px-3.5 py-2 text-xs text-white focus:outline-none focus:border-[#0095f6]"
               />
               <button
@@ -3696,7 +5280,7 @@ export function WebApp() {
                 type="button"
                 onClick={() => {
                   if (!storyReplyText.trim()) return;
-                  showToast(`💬 Sent reply to ${stories[activeStoryIndex].authorName}!`);
+                  showToast(`💬 Sent reply to ${activeStories[activeStoryIndex].authorName}!`);
                   setStoryReplyText('');
                   setActiveStoryIndex(null);
                 }}
@@ -3709,7 +5293,7 @@ export function WebApp() {
           </div>
         )}
 
-        {/* Create Story Bottom Sheet */}
+        {/* Create Story Bottom Sheet (Device Photo/Video Upload + Camera Capture + 24h Auto-Removal) */}
         {showCreateStoryModal && (
           <div className="absolute inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-end">
             <form
@@ -3718,7 +5302,12 @@ export function WebApp() {
             >
               <div className="w-10 h-1.5 bg-slate-700 rounded-full mx-auto" />
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-extrabold text-white">📸 Share a New Story</h2>
+                <div>
+                  <h2 className="text-sm font-extrabold text-white">📸 Share a 24-Hour Story</h2>
+                  <p className="text-[10px] text-[#38bdf8] font-semibold">
+                    ⏳ Automatically removes after 24 hours
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowCreateStoryModal(false)}
@@ -3727,19 +5316,73 @@ export function WebApp() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <img
-                src={COMMUNITY_PHOTOS[newStoryPhotoKey]}
-                alt="Story preview"
-                className="w-full h-40 object-cover rounded-2xl border border-slate-700"
-              />
+
+              {/* Story Preview (Custom Uploaded Image/Video or Preset) */}
+              <div className="relative h-40 rounded-2xl overflow-hidden border border-slate-700 bg-black">
+                {newStoryCustomMediaUrl && newStoryMediaType === 'video' ? (
+                  <video
+                    src={newStoryCustomMediaUrl}
+                    controls
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={newStoryCustomMediaUrl || COMMUNITY_PHOTOS[newStoryPhotoKey]}
+                    alt="Story preview"
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+
+              {/* Device Upload + Camera Photo + Video Recording Actions for Stories */}
+              <div className="grid grid-cols-3 gap-1.5">
+                <label className="py-2 px-2 rounded-xl bg-[#0b0f19] border border-slate-700 text-[#38bdf8] text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>From Device</span>
+                  <input
+                    type="file"
+                    data-testid="story-device-file-input"
+                    accept="image/*,video/*"
+                    onChange={handleStoryDeviceMediaChange}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCameraCaptureMode('photo');
+                    setCameraCaptureTarget('story');
+                  }}
+                  className="py-2 px-2 rounded-xl bg-[#0b0f19] border border-slate-700 text-[#0095f6] text-[11px] font-bold flex items-center justify-center gap-1"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Take Photo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCameraCaptureMode('video');
+                    setCameraCaptureTarget('story');
+                  }}
+                  className="py-2 px-2 rounded-xl bg-[#0b0f19] border border-slate-700 text-rose-400 text-[11px] font-bold flex items-center justify-center gap-1"
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>Record Video</span>
+                </button>
+              </div>
+
               <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
                 {PHOTO_PRESETS.map((p) => (
                   <button
                     key={p.key}
                     type="button"
-                    onClick={() => setNewStoryPhotoKey(p.key)}
+                    onClick={() => {
+                      setNewStoryPhotoKey(p.key);
+                      setNewStoryCustomMediaUrl('');
+                    }}
                     className={`px-2.5 py-1 rounded-xl text-xs font-bold shrink-0 ${
-                      newStoryPhotoKey === p.key
+                      newStoryPhotoKey === p.key && !newStoryCustomMediaUrl
                         ? 'bg-[#0095f6] text-white'
                         : 'bg-[#0b0f19] text-slate-300'
                     }`}
@@ -3757,11 +5400,133 @@ export function WebApp() {
               />
               <button
                 type="submit"
+                data-testid="publish-story-submit-btn"
                 className="w-full min-h-[44px] rounded-xl bg-[#0095f6] text-white font-extrabold text-xs"
               >
-                Publish to Your Story ✨
+                Publish 24h Story ✨
               </button>
             </form>
+          </div>
+        )}
+
+        {/* In-App Camera & Video Recorder Modal (WhatsApp Style Capture) */}
+        {cameraCaptureTarget && (
+          <div
+            data-testid="camera-capture-modal"
+            className="absolute inset-0 z-50 bg-black/90 backdrop-blur-xs flex flex-col justify-between p-4"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+                  <Camera className="w-4 h-4 text-[#0095f6]" />
+                  <span>
+                    {cameraCaptureMode === 'photo'
+                      ? '📸 Capture Sanctuary Photo'
+                      : '🎥 Record Video Clip'}
+                  </span>
+                </h2>
+                <p className="text-[10px] text-slate-400">
+                  {cameraCaptureTarget === 'story'
+                    ? 'For your 24-hour Story'
+                    : cameraCaptureTarget === 'avatar'
+                    ? 'For your Profile Picture'
+                    : 'For your Gateway Feed Post'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCameraCaptureTarget(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="my-auto space-y-3">
+              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-[#0095f6]/40 via-[#131d31] to-[#1e1b4b] border border-slate-700 flex items-center justify-center">
+                <video
+                  ref={cameraVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-4">
+                  <span className="px-3 py-1 rounded-full bg-black/60 border border-white/15 text-xs font-extrabold text-white">
+                    {cameraCaptureMode === 'photo'
+                      ? '📸 Camera Viewfinder Ready'
+                      : isRecordingClip
+                      ? `🔴 Recording Video • 00:0${recordingSeconds}`
+                      : '🎥 Video Recorder Ready'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCameraCaptureMode('photo')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
+                    cameraCaptureMode === 'photo'
+                      ? 'bg-[#0095f6] text-white'
+                      : 'bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  📸 Photo Mode
+                </button>
+                {cameraCaptureTarget !== 'avatar' && (
+                  <button
+                    type="button"
+                    onClick={() => setCameraCaptureMode('video')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
+                      cameraCaptureMode === 'video'
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    🎥 Video Mode
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {cameraCaptureMode === 'photo' ? (
+                <button
+                  type="button"
+                  data-testid="camera-snap-photo-btn"
+                  onClick={() => handleCompleteCameraCapture('photo')}
+                  className="w-full min-h-[46px] rounded-2xl bg-[#0095f6] hover:bg-[#1d9bf0] text-white font-extrabold text-xs shadow-lg flex items-center justify-center gap-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Snap Photo & Attach 📸</span>
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  {!isRecordingClip ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecordingSeconds(0);
+                        setIsRecordingClip(true);
+                      }}
+                      className="flex-1 min-h-[46px] rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs flex items-center justify-center gap-2"
+                    >
+                      <span>🔴 Start Recording</span>
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    data-testid="camera-finish-video-btn"
+                    onClick={() => handleCompleteCameraCapture('video')}
+                    className="flex-1 min-h-[46px] rounded-2xl bg-[#0095f6] hover:bg-[#1d9bf0] text-white font-extrabold text-xs flex items-center justify-center gap-2"
+                  >
+                    <Video className="w-4 h-4" />
+                    <span>{isRecordingClip ? 'Stop & Attach Video 🎬' : 'Record & Attach Clip 🎬'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -4018,77 +5783,6 @@ export function WebApp() {
                 Publish Sermon to Player & Offline Library 🎬
               </button>
             </form>
-          </div>
-        )}
-
-        {/* Native Kotlin Android Project Modal (Replaces PWA) */}
-        {showKotlinModal && (
-          <div className="absolute inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-end">
-            <div className="w-full rounded-t-3xl bg-[#131d31] border-t border-slate-800 p-4 space-y-3 max-h-[86%] flex flex-col">
-              <div className="w-10 h-1.5 bg-slate-700 rounded-full mx-auto shrink-0" />
-              <div className="flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <img
-                    src={GATEWAY_LOGO_URL}
-                    alt="Gateway App Icon"
-                    className="w-10 h-10 rounded-2xl object-cover border border-[#0095f6]"
-                  />
-                  <div>
-                    <h3 className="text-sm font-extrabold text-white">
-                      Native Kotlin Android Application 🤖
-                    </h3>
-                    <p className="text-[11px] text-[#38bdf8]">
-                      /android-kotlin/ • Jetpack Compose + ExoPlayer + Room
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowKotlinModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#0b0f19] border border-slate-800 space-y-1.5 text-[11px] text-slate-200 overflow-y-auto">
-                <p className="font-bold text-[#38bdf8]">
-                  Included Native Kotlin Project Files:
-                </p>
-                <ul className="space-y-1 text-slate-300 font-mono text-[10px]">
-                  <li>• /android-kotlin/settings.gradle.kts</li>
-                  <li>• /android-kotlin/app/build.gradle.kts</li>
-                  <li>• /android-kotlin/app/src/main/AndroidManifest.xml</li>
-                  <li>• /android-kotlin/app/src/main/java/org/joedaniels/gatewayconnect/MainActivity.kt</li>
-                </ul>
-                <pre className="mt-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[10px] text-emerald-300 overflow-x-auto font-mono">
-                  {KOTLIN_PREVIEW_SNIPPET}
-                </pre>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (navigator.clipboard) {
-                      void navigator.clipboard.writeText(KOTLIN_PREVIEW_SNIPPET);
-                    }
-                    showToast('📋 Copied MainActivity.kt Kotlin code!');
-                  }}
-                  className="flex-1 min-h-[42px] rounded-xl bg-[#0095f6] text-white text-xs font-extrabold flex items-center justify-center gap-1.5"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy Kotlin Source</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowKotlinModal(false)}
-                  className="min-h-[42px] px-4 rounded-xl bg-[#0b0f19] border border-slate-700 text-slate-200 text-xs font-bold"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
           </div>
         )}
 

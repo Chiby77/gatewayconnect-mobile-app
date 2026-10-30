@@ -29,6 +29,7 @@ export const SermonDownloadsManager: React.FC<SermonDownloadsManagerProps> = ({
 }) => {
   const activeCount = tasks.filter((t) => t.status === 'downloading').length;
   const pausedCount = tasks.filter((t) => t.status === 'paused').length;
+  const queuedCount = tasks.filter((t) => t.status === 'queued').length;
   const completedCount = tasks.filter((t) => t.status === 'completed').length;
   const totalDownloadedMb = tasks
     .reduce((acc, t) => acc + (t.downloadedMb || 0), 0)
@@ -61,24 +62,30 @@ export const SermonDownloadsManager: React.FC<SermonDownloadsManagerProps> = ({
       </div>
 
       {/* Status Counters Row */}
-      <div className="grid grid-cols-3 gap-1.5 text-center">
+      <div className="grid grid-cols-4 gap-1.5 text-center">
         <div className="p-2 rounded-xl bg-[#0b0f19] border border-slate-800">
-          <p className="text-xs font-extrabold text-[#38bdf8] font-mono-tabular">
-            {activeCount}
+          <p className="text-xs font-extrabold text-emerald-400 font-mono-tabular">
+            {completedCount}
           </p>
-          <p className="text-[10px] text-slate-400">Active</p>
+          <p className="text-[9px] text-slate-400">Downloaded</p>
         </div>
         <div className="p-2 rounded-xl bg-[#0b0f19] border border-slate-800">
           <p className="text-xs font-extrabold text-amber-400 font-mono-tabular">
             {pausedCount}
           </p>
-          <p className="text-[10px] text-slate-400">Paused</p>
+          <p className="text-[9px] text-slate-400">Partial</p>
         </div>
         <div className="p-2 rounded-xl bg-[#0b0f19] border border-slate-800">
-          <p className="text-xs font-extrabold text-emerald-400 font-mono-tabular">
-            {completedCount}
+          <p className="text-xs font-extrabold text-sky-400 font-mono-tabular">
+            {queuedCount}
           </p>
-          <p className="text-[10px] text-slate-400">Completed</p>
+          <p className="text-[9px] text-slate-400">In Queue</p>
+        </div>
+        <div className="p-2 rounded-xl bg-[#0b0f19] border border-slate-800">
+          <p className="text-xs font-extrabold text-[#38bdf8] font-mono-tabular">
+            {activeCount}
+          </p>
+          <p className="text-[9px] text-slate-400">Active</p>
         </div>
       </div>
 
@@ -104,6 +111,7 @@ export const SermonDownloadsManager: React.FC<SermonDownloadsManagerProps> = ({
           {tasks.map((task) => {
             const isDownloading = task.status === 'downloading';
             const isPaused = task.status === 'paused';
+            const isQueued = task.status === 'queued';
             const isCompleted = task.status === 'completed';
 
             return (
@@ -134,20 +142,24 @@ export const SermonDownloadsManager: React.FC<SermonDownloadsManagerProps> = ({
                               ? 'text-emerald-400 font-bold'
                               : isPaused
                               ? 'text-amber-400 font-bold'
+                              : isQueued
+                              ? 'text-sky-400 font-bold'
                               : 'text-[#38bdf8] font-bold'
                           }
                         >
                           {isCompleted
-                            ? '✓ Completed'
+                            ? '✓ Fully Downloaded'
                             : isPaused
-                            ? `⏸ Paused (${task.progress}%)`
-                            : `⬇ ${task.progress}% (${task.speedMbps})`}
+                            ? `◐ Partially Downloaded (${task.progress}%)`
+                            : isQueued
+                            ? '⏳ In Queue'
+                            : `⬇ Downloading ${task.progress}%`}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Action Controls: Pause / Resume / Cancel / Watch */}
+                  {/* Action Controls: Pause / Resume / Start / Cancel / Watch */}
                   <div className="flex items-center gap-1 shrink-0">
                     {isDownloading && (
                       <button
@@ -162,16 +174,16 @@ export const SermonDownloadsManager: React.FC<SermonDownloadsManagerProps> = ({
                       </button>
                     )}
 
-                    {isPaused && (
+                    {(isPaused || isQueued) && (
                       <button
                         type="button"
                         onClick={() => onResume(task.sermonId)}
                         aria-label={`Resume download ${task.sermon.title}`}
-                        title="Resume Download"
+                        title={isQueued ? 'Start Queued Download' : 'Resume Download'}
                         className="h-7 px-2.5 rounded-lg bg-[#0095f6] hover:bg-[#1d9bf0] text-white text-[10px] font-bold flex items-center gap-1 transition"
                       >
                         <Play className="w-3 h-3" />
-                        <span>Resume</span>
+                        <span>{isQueued ? 'Start' : 'Resume'}</span>
                       </button>
                     )}
 
